@@ -1,0 +1,95 @@
+{
+  "name": "Dashboard Planos de Ensino",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "dashboard",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-dashboard-001",
+      "name": "Webhook Dashboard",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "COLOQUE_O_ID_DA_PLANILHA_AQUI"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Validações"
+        },
+        "options": {}
+      },
+      "id": "sheets-read-001",
+      "name": "Ler Validações",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [220, 0],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "CONFIGURE_CREDENCIAL_SHEETS",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all().map(i => i.json);\n\nconst total = rows.length;\nconst ok = rows.filter(r => r['Status Geral'] === 'OK').length;\nconst pendente = rows.filter(r => r['Status Geral'] === 'PENDENTE').length;\nconst problema = total - ok - pendente; // REPROVADO + ERRO\n\nconst campos = ['Identificação','Ementa','Metodologia','Proc. Avaliação','Objetivos Geral','Objetivos Específicos','Conteúdo Programático','Cronograma','Avaliações','Horário Atendimento','Referências','Coerência'];\n\nconst cor = (s) => {\n  if (s === 'OK') return '#22c55e';\n  if (s === 'INCOMPLETO' || s === 'PENDENTE') return '#eab308';\n  return '#ef4444'; // AUSENTE, REPROVADO, ERRO\n};\n\nconst badge = (s) => `<span style=\"background:${cor(s)};color:#fff;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600\">${s || '-'}</span>`;\n\nconst dot = (s, campo, obs) => `<span title=\"${campo}: ${s}${obs ? ' — ' + String(obs).replace(/\"/g, '&quot;') : ''}\" style=\"display:inline-block;width:14px;height:14px;border-radius:50%;background:${cor(s)};margin:0 2px;cursor:help\"></span>`;\n\nconst linhas = rows.map(r => {\n  const dots = campos.map(c => dot(r[c], c, r[c + ' Obs'])).join('');\n  const nome = String(r['Arquivo'] || '').replace('2024-1 - ', '').replace('.pdf', '');\n  return `<tr>\n    <td style=\"padding:10px 12px;border-bottom:1px solid #e5e7eb\">${nome}</td>\n    <td style=\"padding:10px 12px;border-bottom:1px solid #e5e7eb;text-align:center\">${badge(r['Status Geral'])}</td>\n    <td style=\"padding:10px 12px;border-bottom:1px solid #e5e7eb;text-align:center;white-space:nowrap\">${dots}</td>\n    <td style=\"padding:10px 12px;border-bottom:1px solid #e5e7eb;font-size:12px;color:#6b7280\">${r['Observação Geral'] || ''}</td>\n  </tr>`;\n}).join('');\n\nconst pct = (n) => total ? Math.round(n / total * 100) : 0;\n\nconst html = `<!DOCTYPE html>\n<html lang=\"pt-BR\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>Validação de Planos de Ensino</title>\n</head>\n<body style=\"margin:0;font-family:system-ui,-apple-system,sans-serif;background:#f3f4f6;color:#111827\">\n<div style=\"max-width:1100px;margin:0 auto;padding:32px 16px\">\n  <h1 style=\"margin:0 0 4px\">📋 Validação de Planos de Ensino</h1>\n  <p style=\"margin:0 0 24px;color:#6b7280\">Planos de Ensino 2024-1 · atualizado em ${new Date().toLocaleString('pt-BR')}</p>\n\n  <div style=\"display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:24px\">\n    <div style=\"background:#fff;border-radius:12px;padding:20px;box-shadow:0 1px 3px rgba(0,0,0,.1)\">\n      <div style=\"font-size:13px;color:#6b7280\">Total de planos</div>\n      <div style=\"font-size:32px;font-weight:700\">${total}</div>\n    </div>\n    <div style=\"background:#fff;border-radius:12px;padding:20px;box-shadow:0 1px 3px rgba(0,0,0,.1);border-left:4px solid #22c55e\">\n      <div style=\"font-size:13px;color:#6b7280\">Aprovados</div>\n      <div style=\"font-size:32px;font-weight:700;color:#22c55e\">${ok} <span style=\"font-size:14px;color:#9ca3af\">(${pct(ok)}%)</span></div>\n    </div>\n    <div style=\"background:#fff;border-radius:12px;padding:20px;box-shadow:0 1px 3px rgba(0,0,0,.1);border-left:4px solid #eab308\">\n      <div style=\"font-size:13px;color:#6b7280\">Pendentes</div>\n      <div style=\"font-size:32px;font-weight:700;color:#eab308\">${pendente} <span style=\"font-size:14px;color:#9ca3af\">(${pct(pendente)}%)</span></div>\n    </div>\n    <div style=\"background:#fff;border-radius:12px;padding:20px;box-shadow:0 1px 3px rgba(0,0,0,.1);border-left:4px solid #ef4444\">\n      <div style=\"font-size:13px;color:#6b7280\">Com problemas</div>\n      <div style=\"font-size:32px;font-weight:700;color:#ef4444\">${problema} <span style=\"font-size:14px;color:#9ca3af\">(${pct(problema)}%)</span></div>\n    </div>\n  </div>\n\n  <div style=\"background:#fff;border-radius:12px;padding:8px 0;box-shadow:0 1px 3px rgba(0,0,0,.1);overflow-x:auto\">\n    <table style=\"width:100%;border-collapse:collapse;font-size:14px\">\n      <thead>\n        <tr style=\"text-align:left;color:#6b7280;font-size:12px;text-transform:uppercase\">\n          <th style=\"padding:12px\">Disciplina</th>\n          <th style=\"padding:12px;text-align:center\">Status</th>\n          <th style=\"padding:12px;text-align:center\">Campos (passe o mouse)</th>\n          <th style=\"padding:12px\">Observação</th>\n        </tr>\n      </thead>\n      <tbody>${linhas}</tbody>\n    </table>\n  </div>\n\n  <p style=\"color:#9ca3af;font-size:12px;margin-top:16px\">🟢 OK · 🟡 Incompleto · 🔴 Ausente/Erro — ordem dos pontos: ${campos.join(', ')}</p>\n</div>\n</body>\n</html>`;\n\nreturn [{ json: { html } }];"
+      },
+      "id": "code-html-001",
+      "name": "Gerar HTML",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 0]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.html }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/html; charset=utf-8"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-html-001",
+      "name": "Responder HTML",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [660, 0]
+    }
+  ],
+  "connections": {
+    "Webhook Dashboard": {
+      "main": [[{ "node": "Ler Validações", "type": "main", "index": 0 }]]
+    },
+    "Ler Validações": {
+      "main": [[{ "node": "Gerar HTML", "type": "main", "index": 0 }]]
+    },
+    "Gerar HTML": {
+      "main": [[{ "node": "Responder HTML", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "pinData": {},
+  "triggerCount": 0,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}
