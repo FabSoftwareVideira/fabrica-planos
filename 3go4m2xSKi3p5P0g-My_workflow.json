@@ -6,11 +6,14 @@
         "operation": "pdf",
         "options": {}
       },
-      "id": "f2b57797-2cac-491f-8028-feac4c9dffb5",
+      "id": "ae798b91-760b-4f37-a967-5d50eb18d6ef",
       "name": "Extract PDF Text",
       "type": "n8n-nodes-base.extractFromFile",
       "typeVersion": 1,
-      "position": [-1024, 96]
+      "position": [
+        -4224,
+        2000
+      ]
     },
     {
       "parameters": {
@@ -24,8 +27,11 @@
       },
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [-1920, 96],
-      "id": "7887ff67-8cb0-4ccc-a177-a121ef2c7291",
+      "position": [
+        -5120,
+        2000
+      ],
+      "id": "177a4541-27d9-4328-a307-d5f4374de4e8",
       "name": "Schedule Trigger"
     },
     {
@@ -35,11 +41,14 @@
         "width": 296,
         "color": 3
       },
-      "id": "4cf9a4be-2d7a-4fb8-9be1-3ddfcedc3065",
+      "id": "ca7846e3-ca3d-4158-94c4-4542eb05770a",
       "name": "Sticky Note42",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "position": [0, -80]
+      "position": [
+        -3200,
+        1824
+      ]
     },
     {
       "parameters": {
@@ -48,11 +57,14 @@
         "width": 296,
         "color": 5
       },
-      "id": "2e33f686-7f84-441b-9152-a9b04538dc01",
+      "id": "961e52f6-2276-4d40-bec0-07eb775e3c32",
       "name": "Sticky Note43",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "position": [-1168, 160]
+      "position": [
+        -4320,
+        1744
+      ]
     },
     {
       "parameters": {
@@ -61,11 +73,14 @@
         "width": 344,
         "color": 5
       },
-      "id": "a64a04eb-801d-45aa-84b9-b3a840d86e4d",
+      "id": "8d806093-665a-4efd-87b3-9005dc4712c0",
       "name": "Sticky Note46",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "position": [-2016, 80]
+      "position": [
+        -5200,
+        1824
+      ]
     },
     {
       "parameters": {
@@ -74,24 +89,30 @@
         "width": 296,
         "color": 5
       },
-      "id": "b04a6a20-c266-4751-b342-5a21666f0355",
+      "id": "db1ae986-d16f-4610-b361-308318f15a06",
       "name": "Sticky Note51",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "position": [-608, 0]
+      "position": [
+        -3936,
+        1728
+      ]
     },
     {
       "parameters": {
-        "content": "# VALIDAÇÃO IA (Ollama)\n⚠️ Configure o modelo em \"Preparar Prompt\"\nModelo padrão: llama3",
+        "content": "# VALIDAÇÃO IA (Ollama)\n⚠️ Configure o modelo em \"Preparar Prompt\"\nModelo padrão: qwen2.5:7b (alternativa: Gemini, ver README)",
         "height": 112,
         "width": 344,
         "color": 4
       },
-      "id": "sticky-validacao-ia",
+      "id": "02674b7e-b8e0-4019-a0d6-103536bb87eb",
       "name": "Sticky Note Validacao",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "position": [-464, -80]
+      "position": [
+        -3584,
+        1696
+      ]
     },
     {
       "parameters": {
@@ -116,8 +137,11 @@
       },
       "type": "n8n-nodes-base.googleDrive",
       "typeVersion": 3,
-      "position": [-1696, 96],
-      "id": "b66d820c-a37a-473e-8a37-4be3ec964fbc",
+      "position": [
+        -4896,
+        2000
+      ],
+      "id": "39a8ec97-4934-4155-af76-1c93eb124e00",
       "name": "Search files and folders",
       "executeOnce": true,
       "credentials": {
@@ -234,11 +258,14 @@
         },
         "options": {}
       },
-      "id": "f1d418b2-b958-4d88-aaf6-d427daa5833e",
+      "id": "3eb5b0f0-99b5-4fbf-9be9-7bfd3362d6bc",
       "name": "Switch3",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3,
-      "position": [-1248, 64]
+      "position": [
+        -4448,
+        1968
+      ]
     },
     {
       "parameters": {
@@ -247,11 +274,14 @@
         "width": 344,
         "color": 5
       },
-      "id": "354a017d-ca46-45d7-85f1-be2644c35daf",
+      "id": "9ea7fb57-2f28-43ce-88b0-99e34ba503a9",
       "name": "Sticky Note52",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
-      "position": [-1600, 144]
+      "position": [
+        -4784,
+        1776
+      ]
     },
     {
       "parameters": {
@@ -267,8 +297,11 @@
       },
       "type": "n8n-nodes-base.googleDrive",
       "typeVersion": 3,
-      "position": [-1472, 96],
-      "id": "77fdf9ee-d386-431b-bed0-3b951c162152",
+      "position": [
+        -4672,
+        2000
+      ],
+      "id": "966af656-9951-4b5b-a941-7605fc4b527f",
       "name": "Download file",
       "credentials": {
         "googleDriveOAuth2Api": {
@@ -279,23 +312,29 @@
     },
     {
       "parameters": {
-        "jsCode": "function findSectionStart(text, sectionName) {\n  const regex = new RegExp(sectionName + '\\\\s*:?', 'i');\n  const match = text.match(regex);\n  return match ? text.indexOf(match[0]) + match[0].length : -1;\n}\n\nfunction extractSection(text, startPos, endPos) {\n  if (startPos === -1) return '';\n  return text.substring(startPos, endPos !== -1 ? endPos : text.length).trim();\n}\n\nconst sectionDefs = [\n  { key: 'ementa', pattern: 'Ementa' },\n  { key: 'metodologia', pattern: 'Metodologia' },\n  { key: 'procedimentos_avaliacao', pattern: 'Procedimentos de Avaliação' },\n  { key: 'objetivos', pattern: 'Objetivos' },\n  { key: 'conteudo_programatico', pattern: 'Conteúdo Programático' },\n  { key: 'cronograma', pattern: 'Cronograma' },\n  { key: 'avaliacoes', pattern: 'Avaliações' },\n  { key: 'horario_atendimento', pattern: 'Horário de Atendimento' },\n  { key: 'referencias', pattern: 'Referências' }\n];\n\nreturn $input.all().map(item => {\n  const text = item.json.text || '';\n\n  const sectionPositions = sectionDefs.map(s => ({\n    key: s.key,\n    position: findSectionStart(text, s.pattern)\n  })).filter(s => s.position !== -1).sort((a, b) => a.position - b.position);\n\n  const result = {};\n  result.identificacao = text.substring(0, 500).trim();\n\n  for (let i = 0; i < sectionPositions.length; i++) {\n    const cur = sectionPositions[i];\n    const next = sectionPositions[i + 1];\n    const content = extractSection(text, cur.position, next ? next.position : -1);\n\n    if (cur.key === 'objetivos') {\n      const geralStart = content.indexOf('GERAL:');\n      const espStart = content.indexOf('ESPECÍFICOS:');\n      result['objetivos_geral'] = geralStart !== -1\n        ? content.substring(geralStart + 6, espStart !== -1 ? espStart : content.length).trim()\n        : '';\n      result['objetivos_especificos'] = espStart !== -1\n        ? content.substring(espStart + 13).trim()\n        : '';\n    } else {\n      result[cur.key] = content;\n    }\n  }\n\n  return { json: result };\n});"
+        "jsCode": "\n// ponytail: contagem de referencias feita em codigo — o LLM erra ao contar linhas de tabela.\n// Ajuste TIPOS_MATERIAL se o PDF usar outros rotulos na coluna \"Tipo de Material\".\nconst TIPOS_MATERIAL = /^[ \\t]*(Livro|Peri[oó]dico|Revista|Artigo|Outros|Site|Manual|Apostila|Norma|Disserta[cç][aã]o|Tese|V[ií]deo|Software|Anais|Cap[ií]tulo|E-?book)\\s+\\S/gim;\nfunction contarRefs(bloco) {\n  return ((bloco || '').match(TIPOS_MATERIAL) || []).length;\n}\n// start = início do cabeçalho (onde a seção anterior termina), position = início do conteúdo\nfunction findSection(text, pattern) {\n  const match = new RegExp(pattern, 'im').exec(text);\n  return match ? { start: match.index, position: match.index + match[0].length } : null;\n}\n\n// Cabeçalhos ancorados no início da linha (template SIGAA); tolerantes a caixa e à falta de acentos.\n// Sem a âncora, \"As avaliações...\" no meio do texto era tomado como a seção Avaliações.\nconst sectionDefs = [\n  { key: 'ementa', pattern: '^Ementa\\\\s*:?' },\n  { key: 'metodologia', pattern: '^Metodologia\\\\s*:' },\n  { key: 'procedimentos_avaliacao', pattern: '^Procedimentos\\\\s+de\\\\s+Avalia[çc][ãa]o(\\\\s+da\\\\s+Aprendizagem)?\\\\s*:?' },\n  { key: 'horario_atendimento', pattern: '^Hor[áa]rio\\\\s+de\\\\s+Atendimento\\\\s*:?' },\n  { key: 'programa', pattern: '^Programa[ \\\\t]*$' }, // só marca o fim do horário de atendimento\n  { key: 'objetivos', pattern: '^Objetivos?(\\\\s+Gerais?)?\\\\s*:' },\n  { key: 'conteudo_programatico', pattern: '^Conte[úu]do\\\\s+Program[áa]tico\\\\s*:?' },\n  { key: 'cronograma', pattern: '^Cronograma' },\n  { key: 'avaliacoes', pattern: '^Avalia[çc][õo]es\\\\s*:?[ \\\\t]*$' },\n  { key: 'referencias', pattern: '^Refer[êe]ncias(\\\\s+B[áa]sicas|\\\\s+Bibliogr[áa]ficas)?\\\\s*:?' }\n];\n\nreturn $input.all().map(item => {\n  const text = item.json.text || '';\n\n  const sectionPositions = sectionDefs\n    .map(s => {\n      const found = findSection(text, s.pattern);\n      return found ? { key: s.key, ...found } : null;\n    })\n    .filter(Boolean)\n    .sort((a, b) => a.position - b.position);\n\n  const result = {};\n  result.identificacao = text.substring(0, 500).trim();\n\n  for (let i = 0; i < sectionPositions.length; i++) {\n    const cur = sectionPositions[i];\n    const next = sectionPositions[i + 1];\n    const content = text.substring(cur.position, next ? next.start : text.length).trim();\n\n    if (cur.key === 'objetivos') {\n      // Aceita \"GERAL:\", \"Objetivo Geral\", \"ESPECÍFICOS:\", \"Objetivos Específicos\" etc.\n      const geralMatch = /(OBJETIVO\\s+)?GERAL\\s*:?/i.exec(content);\n      const espMatch = /(OBJETIVOS?\\s+)?ESPEC[ÍI]FICOS?\\s*:?/i.exec(content);\n      const geralEnd = espMatch ? espMatch.index : content.length;\n      result.objetivos_geral = geralMatch\n        ? content.substring(geralMatch.index + geralMatch[0].length, geralEnd).trim()\n        : (espMatch ? content.substring(0, espMatch.index).trim() : content);\n      result.objetivos_especificos = espMatch\n        ? content.substring(espMatch.index + espMatch[0].length).trim()\n        : '';\n    } else {\n      result[cur.key] = content;\n    }\n  }\n\n  const iBas = text.search(/Refer[êe]ncias\\s+B[áa]sicas/i);\n  const iCom = text.search(/Refer[êe]ncias\\s+Complementares/i);\n  result.ref_basicas = iBas >= 0 ? contarRefs(text.slice(iBas, iCom > iBas ? iCom : text.length)) : 0;\n  result.ref_complementares = iCom >= 0 ? contarRefs(text.slice(iCom)) : 0;\n\n  return { json: result };\n});\n"
       },
-      "id": "3214687f-764e-462a-8598-d4083dc2a3a5",
+      "id": "d5325e89-57ed-4381-8313-5ac6f32f6896",
       "name": "Separar Texto por Tópicos",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-800, 96]
+      "position": [
+        -4000,
+        2000
+      ]
     },
     {
       "parameters": {
-        "jsCode": "return $input.all().map((item, index) => {\nconst sections = item.json;\n\n// Recupera o nome do arquivo do nó de busca (mantido no lineage do item)\nconst fileName = $('Search files and folders').all()[index]?.json.name || 'arquivo_desconhecido';\nconst trunc = (str, max = 800) => str ? str.substring(0, max) + (str.length > max ? '...' : '') : '(não preenchido)';\n\n// ⚙️ CONFIGURE O MODELO AQUI (ex: llama3, mistral, llama3.2, gemma2)\nconst OLLAMA_MODEL = 'llama3.2';\n\nconst prompt = `Você é um especialista em avaliação de planos de ensino acadêmicos brasileiros.\nAnalise os campos abaixo e retorne APENAS um JSON válido, sem texto adicional, sem markdown.\n\nCritérios para cada campo:\n- \"OK\": campo completo, coerente e adequado\n- \"INCOMPLETO\": preenchido mas insuficiente (muito curto, genérico ou inconsistente)\n- \"AUSENTE\": campo vazio ou não encontrado\n\nRegras específicas:\n- identificacao: deve conter instituição, componente curricular e nome do docente\n- referencias: deve ter no mínimo 3 referências básicas e 5 complementares; se tiver menos, marque INCOMPLETO e diga quantas encontrou\n- procedimentos_avaliacao: verifique também se menciona interdisciplinaridade\n- coerencia: avalie se os objetivos são compatíveis com a metodologia e se os procedimentos de avaliação combinam com os objetivos\n\nStatus geral:\n- \"OK\": todos os campos estão OK\n- \"PENDENTE\": um ou mais campos estão INCOMPLETO\n- \"REPROVADO\": um ou mais campos estão AUSENTE\n\nFormato de retorno (JSON puro):\n{\n  \"identificacao\": {\"status\": \"OK|INCOMPLETO|AUSENTE\", \"obs\": \"observação curta\"},\n  \"ementa\": {\"status\": \"OK|INCOMPLETO|AUSENTE\", \"obs\": \"observação curta\"},\n  \"metodologia\": {\"status\": \"OK|INCOMPLETO|AUSENTE\", \"obs\": \"observação curta\"},\n  \"procedimentos_avaliacao\": {\"status\": \"OK|INCOMPLETO|AUSENTE\", \"obs\": \"observação curta\"},\n  \"objetivos_geral\": {\"status\": \"OK|INCOMPLETO|AUSENTE\", \"obs\": \"observação curta\"},\n  \"objetivos_especificos\": {\"status\": \"OK|INCOMPLETO|AUSENTE\", \"obs\": \"observação curta\"},\n  \"conteudo_programatico\": {\"status\": \"OK|INCOMPLETO|AUSENTE\", \"obs\": \"observação curta\"},\n  \"cronograma\": {\"status\": \"OK|INCOMPLETO|AUSENTE\", \"obs\": \"observação curta\"},\n  \"avaliacoes\": {\"status\": \"OK|INCOMPLETO|AUSENTE\", \"obs\": \"observação curta\"},\n  \"referencias\": {\"status\": \"OK|INCOMPLETO|AUSENTE\", \"obs\": \"observação curta\"},\n  \"horario_atendimento\": {\"status\": \"OK|INCOMPLETO|AUSENTE\", \"obs\": \"observação curta\"},\n  \"coerencia\": {\"status\": \"OK|INCOMPLETO|AUSENTE\", \"obs\": \"observação curta\"},\n  \"status_geral\": \"OK|PENDENTE|REPROVADO\",\n  \"obs_geral\": \"resumo geral do plano em 1 frase\"\n}\n\nDADOS DO PLANO DE ENSINO:\n\nIDENTIFICAÇÃO (início do documento):\n${trunc(sections.identificacao)}\n\nEMENTA:\n${trunc(sections.ementa)}\n\nMETODOLOGIA:\n${trunc(sections.metodologia)}\n\nPROCEDIMENTOS DE AVALIAÇÃO:\n${trunc(sections.procedimentos_avaliacao)}\n\nOBJETIVOS GERAL:\n${trunc(sections.objetivos_geral)}\n\nOBJETIVOS ESPECÍFICOS:\n${trunc(sections.objetivos_especificos)}\n\nCONTEÚDO PROGRAMÁTICO:\n${trunc(sections.conteudo_programatico)}\n\nCRONOGRAMA:\n${trunc(sections.cronograma)}\n\nAVALIAÇÕES:\n${trunc(sections.avaliacoes)}\n\nHORÁRIO DE ATENDIMENTO:\n${trunc(sections.horario_atendimento)}\n\nREFERÊNCIAS:\n${trunc(sections.referencias)}`;\n\nreturn {\n    json: {\n      fileName,\n      ollamaPayload: JSON.stringify({\n        model: OLLAMA_MODEL,\n        prompt,\n        stream: false,\n        options: { num_predict: 2048, temperature: 0.1 }\n      })\n    }\n  };\n});"
+        "jsCode": "return $input.all().map((item, index) => {\nconst sections = item.json;\n\n// Recupera nome e id do arquivo do nó de busca (mantido no lineage do item)\nconst fileMeta = $('Search files and folders').itemMatching(index)?.json || {};\nconst fileName = fileMeta.name || 'arquivo_desconhecido';\nconst fileLink = fileMeta.id ? `https://drive.google.com/file/d/${fileMeta.id}/view` : '';\n\n// Limites maiores para campos que precisam ser lidos por inteiro (ex.: contar referências)\nconst trunc = (str, max = 1500) => str ? str.substring(0, max) + (str.length > max ? '...' : '') : '(não preenchido)';\n\n// ⚙️ CONFIGURE O MODELO AQUI (ex: qwen2.5:7b, qwen2.5:14b, llama3.2, gemma2)\nconst OLLAMA_MODEL = 'qwen2.5:7b';\n\n// Schema imposto ao Ollama via \"format\": garante os campos e enums exatos na resposta\nconst campos = ['identificacao','ementa','metodologia','procedimentos_avaliacao','objetivos_geral','objetivos_especificos','conteudo_programatico','cronograma','avaliacoes','referencias','horario_atendimento','coerencia'];\nconst campoSchema = {\n  type: 'object',\n  properties: {\n    status: { type: 'string', enum: ['OK', 'INCOMPLETO', 'AUSENTE'] },\n    obs: { type: 'string' }\n  },\n  required: ['status', 'obs']\n};\nconst formatSchema = {\n  type: 'object',\n  properties: Object.fromEntries(campos.map(c => [c, campoSchema])),\n  required: [...campos, 'status_geral', 'obs_geral']\n};\nformatSchema.properties.status_geral = { type: 'string', enum: ['OK', 'PENDENTE', 'REPROVADO'] };\nformatSchema.properties.obs_geral = { type: 'string' };\n\nconst prompt = `Você é um avaliador de planos de ensino de uma instituição de ensino superior brasileira.\nAvalie cada campo APENAS com base no texto fornecido abaixo. Não invente informações.\nRetorne APENAS um JSON válido, sem texto adicional, sem markdown.\nResponda SEMPRE em português brasileiro (pt-BR), inclusive todas as observações.\n\nStatus possíveis por campo:\n- \"AUSENTE\": o texto do campo está vazio, é \"(não preenchido)\" ou não tem nenhuma relação com o campo\n- \"INCOMPLETO\": há conteúdo relacionado, mas não atende às regras do campo\n- \"OK\": o conteúdo atende às regras do campo\nIMPORTANTE: se houver texto real e relacionado no campo, NUNCA use AUSENTE — escolha entre OK e INCOMPLETO.\n\nRegras por campo:\n- identificacao: OK se contiver nome da instituição, nome do componente curricular (disciplina) e nome do docente. Se faltar qualquer um dos três, INCOMPLETO e diga qual falta.\n- ementa: OK se descrever os temas da disciplina em texto corrido com pelo menos 15 palavras.\n- objetivos_geral: OK se houver qualquer texto preenchido.\n- objetivos_especificos: OK se houver qualquer texto preenchido.\n- conteudo_programatico: OK se listar os tópicos ou unidades de conteúdo a serem trabalhados.\n- metodologia: OK se descrever COMO as aulas serão conduzidas (ex.: aulas expositivas, práticas, projetos, recursos didáticos).\n- procedimentos_avaliacao: OK se descrever os instrumentos de avaliação. NÃO exija menção a interdisciplinaridade.\n- cronograma: OK se apresentar datas, semanas ou qualquer distribuição temporal dos conteúdos.\n- avaliacoes: OK se indicar as avaliações previstas (instrumentos, datas ou pesos).\n- horario_atendimento: OK se informar dia(s) e/ou horário(s) de atendimento ao aluno.\n- referencias: NÃO conte nada. Use a CONTAGEM VERIFICADA informada nos dados abaixo. OK somente se houver no mínimo 3 básicas E 5 complementares; caso contrário INCOMPLETO, informando na obs quantas há de cada tipo.\n- coerencia: OK se os objetivos, a metodologia e os procedimentos de avaliação forem compatíveis entre si; aponte na obs qualquer contradição encontrada.\n\nStatus geral:\n- \"OK\": todos os campos estão OK\n- \"PENDENTE\": um ou mais campos estão INCOMPLETO (e nenhum AUSENTE)\n- \"REPROVADO\": um ou mais campos estão AUSENTE\n\nFormato de retorno (JSON puro):\n{\n  \"identificacao\": {\"status\": \"OK|INCOMPLETO|AUSENTE\", \"obs\": \"observação curta\"},\n  \"ementa\": {\"status\": \"OK|INCOMPLETO|AUSENTE\", \"obs\": \"observação curta\"},\n  \"metodologia\": {\"status\": \"OK|INCOMPLETO|AUSENTE\", \"obs\": \"observação curta\"},\n  \"procedimentos_avaliacao\": {\"status\": \"OK|INCOMPLETO|AUSENTE\", \"obs\": \"observação curta\"},\n  \"objetivos_geral\": {\"status\": \"OK|INCOMPLETO|AUSENTE\", \"obs\": \"observação curta\"},\n  \"objetivos_especificos\": {\"status\": \"OK|INCOMPLETO|AUSENTE\", \"obs\": \"observação curta\"},\n  \"conteudo_programatico\": {\"status\": \"OK|INCOMPLETO|AUSENTE\", \"obs\": \"observação curta\"},\n  \"cronograma\": {\"status\": \"OK|INCOMPLETO|AUSENTE\", \"obs\": \"observação curta\"},\n  \"avaliacoes\": {\"status\": \"OK|INCOMPLETO|AUSENTE\", \"obs\": \"observação curta\"},\n  \"referencias\": {\"status\": \"OK|INCOMPLETO|AUSENTE\", \"obs\": \"observação curta\"},\n  \"horario_atendimento\": {\"status\": \"OK|INCOMPLETO|AUSENTE\", \"obs\": \"observação curta\"},\n  \"coerencia\": {\"status\": \"OK|INCOMPLETO|AUSENTE\", \"obs\": \"observação curta\"},\n  \"status_geral\": \"OK|PENDENTE|REPROVADO\",\n  \"obs_geral\": \"resumo geral do plano em 1 frase\"\n}\n\nDADOS DO PLANO DE ENSINO:\n\nIDENTIFICAÇÃO (início do documento):\n${trunc(sections.identificacao, 800)}\n\nEMENTA:\n${trunc(sections.ementa)}\n\nMETODOLOGIA:\n${trunc(sections.metodologia)}\n\nPROCEDIMENTOS DE AVALIAÇÃO:\n${trunc(sections.procedimentos_avaliacao)}\n\nOBJETIVOS GERAL:\n${trunc(sections.objetivos_geral)}\n\nOBJETIVOS ESPECÍFICOS:\n${trunc(sections.objetivos_especificos)}\n\nCONTEÚDO PROGRAMÁTICO:\n${trunc(sections.conteudo_programatico, 2500)}\n\nCRONOGRAMA:\n${trunc(sections.cronograma, 2500)}\n\nAVALIAÇÕES:\n${trunc(sections.avaliacoes)}\n\nHORÁRIO DE ATENDIMENTO:\n${trunc(sections.horario_atendimento, 500)}\n\nREFERÊNCIAS (CONTAGEM VERIFICADA — use exatamente estes números):\n${sections.ref_basicas} referência(s) básica(s) e ${sections.ref_complementares} complementar(es).`;\n\nreturn {\n    json: {\n      fileName,\n      fileLink,\n      refBasicas: sections.ref_basicas ?? 0,\n      refComplementares: sections.ref_complementares ?? 0,\n      temObjGeral: !!(sections.objetivos_geral || '').trim(),\n      temObjEspecificos: !!(sections.objetivos_especificos || '').trim(),\n      ollamaPayload: JSON.stringify({\n        model: OLLAMA_MODEL,\n        prompt,\n        stream: false,\n        format: formatSchema,\n        keep_alive: '30m',\n        // num_ctx 8192: maior prompt medido ~4,4k tokens (+ resposta ~300); 12288 não cabia na GPU de 6 GB\n        options: { num_ctx: 8192, num_predict: 1500, temperature: 0.1 }\n      }),\n      // Payload alternativo para o Google Gemini (ver README, seção \"Usar o Gemini\")\n      geminiPayload: JSON.stringify({\n        contents: [{ parts: [{ text: prompt }] }],\n        generationConfig: { temperature: 0.1, responseMimeType: 'application/json' }\n      })\n    }\n  };\n});\n"
       },
-      "id": "node-preparar-prompt-001",
+      "id": "ee5371e1-1f44-46aa-863b-63a481e7ac00",
       "name": "Preparar Prompt",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-576, 96]
+      "position": [
+        -3776,
+        2000
+      ]
     },
     {
       "parameters": {
@@ -315,25 +354,54 @@
         "rawContentType": "application/json",
         "body": "={{ $json.ollamaPayload }}",
         "options": {
-          "timeout": 300000
+          "timeout": 180000,
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 1000
+            }
+          }
         }
       },
-      "id": "node-ollama-request-001",
+      "id": "42c7c532-6cee-4432-9968-d720caad33a9",
       "name": "Validar com IA (Ollama)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [-352, 96],
+      "position": [
+        -3552,
+        2000
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
       "onError": "continueRegularOutput"
     },
     {
       "parameters": {
-        "jsCode": "return $input.all().map((item, index) => {\n  const response = item.json;\n  const fileName = $('Preparar Prompt').all()[index]?.json.fileName || 'arquivo_desconhecido';\n\n  let validacao;\n  try {\n    const rawText = response.response || '';\n    const jsonMatch = rawText.match(/\\{[\\s\\S]*\\}/);\n    const jsonStr = jsonMatch ? jsonMatch[0] : rawText;\n    validacao = JSON.parse(jsonStr);\n  } catch (e) {\n    validacao = {\n      status_geral: 'ERRO',\n      obs_geral: 'Falha ao processar resposta da IA: ' + e.message\n    };\n  }\n\n  const s = (field) => validacao[field]?.status || 'ERRO';\n  const o = (field) => validacao[field]?.obs || '';\n\n  return {\n    json: {\n      'Arquivo': fileName,\n      'Data Validação': new Date().toLocaleString('pt-BR'),\n      'Status Geral': validacao.status_geral || 'ERRO',\n      'Observação Geral': validacao.obs_geral || '',\n      'Ementa': s('ementa'),\n      'Ementa Obs': o('ementa'),\n      'Metodologia': s('metodologia'),\n      'Metodologia Obs': o('metodologia'),\n      'Proc. Avaliação': s('procedimentos_avaliacao'),\n      'Proc. Avaliação Obs': o('procedimentos_avaliacao'),\n      'Objetivos Geral': s('objetivos_geral'),\n      'Objetivos Geral Obs': o('objetivos_geral'),\n      'Objetivos Específicos': s('objetivos_especificos'),\n      'Objetivos Específicos Obs': o('objetivos_especificos'),\n      'Conteúdo Programático': s('conteudo_programatico'),\n      'Conteúdo Programático Obs': o('conteudo_programatico'),\n      'Cronograma': s('cronograma'),\n      'Cronograma Obs': o('cronograma'),\n      'Avaliações': s('avaliacoes'),\n      'Avaliações Obs': o('avaliacoes'),\n      'Referências': s('referencias'),\n      'Referências Obs': o('referencias'),\n      'Identificação': s('identificacao'),\n      'Identificação Obs': o('identificacao'),\n      'Horário Atendimento': s('horario_atendimento'),\n      'Horário Atendimento Obs': o('horario_atendimento'),\n      'Coerência': s('coerencia'),\n      'Coerência Obs': o('coerencia')\n    }\n  };\n});"
+        "jsCode": "const CAMPOS = ['identificacao','ementa','metodologia','procedimentos_avaliacao','objetivos_geral','objetivos_especificos','conteudo_programatico','cronograma','avaliacoes','referencias','horario_atendimento','coerencia'];\n\nfunction extrairJson(rawText) {\n  const m = (rawText || '').match(/\\{[\\s\\S]*\\}/);\n  const v = JSON.parse(m ? m[0] : rawText);\n  if (!v.status_geral) throw new Error('JSON sem status_geral');\n  return v;\n}\n\nconst out = [];\nconst items = $input.all();\n\nfor (let index = 0; index < items.length; index++) {\n  const item = items[index];\n  const prep = $('Preparar Prompt').itemMatching(index)?.json || {};\n  const fileName = prep.fileName || 'arquivo_desconhecido';\n  const fileLink = prep.fileLink || '';\n\n  let validacao = null;\n  let ultimoErro = '';\n\n  // Erro reportado pelo nó HTTP (timeout, conexão etc.) — mostra a causa real na planilha\n  const errHttp = item.json.error?.message || (typeof item.json.error === 'string' ? item.json.error : '');\n\n  try {\n    // Ollama: response.response · Gemini: candidates[0].content.parts[0].text\n    const rawText = item.json.response\n      || item.json.candidates?.[0]?.content?.parts?.[0]?.text\n      || '';\n    validacao = extrairJson(rawText);\n  } catch (e) {\n    ultimoErro = errHttp || e.message;\n  }\n\n  if (!validacao) {\n    validacao = {\n      status_geral: 'ERRO',\n      obs_geral: 'Falha ao processar resposta da IA: ' + ultimoErro\n    };\n  }\n\n  // ponytail: contagem deterministica do node \"Separar Texto por Topicos\" vence a da IA\n  if (validacao.status_geral !== 'ERRO') {\n    const nb = prep.refBasicas ?? 0;\n    const nc = prep.refComplementares ?? 0;\n    const okRef = nb >= 3 && nc >= 5;\n    validacao.referencias = {\n      status: okRef ? 'OK' : 'INCOMPLETO',\n      obs: okRef\n        ? `${nb} referências básicas e ${nc} complementares.`\n        : `${nb} referências básicas (mín. 3) e ${nc} complementares (mín. 5).`\n    };\n    // ponytail: objetivo preenchido = OK, qualquer que seja a redacao\n    if (prep.temObjGeral) validacao.objetivos_geral = { status: 'OK', obs: 'Objetivo geral preenchido.' };\n    if (prep.temObjEspecificos) validacao.objetivos_especificos = { status: 'OK', obs: 'Objetivos especificos preenchidos.' };\n\n    // ponytail: interdisciplinaridade nao reprova — rede de seguranca caso o modelo ainda cobre\n    if (validacao.procedimentos_avaliacao?.status === 'INCOMPLETO' && /interdisciplinar/i.test(validacao.procedimentos_avaliacao.obs || '')) {\n      validacao.procedimentos_avaliacao = { status: 'OK', obs: 'Instrumentos de avaliacao descritos.' };\n    }\n\n    const sts = CAMPOS.map(f => validacao[f]?.status);\n    validacao.status_geral = sts.includes('AUSENTE') ? 'REPROVADO'\n      : sts.includes('INCOMPLETO') ? 'PENDENTE' : 'OK';\n  }\n\n  const s = (field) => validacao[field]?.status || 'ERRO';\n  const o = (field) => validacao[field]?.obs || '';\n\n  out.push({\n    json: {\n      'Arquivo': fileName,\n      'Link PDF': fileLink,\n      'Data Validação': new Date().toLocaleString('pt-BR'),\n      'Status Geral': validacao.status_geral || 'ERRO',\n      'Observação Geral': validacao.obs_geral || '',\n      'Ementa': s('ementa'),\n      'Ementa Obs': o('ementa'),\n      'Metodologia': s('metodologia'),\n      'Metodologia Obs': o('metodologia'),\n      'Proc. Avaliação': s('procedimentos_avaliacao'),\n      'Proc. Avaliação Obs': o('procedimentos_avaliacao'),\n      'Objetivos Geral': s('objetivos_geral'),\n      'Objetivos Geral Obs': o('objetivos_geral'),\n      'Objetivos Específicos': s('objetivos_especificos'),\n      'Objetivos Específicos Obs': o('objetivos_especificos'),\n      'Conteúdo Programático': s('conteudo_programatico'),\n      'Conteúdo Programático Obs': o('conteudo_programatico'),\n      'Cronograma': s('cronograma'),\n      'Cronograma Obs': o('cronograma'),\n      'Avaliações': s('avaliacoes'),\n      'Avaliações Obs': o('avaliacoes'),\n      'Referências': s('referencias'),\n      'Referências Obs': o('referencias'),\n      'Identificação': s('identificacao'),\n      'Identificação Obs': o('identificacao'),\n      'Horário Atendimento': s('horario_atendimento'),\n      'Horário Atendimento Obs': o('horario_atendimento'),\n      'Coerência': s('coerencia'),\n      'Coerência Obs': o('coerencia')\n    }\n  });\n}\n\nreturn out;\n"
       },
-      "id": "node-parsear-validacao-001",
+      "id": "1e734659-989c-402d-a23c-f259f8c5769c",
       "name": "Parsear Validação",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-128, 96]
+      "position": [
+        -3328,
+        2000
+      ]
+    },
+    {
+      "parameters": {
+        "batchSize": 10,
+        "options": {}
+      },
+      "id": "78b82fba-04de-4412-9383-a2d5cc75aedd",
+      "name": "Processar em Blocos",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -3664,
+        2192
+      ]
     },
     {
       "parameters": {
@@ -345,22 +413,27 @@
         },
         "sheetName": {
           "__rl": true,
-          "mode": "name",
-          "value": "Validações"
+          "value": "Validações",
+          "mode": "name"
         },
         "columns": {
           "mappingMode": "autoMapInputData",
           "value": {},
           "matchingColumns": [],
-          "schema": []
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
         },
         "options": {}
       },
-      "id": "node-google-sheets-001",
+      "id": "d41a2e4b-2d30-4a03-ae15-0ac42550e62b",
       "name": "Registrar no Sheets",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.4,
-      "position": [96, 96],
+      "position": [
+        -3104,
+        2000
+      ],
       "credentials": {
         "googleSheetsOAuth2Api": {
           "id": "CONFIGURE_CREDENCIAL_SHEETS",
@@ -443,6 +516,18 @@
       "main": [
         [
           {
+            "node": "Processar em Blocos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Processar em Blocos": {
+      "main": [
+        [],
+        [
+          {
             "node": "Validar com IA (Ollama)",
             "type": "main",
             "index": 0
@@ -466,6 +551,17 @@
         [
           {
             "node": "Registrar no Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Registrar no Sheets": {
+      "main": [
+        [
+          {
+            "node": "Processar em Blocos",
             "type": "main",
             "index": 0
           }

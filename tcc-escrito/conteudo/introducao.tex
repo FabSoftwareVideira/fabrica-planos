@@ -1,0 +1,31 @@
+\chapter{INTRODUÇÃO}
+Os progressos nas tecnologias de \gls{ia}, particularmente no \gls{pln} e no \gls{ml}, estão expandindo as oportunidades de automação em atividades educacionais, convertendo tarefas administrativas em procedimentos mais eficientes e precisos \cite{ADIGUZEL2023}. A UNESCO aponta que a \gls{ia} pode apoiar tanto a aprendizagem quanto a gestão educacional, desde que sua adoção seja acompanhada de políticas que garantam equidade e supervisão humana \cite{Pedro2019}. No Brasil, pesquisa da Chegg.org indica que pouco mais da metade dos universitários já incorpora ferramentas de \gls{ia} em suas rotinas acadêmicas \cite{CNNBrasil2023}, o que evidencia a rápida difusão dessas tecnologias no ambiente acadêmico.
+
+No campo da gestão educacional, \citeonline{Sposato2025} classifica as aplicações de \gls{ia} na liderança e administração escolar, destacando a automação de tarefas rotineiras, a análise de documentos e o suporte à tomada de decisão como usos recorrentes. A revisão sistemática de \citeonline{Tan2025} reforça esse cenário ao identificar ferramentas de apoio ao planejamento docente e à verificação de conformidade entre as aplicações mais frequentes. \citeonline{Walter2024}, por sua vez, ressalta que a integração da \gls{ia} na educação exige letramento em \gls{ia} e pensamento crítico por parte dos docentes, o que reforça a necessidade de manter a supervisão humana em qualquer solução automatizada.
+
+No \gls{ifc}, cada componente curricular possui um plano de ensino, elaborado pelo docente a cada semestre e submetido à apreciação do \gls{nde} e do Colegiado do curso. A Organização Didática da instituição \cite{ifc2022} define os elementos obrigatórios desse documento, como ementa, objetivos, metodologia, avaliação e bibliografia, e a verificação de sua conformidade é feita manualmente. A automação dessa validação ainda é pouco explorada, especialmente em instituições públicas brasileiras. Métodos tradicionais baseados em regras fixas carecem de adaptabilidade a documentos heterogêneos. Por outro lado, abordagens que combinam \glspl{llm} com a recuperação de documentos normativos, conhecidas como \gls{rag} \cite{lewis2020}, permitem fundamentar a análise nos regulamentos institucionais, reduzindo respostas incorretas e mantendo a decisão final com o avaliador humano.
+
+Este trabalho propõe o desenvolvimento de uma aplicação semiautomática baseada em \gls{ia} para a validação de planos de ensino no curso de Ciência da Computação do \gls{ifc} Videira, empregando \gls{pln} para a extração e segmentação do texto e um \gls{llm} apoiado por \gls{rag} para verificar a conformidade de cada seção com os documentos oficiais da instituição e sugerir ajustes.
+
+\section{Problema de Pesquisa}
+
+De que forma a automação inteligente pode aprimorar a validação de planos de ensino, reduzindo a carga administrativa e garantindo o cumprimento das normas do \gls{ifc} Videira?
+
+\section{Objetivos}
+
+\subsection{Objetivo Geral}
+Desenvolver um sistema semiautomático baseado em \gls{ia} para validar planos de ensino do curso de Ciência da Computação do \gls{ifc} Videira, apoiando o trabalho do \gls{nde} e do Colegiado e alinhando-se à Organização Didática da instituição.
+
+\subsection{Objetivos Específicos}
+
+\begin{enumerate}
+\item Identificar os componentes obrigatórios dos planos de ensino de acordo com a Organização Didática e o \gls{ppc}, estruturando-os em uma base de conhecimento normativa consultável pelo sistema.
+\item Desenvolver o \textit{pipeline} de \gls{pln} e \gls{llm} para extrair as seções dos planos, identificar informações faltantes ou inconsistentes e fornecer sugestões de correção.
+\item Avaliar o sistema com planos reais, comparando seus resultados com a validação manual realizada pelo \gls{nde}.
+\item Analisar os efeitos administrativos e pedagógicos da adoção do sistema, sugerindo aprimoramentos.
+\end{enumerate}
+
+\section{Justificativa}
+A verificação manual de planos de ensino no \gls{ifc} constitui um processo de alto custo administrativo, exigindo dedicação significativa do \gls{nde} e do Colegiado para garantir a conformidade com o \gls{ppc} e com a Organização Didática \cite{ifc2022}. Essa demanda resulta em atrasos nos cronogramas e desvio de foco estratégico dos professores, sendo o procedimento manual suscetível a inconsistências entre avaliadores e a dificuldades de escalabilidade conforme o número de disciplinas cresce.
+
+Este trabalho justifica-se pela necessidade de otimização desse processo no \gls{ifc} Videira, aplicando o potencial da \gls{ia} ao nicho específico de validação normativa de documentos internos. A proposta integra a precisão da automação na análise de conformidade com a supervisão humana nas decisões finais, modelo recomendado por órgãos de política educacional para o uso responsável de \gls{ia} \cite{USDeptEd2023}. Com isso, busca-se reduzir a carga administrativa e garantir a aderência do curso de Ciência da Computação às suas diretrizes oficiais, alinhando-se à necessidade de modernização tecnológica do setor educacional \cite{ADIGUZEL2023}.

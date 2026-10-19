@@ -1,7 +1,7 @@
 services:
   n8n:
     image: docker.n8n.io/n8nio/n8n
-    restart: always
+    restart: "no"
     ports:
       - "5678:5678"
     environment:
@@ -12,6 +12,8 @@ services:
       - WEBHOOK_URL=http://localhost:5678/
       - GENERIC_TIMEZONE=America/Sao_Paulo
       - TZ=America/Sao_Paulo
+      # Code node com retentativas ao Ollama pode passar de 300s por bloco
+      - N8N_RUNNERS_TASK_TIMEOUT=1800
     volumes:
       - n8n_data:/home/node/.n8n
     depends_on:
@@ -21,13 +23,16 @@ services:
 
   ollama:
     image: ollama/ollama
-    restart: always
+    restart: "no"
     ports:
       - "11434:11434"
     volumes:
       - ollama_data:/root/.ollama
     environment:
       - OLLAMA_KEEP_ALIVE=30m
+      # Cache KV menor: qwen2.5:7b + ctx 8192 cabe na GPU de 6 GB (~30% mais rápido medido)
+      - OLLAMA_FLASH_ATTENTION=1
+      - OLLAMA_KV_CACHE_TYPE=q8_0
     networks:
       - tc-network
     deploy:

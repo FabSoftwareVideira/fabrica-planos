@@ -1,0 +1,61 @@
+\chapter{METODOLOGIA}
+Este capítulo delineia a abordagem metodológica adotada para o desenvolvimento e a avaliação de um protótipo de sistema semiautomático impulsionado por \gls{ia}, destinado à análise e validação de planos de ensino. O foco reside na integração de princípios teóricos com práticas aplicadas, visando uma solução robusta, eficiente e alinhada às demandas institucionais do \gls{ifc}, especificamente no curso de Ciência da Computação do Campus Videira.
+
+O estudo é caracterizado como pesquisa aplicada, com viés exploratório e descritivo, uma vez que investiga a viabilidade e os benefícios da incorporação de tecnologias como \gls{pln} e \glspl{llm} em processos administrativos educacionais. Adota-se o método de \textbf{estudo de caso}, concentrado no contexto do \gls{ifc} Videira, para permitir uma análise aprofundada e contextualizada das aplicações propostas.
+
+\section{Etapas do Processo de Desenvolvimento}
+O projeto é estruturado em fases sequenciais e interconectadas, que se correlacionam diretamente com os objetivos específicos estabelecidos, promovendo uma progressão lógica desde a concepção até a validação final.
+
+\subsection{Identificação e Estruturação de Requisitos Essenciais}
+Inicialmente, realiza-se a identificação e catalogação dos componentes fundamentais exigidos nos planos de ensino, incluindo identificação da disciplina, ementa, objetivos, conteúdo programático, metodologia, procedimentos de avaliação, cronograma, horário de atendimento e referências bibliográficas, ancorados nas normas da Organização Didática do \gls{ifc} \cite{ifc2022} e no \gls{ppc} do curso. Essa fase envolve a revisão minuciosa dos documentos institucionais, seguida pela padronização dos critérios em formato digital estruturado, que constituirá a base de conhecimento consultada pelo mecanismo de \gls{rag}. Os elementos serão classificados por categoria, como conteúdo programático e cronograma, para orientar a segmentação dos documentos e a precisão das análises subsequentes.
+
+\subsection{Concepção da Estrutura Arquitetural e Seleção de Ferramentas}
+A arquitetura do sistema é projetada com modularidade em mente, dividida em módulos interdependentes para maior flexibilidade e manutenção:
+\begin{enumerate}
+    \item \textbf{Módulo de Processamento Inicial}: dedicado à ingestão e extração de texto de arquivos em PDF, empregando técnicas de \gls{pln} para segmentar o documento nas seções previstas pela norma.
+    \item \textbf{Módulo de Verificação Inteligente}: implementado com a técnica de \gls{rag}, combina a capacidade generativa de um \gls{llm} com a consulta à base de conhecimento contendo as normas do \gls{ifc}. Para cada seção, o modelo classifica o item como conforme, incompleto ou ausente, justifica a decisão e propõe ajustes.
+    \item \textbf{Módulo de Orquestração Automatizada}: implementado via n8n para automação de fluxos de trabalho e Python para \textit{scripts} personalizados, gerencia o fluxo integrado, desde a submissão dos documentos até a emissão de relatórios.
+\end{enumerate}
+Essa configuração permite adaptações futuras, como a inclusão de novas normas regulatórias, garantindo a longevidade da solução.
+
+\subsection{Construção e Prototipagem do Sistema}
+A prototipagem ocorre em um ambiente de desenvolvimento controlado, priorizando tecnologias de código aberto para promover acessibilidade e sustentabilidade. Os principais recursos técnicos incluem:
+\begin{itemize}
+    \item Linguagem principal: Python, pela sua versatilidade em \gls{ia};
+    \item Bibliotecas especializadas: PyMuPDF para extração de texto de PDFs e spaCy para tarefas de \gls{pln};
+    \item Modelo de linguagem: \gls{llm} executado localmente, por meio de ferramentas como o Ollama, ou acessado via \gls{api} de provedores externos, conforme a disponibilidade de infraestrutura;
+    \item Infraestrutura de automação: n8n para orquestrar os fluxos de trabalho, integrado com \textit{scripts} Python para validações personalizadas;
+    \item Gerenciamento de dados: armazenamento dos resultados de cada validação em planilha ou banco de dados relacional, complementado por repositórios versionados;
+    \item Interface de usuário: painel web que permite o acompanhamento dos planos processados e a visualização do resultado de cada critério, incluindo as sugestões de correção.
+\end{itemize}
+O fluxo operacional é definido como: recepção do plano, extração automatizada de conteúdo usando PyMuPDF e spaCy, análise de cada seção pelo \gls{llm} com apoio do \gls{rag} para detecção de lacunas, e geração de relatório detalhado. Para aprimorar a robustez, incorporam-se ciclos de iteração baseados em metodologias ágeis, permitindo refinamentos contínuos com base em testes preliminares.
+
+O processo de correção dos planos de ensino é central ao sistema e ocorre de forma semiautomática, combinando automação com supervisão humana. Ao detectar uma lacuna, como a ausência de critérios avaliativos ou o desalinhamento com o \gls{ppc}, o fluxo no n8n envia o trecho problemático e as normas correspondentes ao \gls{llm}, que retorna uma sugestão de ajuste, como a reformulação de objetivos ou a adição de referências bibliográficas. Essas sugestões são apresentadas no relatório final, permitindo que o usuário, docente ou membro do \gls{nde}, revise e aplique as mudanças manualmente. Essa abordagem híbrida minimiza o impacto de erros e alucinações do modelo, mantendo a decisão final com o avaliador humano. Testes preliminares validam a qualidade das sugestões, ajustando os \textit{prompts} e os parâmetros de recuperação para otimizar o desempenho.
+
+\section{Avaliação e Validação do Protótipo}
+A fase de testes abrange avaliações funcionais e qualitativas para mensurar a efetividade do sistema. As métricas-chave englobam:
+
+\begin{itemize}
+    \item \textbf{Eficiência Analítica (Comparação Manual vs. Automática)}: a comparação se dará em três etapas:
+    \begin{enumerate}
+        \item coleta de uma amostra de planos de ensino previamente avaliados pelo \gls{nde}, cujo parecer servirá como referência (\textit{ground truth});
+        \item processamento da mesma amostra pelo sistema, identificando pontos de conformidade e não conformidade por critério;
+        \item comparação, critério a critério, entre a detecção automática e a validação manual do \gls{nde} para os mesmos documentos.
+    \end{enumerate}
+    \item \textbf{Aderência Normativa (Métricas de Classificação)}: a precisão do sistema em relação às regulamentações do \gls{ifc} será verificada utilizando métricas clássicas de classificação binária (detecção de não conformidade), calculadas a partir da matriz de confusão:
+    \begin{itemize}
+        \item \textit{Recall} (sensibilidade): mensura a capacidade do sistema de encontrar todas as não conformidades presentes nos documentos.
+        \[ Recall = \frac{Verdadeiros\; Positivos}{Verdadeiros\; Positivos + Falsos\; Negativos} \]
+        \item \textit{Precision} (precisão): mensura, de tudo que o sistema marcou como não conformidade, quanto realmente era uma não conformidade.
+        \[ Precision = \frac{Verdadeiros\; Positivos}{Verdadeiros\; Positivos + Falsos\; Positivos} \]
+        \item \textit{F1-score}: média harmônica entre \textit{precision} e \textit{recall}, que resume o equilíbrio entre as duas métricas.
+    \end{itemize}
+    Complementarmente, será calculado o coeficiente Kappa de Cohen para medir o grau de concordância entre o sistema e os avaliadores humanos, descontando a concordância esperada ao acaso.
+    \item \textbf{Percepção dos Usuários}: para atender ao quarto objetivo específico, membros do \gls{nde} e docentes do curso avaliarão, por meio de questionário, a clareza dos relatórios, a utilidade das sugestões de correção e o impacto percebido na carga de trabalho, fornecendo subsídios qualitativos para os aprimoramentos propostos.
+\end{itemize}
+
+\section{Aspectos Éticos e de Responsabilidade}
+Todo o processo respeita padrões éticos, incluindo a anonimização dos dados processados e a ausência de armazenamento de informações sensíveis. As fontes institucionais são tratadas com transparência, e análises de viés nas saídas do modelo são conduzidas para assegurar equidade. Ademais, promove-se a conscientização sobre o uso responsável de \gls{ia} na educação, mantendo o ser humano no controle das decisões \cite{USDeptEd2023}.
+
+\section{Recursos Financeiros}
+O protótipo é concebido para minimizar despesas, aproveitando ferramentas gratuitas e de código aberto. Componentes como Python, spaCy, PyMuPDF, n8n e modelos de linguagem abertos executados localmente não geram custos de licenciamento, permitindo um desenvolvimento acessível em ambientes locais. Para implantações em produção, potenciais gastos incluem hospedagem em nuvem ou uso de \glspl{api} de \gls{llm} comerciais, cujos valores variam conforme o volume de processamento. No entanto, o enfoque em soluções escaláveis e de baixo custo facilita a adoção institucional, com opções de migração gradual para infraestruturas mais robustas.

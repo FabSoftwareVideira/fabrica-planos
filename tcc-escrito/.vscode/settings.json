@@ -1,0 +1,38 @@
+{
+  "latex-workshop.latex.recipe.default": "abntex2 completo",
+  "latex-workshop.latex.recipes": [
+    {
+      "name": "abntex2 completo",
+      "tools": ["pdflatex", "bibtex", "makeglossaries", "pdflatex", "pdflatex"]
+    },
+    {
+      "name": "pdflatex rapido",
+      "tools": ["pdflatex"]
+    }
+  ],
+  "latex-workshop.latex.tools": [
+    {
+      "name": "pdflatex",
+      "command": "C:/Users/vslon/AppData/Local/Programs/MiKTeX/miktex/bin/x64/pdflatex.exe",
+      "args": ["-synctex=1", "-interaction=nonstopmode", "-file-line-error", "%DOC%"]
+    },
+    {
+      "name": "bibtex",
+      "command": "C:/Users/vslon/AppData/Local/Programs/MiKTeX/miktex/bin/x64/bibtex.exe",
+      "args": ["%DOCFILE%"]
+    },
+    {
+      "name": "makeglossaries",
+      "command": "C:/Users/vslon/AppData/Local/Programs/MiKTeX/miktex/bin/x64/makeglossaries-lite.exe",
+      "args": ["%DOCFILE%"]
+    }
+  ],
+  "latex-workshop.latex.rootFile.doNotPrompt": true,
+  "latex-workshop.latex.autoBuild.run": "onSave",
+  "latex-workshop.view.pdf.viewer": "tab",
+  "latex-workshop.latex.clean.fileTypes": [
+    "*.aux", "*.bbl", "*.blg", "*.idx", "*.ind", "*.ilg", "*.lof", "*.log", "*.lot",
+    "*.out", "*.toc", "*.acn", "*.acr", "*.alg", "*.glg", "*.glo", "*.gls", "*.glsdefs",
+    "*.ist", "*.fls", "*.fdb_latexmk", "*.synctex.gz", "*.loq"
+  ]
+}

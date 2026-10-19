@@ -1,0 +1,159 @@
+%=======================================================================
+%
+% ------------------------------------------------------------------------
+% ------------------------------------------------------------------------
+% abnTeX2: Modelo de Trabalho Academico  em conformidade com 
+% ABNT NBR 14724:2011: Informacao e documentacao - Trabalhos academicos
+% ------------------------------------------------------------------------
+%Customização IFC
+% ------------------------------------------------------------------------
+% Autor:  Tiago Possato (tiago.possato@yahoo.com.br), baseado no modelo de Eliton Tiago (elitontiago@hotmail.com)
+% Adaptação: Fábio Pinheiro (fabio.pinheiro@ifc.edu.br)
+% Versão: 16 de abril de 2024.
+% Codificação: UTF-8
+% LaTeX:  abnTeX2
+%
+%=======================================================================
+
+\documentclass[
+	% -- opções da classe memoir --
+	12pt,				% tamanho da fonte	
+	oneside,          % não imprimir em verso e anverso, oposto do twoside 
+	a4paper,			% tamanho do papel. 
+	% -- opções da classe abntex2 --
+	chapter=TITLE,		% títulos de capítulos convertidos em letras maiúsculas
+	section=TITLE,		% títulos de seções convertidos em letras maiúsculas
+	subsection=TITLE,	% títulos de subseções convertidos em letras maiúsculas
+	%subsubsection=TITLE,% títulos de subsubseções convertidos em letras maiúsculas
+	% -- opções do pacote babel --
+	english,			% idioma adicional para hifenização
+	brazil			% o último idioma é o principal do documento
+	,sumario=tradicional,
+	]{abntex2-IFC}
+
+
+\include{config_inicial}
+
+
+%----Include da capa é fora do documento 
+\include{pretextuais/capa}
+%---
+
+\begin{document}
+% Retira espaço extra obsoleto entre as frases.
+\frenchspacing 
+
+% ----------------------------------------------------------
+% ELEMENTOS PRÉ-TEXTUAIS
+% ----------------------------------------------------------
+
+%--- CAPA ----
+\imprimircapa
+
+% --- FOLHA DE ROSTO
+\imprimirfolhaderosto
+% \imprimirfolhaderosto* (o * indica que haverá a ficha bibliográfica)
+
+
+% lista de ilustrações
+\pdfbookmark[0]{\listfigurename}{lof}
+\listoffigures*
+\cleardoublepage
+% ---
+
+% lista de quadros
+% --- 
+%PRECISO VER COMO FAZER O CONTROLE DE QUANDO TIVER MENOS Q 10 VAI PARA LISTA DE ILUSTRAÇÕES
+\pdfbookmark[0]{\listofquadrosname}{loq}
+%\listofquadros*
+%\cleardoublepage
+% ---
+
+% LISTA DE TABELAS
+\pdfbookmark[0]{\listtablename}{lot}
+%\listoftables*
+%\cleardoublepage  %-- força proxima pagina
+
+% ---
+% inserir lista de abreviaturas e siglas
+% ---
+% ---
+% inserir lista de abreviaturas e siglas
+% ---
+\include{pretextuais/acronimos}		% acrônimos, deve ser preenchida à mão -- não mais!sss
+% Custom Glossary Style
+\renewcommand*{\acronymname}{LISTA DE ACR\^ONIMOS}
+\newglossarystyle{mylong}{%
+  \setglossarystyle{long}%
+  \renewenvironment{theglossary}%
+     {\begin{longtable}[l]{@{}p{\dimexpr 2cm-\tabcolsep}p{0.8\hsize}}}
+     {\end{longtable}}%
+      
+     %}%
+ }
+\printglossary[type=acronym, style=mylong, title=LISTA DE ACR\^ONIMOS]
+\newpage
+% ---
+
+% ---
+% inserir lista de símbolos
+% ---
+%\begin{simbolos}
+%  \item[$ \Gamma $] Descrever o que o símbolo representa em seu trabalho. Exemplo abaixo.
+%  \item[$ \omega $] Frequência angular [rad/s].
+%  \item[$ \zeta $] Coeficiente de amortecimento.
+
+%\end{simbolos}
+% ---
+
+% SUMARIO
+\pdfbookmark[0]{\contentsname}{toc}
+\tableofcontents*
+\cleardoublepage
+
+% ------------------------------------------------------
+% ELEMENTOS TEXTUAIS
+% ------------------------------------------------------
+\textual
+\setcounter{table}{0} % a lista de acrônimos (longtable) incrementa o contador de tabelas
+% INTRODUÇÃO
+\include{conteudo/introducao}
+
+%Fundamentação Teórica
+\include{conteudo/fundamentacao}
+
+%Metodologia
+\include{conteudo/metodologia}
+
+%cronograma
+\include{conteudo/cronograma}
+
+%Resultados Esperados
+\include{conteudo/resultadosesperados}
+
+%CONCLUSÃO (projeto de TCC não tem conclusão; arquivo ainda não existe)
+%\include{conteudo/conclusao}
+
+% ----------------------------------------------------------
+% ELEMENTOS PÓS-TEXTUAIS
+% ----------------------------------------------------------
+\postextual
+
+% ----------------------------------------------------------
+% Referências bibliográficas
+% ----------------------------------------------------------
+
+\bibliographystyle{abntex2-alf} 
+\bibliography{referencias}
+
+%Apêndices
+% \include{postextuais/apendice}
+
+%Anexos
+% \include{postextuais/anexo}
+
+%---------------------------------------------------------------------
+% INDICE REMISSIVO
+%---------------------------------------------------------------------
+% \printindex
+\end{document}
