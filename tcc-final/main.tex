@@ -1,0 +1,189 @@
+%=======================================================================
+%
+% ------------------------------------------------------------------------
+% ------------------------------------------------------------------------
+% abnTeX2: Modelo de Trabalho Academico  em conformidade com 
+% ABNT NBR 14724:2011: Informacao e documentacao - Trabalhos academicos
+% ------------------------------------------------------------------------
+%Customização IFC
+% ------------------------------------------------------------------------
+% Autor:  Tiago Possato (tiago.possato@yahoo.com.br), baseado no modelo de Eliton Tiago (elitontiago@hotmail.com)
+% Adaptação: Fábio Pinheiro (fabio.pinheiro@ifc.edu.br) e Henrique Pieri de Lima (henrique070425@gmail.com)
+% Versão: maio de 2026
+% Codificação: UTF-8
+% LaTeX:  abnTeX2
+%
+%=======================================================================
+
+\documentclass[
+	% -- opções da classe memoir --
+	12pt,				% tamanho da fonte	
+	oneside,          % não imprimir em verso e anverso, oposto do twoside 
+	a4paper,			% tamanho do papel. 
+	% -- opções da classe abntex2 --
+	chapter=TITLE,		% títulos de capítulos convertidos em letras maiúsculas
+	section=TITLE,		% títulos de seções convertidos em letras maiúsculas
+	subsection=TITLE,	% títulos de subseções convertidos em letras maiúsculas
+	%subsubsection=TITLE,% títulos de subsubseções convertidos em letras maiúsculas
+	% -- opções do pacote babel --
+	english,			% idioma adicional para hifenização
+	brazil			% o último idioma é o principal do documento
+	,sumario=tradicional,
+	]{abntex2-IFC}
+
+
+\include{config_inicial}
+
+%----Include da capa é fora do documento 
+\include{pretextuais/capa}
+%---
+
+\begin{document}
+% Retira espaço extra obsoleto entre as frases.
+\frenchspacing 
+
+% ----------------------------------------------------------
+% ELEMENTOS PRÉ-TEXTUAIS
+% ----------------------------------------------------------
+
+%--- CAPA ----
+\imprimircapa
+
+% --- FOLHA DE ROSTO
+\imprimirfolhaderosto
+% \imprimirfolhaderosto* (o * indica que haverá a ficha bibliográfica)
+
+% Inserir FOLHA DE APROVAÇÃO
+\include{pretextuais/folhadeaprovacao}
+
+% Inserir FOLHA DE AUTORIZAÇÃO (preencher matrícula e CPF antes de ativar)
+% \include{pretextuais/folhadeautorizacao}
+
+% DEDICATÓRIA
+\include{pretextuais/dedicatoria}
+
+% AGRADECIMENTO
+\include{pretextuais/agradecimentos}
+
+%EPÍGRAFE
+\include{pretextuais/epigrafe}
+
+% RESUMO
+\include{pretextuais/resumo}
+
+% lista de ilustrações
+\pdfbookmark[0]{\listfigurename}{lof}
+\listoffigures*
+\cleardoublepage
+% ---
+
+% lista de quadros
+% --- 
+%PRECISO VER COMO FAZER O CONTROLE DE QUANDO TIVER MENOS Q 10 VAI PARA LISTA DE ILUSTRAÇÕES
+\pdfbookmark[0]{\listofquadrosname}{loq}
+%\listofquadros*
+%\cleardoublepage
+% ---
+
+% LISTA DE TABELAS
+\pdfbookmark[0]{\listtablename}{lot}
+\listoftables*
+\cleardoublepage
+
+% ---
+% inserir lista de abreviaturas e siglas
+% ---
+\begin{siglas}
+  \item[API] \textit{Application Programming Interface} (Interface de Programação de Aplicações)
+  \item[CCO] Curso de Ciência da Computação
+  \item[CPU] \textit{Central Processing Unit} (Unidade Central de Processamento)
+  \item[FN] Falso negativo
+  \item[FP] Falso positivo
+  \item[GPU] \textit{Graphics Processing Unit} (Unidade de Processamento Gráfico)
+  \item[HTML] \textit{HyperText Markup Language}
+  \item[HTTP] \textit{Hypertext Transfer Protocol}
+  \item[IA] Inteligência Artificial
+  \item[IFC] Instituto Federal Catarinense
+  \item[JSON] \textit{JavaScript Object Notation}
+  \item[KV] \textit{Key-Value} (cache de chaves e valores da atenção)
+  \item[LDB] Lei de Diretrizes e Bases da Educação Nacional
+  \item[LGPD] Lei Geral de Proteção de Dados Pessoais
+  \item[LLM] \textit{Large Language Model} (Modelo de Linguagem de Grande Escala)
+  \item[MLOps] \textit{Machine Learning Operations}
+  \item[NDE] Núcleo Docente Estruturante
+  \item[OAuth] \textit{Open Authorization}
+  \item[PDF] \textit{Portable Document Format}
+  \item[PLN] Processamento de Linguagem Natural
+  \item[PPC] Projeto Pedagógico de Curso
+  \item[RAG] \textit{Retrieval-Augmented Generation} (Geração Aumentada por Recuperação)
+  \item[RF] Requisito Funcional
+  \item[RN] Regra de Negócio
+  \item[RNF] Requisito Não Funcional
+  \item[SIGAA] Sistema Integrado de Gestão de Atividades Acadêmicas
+  \item[UML] \textit{Unified Modeling Language}
+  \item[VN] Verdadeiro negativo
+  \item[VP] Verdadeiro positivo
+  \item[VRAM] \textit{Video Random Access Memory}
+\end{siglas}
+% ---
+
+% ---
+% inserir lista de símbolos
+% ---
+%\begin{simbolos}
+%  \item[$ \Gamma $] Descrever o que o símbolo representa em seu trabalho. Exemplo abaixo.
+%  \item[$ \omega $] Frequência angular [rad/s].
+%  \item[$ \zeta $] Coeficiente de amortecimento.
+
+%\end{simbolos}
+% ---
+
+% SUMARIO
+\pdfbookmark[0]{\contentsname}{toc}
+\tableofcontents*
+\cleardoublepage
+
+% ------------------------------------------------------
+% ELEMENTOS TEXTUAIS
+% ------------------------------------------------------
+\textual
+% INTRODUÇÃO
+\include{conteudo/introducao}
+
+% FUNDAMENTAÇÃO TEÓRICA E TRABALHOS RELACIONADOS
+\include{conteudo/fundamentacao}
+
+% METODOLOGIA DA PESQUISA
+\include{conteudo/metodologia}
+
+% DESENVOLVIMENTO DO SISTEMA
+\include{conteudo/desenvolvimento}
+
+% AVALIAÇÃO E RESULTADOS
+\include{conteudo/resultados}
+
+%CONCLUSÃO
+\include{conteudo/conclusao}
+
+% ----------------------------------------------------------
+% ELEMENTOS PÓS-TEXTUAIS
+% ----------------------------------------------------------
+\postextual
+
+% ----------------------------------------------------------
+% Referências bibliográficas
+% ----------------------------------------------------------
+
+\bibliography{referencias}
+
+%Apêndices
+\include{postextuais/apendice}
+
+%Anexos
+% \include{postextuais/anexo}
+
+%---------------------------------------------------------------------
+% INDICE REMISSIVO
+%---------------------------------------------------------------------
+% \printindex
+\end{document}

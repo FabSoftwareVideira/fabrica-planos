@@ -1,0 +1,40 @@
+\begin{tikzpicture}[every node/.style={font=\scriptsize}, x=1cm, y=1cm]
+  \tikzset{
+    cab/.style={draw, fill=white, minimum width=2.3cm, minimum height=0.7cm, align=center, font=\scriptsize\bfseries},
+    msg/.style={-{Stealth[length=2mm]}},
+    ret/.style={-{Stealth[length=2mm]}, dashed},
+    ativ/.style={draw, fill=black!10, minimum width=0.22cm, inner sep=0}
+  }
+  \def\yfim{-11.0}
+  \foreach \x/\n/\t in {0/ag/Agendador, 3.2/n8n/n8n, 6.4/drv/Google Drive, 9.6/oll/Ollama, 12.8/sht/Google Sheets} {
+    \node[cab] (\n) at (\x,0) {\t};
+    \draw[dashed, black!50] (\x,-0.35) -- (\x,\yfim);
+  }
+  % ativação do n8n
+  \node[ativ, fit={(3.2,-1.0) (3.2,-10.5)}] {};
+
+  \draw[msg] (0,-1.0) -- node[above]{1: disparar (5h)} (3.1,-1.0);
+  \draw[msg] (3.3,-1.7) -- node[above]{2: listar arquivos} (6.4,-1.7);
+  \draw[ret] (6.4,-2.3) -- node[above]{lista (id, nome, tipo)} (3.3,-2.3);
+  \draw[msg] (3.3,-3.0) -- node[above]{3: baixar PDF} (6.4,-3.0);
+  \draw[ret] (6.4,-3.6) -- node[above]{arquivo binário} (3.3,-3.6);
+
+  \draw[msg] (3.3,-4.2) -- ++(0.7,0) -- ++(0,-0.4) -- (3.3,-4.6);
+  \node[anchor=west, align=left] at (4.1,-4.4) {4: extrair texto, segmentar seções, contar referências e montar \textit{prompt}};
+
+  % fragmento loop
+  \draw (2.5,-5.1) rectangle (13.4,-9.5);
+  \draw (2.5,-5.1) -- ++(0.9,0) -- ++(0,-0.25) -- ++(-0.15,-0.15) -- (2.5,-5.5);
+  \node[anchor=north west, font=\scriptsize\bfseries, inner sep=2pt] at (2.5,-5.1) {loop};
+  \node[anchor=west] at (3.6,-5.3) {[para cada bloco de até 10 planos; uma requisição por plano]};
+
+  \draw[msg] (3.3,-6.2) -- node[above]{5: POST \texttt{/api/generate} (\textit{prompt}, \texttt{format} = esquema)} (9.5,-6.2);
+  \node[ativ, fit={(9.6,-6.2) (9.6,-7.1)}] {};
+  \draw[ret] (9.5,-7.1) -- node[above]{JSON com 12 critérios e status geral} (3.3,-7.1);
+  \draw[msg] (3.3,-7.6) -- ++(0.7,0) -- ++(0,-0.4) -- (3.3,-8.0);
+  \node[anchor=west, align=left] at (4.1,-7.8) {6: validar JSON e aplicar regras determinísticas};
+  \draw[msg] (3.3,-8.6) -- node[above, pos=0.6]{7: acrescentar as linhas do bloco} (12.8,-8.6);
+  \draw[ret] (12.8,-9.2) -- node[above, pos=0.6]{confirmação} (3.3,-9.2);
+
+  \draw[ret] (3.1,-10.3) -- node[above]{execução concluída} (0,-10.3);
+\end{tikzpicture}

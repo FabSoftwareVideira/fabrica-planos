@@ -1,0 +1,48 @@
+\begin{apendicesenv}
+
+\chapter{\textit{Prompt} e esquema JSON enviados ao modelo}
+\label{ap:prompt}
+
+Este apêndice reproduz o código do nó \textit{Preparar Prompt} do fluxo de validação, que monta, para cada plano, o \textit{prompt} enviado ao modelo de linguagem, o esquema JSON usado no parâmetro \texttt{format} do Ollama e o \textit{payload} alternativo para a API do Google Gemini. As expressões \texttt{\$\{\ldots\}} são substituídas pelo texto de cada seção do plano no momento da execução.
+
+\lstinputlisting[language=JavaScript]{codigo/preparar_prompt.js}
+
+\chapter{Segmentação do texto e interpretação da resposta}
+\label{ap:segmentacao}
+
+O trecho a seguir mostra uma parte do texto extraído de um dos planos do corpus (P05) pelo nó \textit{Extract from File}. Nele se observam as características discutidas no Capítulo \ref{cap:desenvolvimento}: as quebras de linha da diagramação, o campo de horário de atendimento vazio, imediatamente seguido pela seção ``Programa'', e os textos provisórios ``Não Cadastrado!'' do SIGAA.
+
+\begin{lstlisting}[numbers=none]
+Horário de Atendimento:
+Programa
+Objetivos: Não Cadastrado!
+Conteúdo Programático: Não Cadastrado!
+Cronograma de Aulas - Total de aulas da Turma: 72
+Início Fim Descrição
+16/02/2024 13/03/2024 Integrais, derivadas parciais e suas aplicações
+\end{lstlisting}
+
+O código do nó \textit{Separar Texto por Tópicos}, que segmenta o texto nas seções do plano e conta as referências bibliográficas, é reproduzido a seguir.
+
+\lstinputlisting[language=JavaScript]{codigo/separar_topicos.js}
+
+O código do nó \textit{Parsear Validação}, que interpreta a resposta do modelo, aplica as regras determinísticas e monta a linha gravada na planilha, é reproduzido a seguir.
+
+\lstinputlisting[language=JavaScript]{codigo/parsear_validacao.js}
+
+\chapter{Artefatos para a análise dos resultados}
+\label{ap:analise}
+
+Os dados e \textit{scripts} usados no Capítulo \ref{cap:resultados} acompanham este trabalho no repositório do projeto, na pasta \texttt{tcc-final/dados}:
+
+\begin{itemize}
+    \item \texttt{validacoes\_2026-10-19.csv}: resultado anonimizado da execução final, com uma linha por plano, os status dos doze critérios, a contagem de referências, os metadados de inferência e o indicador do oráculo estrutural do horário de atendimento;
+    \item \texttt{anotacao\_humana\_modelo.csv}: planilha de anotação com uma linha por par (plano, critério), contendo o status atribuído pelo sistema e colunas em branco para o parecer humano (OK, INCOMPLETO ou AUSENTE) e para comentários;
+    \item \texttt{analise.py}: \textit{script} que calcula as estatísticas descritivas, a concordância com o oráculo estrutural e, quando recebe a planilha de anotação preenchida, as métricas da Seção \ref{sec:metricas} por critério e no total.
+\end{itemize}
+
+Para executar o protocolo de comparação com o NDE, recomenda-se ocultar a coluna \texttt{sistema} da planilha de anotação antes de distribuí-la aos avaliadores, para que o parecer humano não seja influenciado pela saída do sistema. Após a consolidação dos pareceres, as métricas são obtidas com o comando \texttt{python analise.py anotacao\_humana.csv}. O código do \textit{script} é reproduzido a seguir.
+
+\lstinputlisting[language=Python]{dados/analise.py}
+
+\end{apendicesenv}

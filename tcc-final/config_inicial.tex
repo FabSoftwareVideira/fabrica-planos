@@ -1,0 +1,123 @@
+% ---
+% Pacotes fundamentais 
+% ---
+\usepackage{cmap}				% Mapear caracteres especiais no PDF
+\usepackage{times}			    % Usa a fonte Times
+\usepackage[T1]{fontenc}		% Selecao de codigos de fonte.fontenc
+\usepackage[utf8]{inputenc}		% Codificacao do documento (conversão automática dos acentos)
+\usepackage{lastpage}			% Usado pela Ficha catalográfica
+\usepackage{indentfirst}		% Indenta o primeiro parágrafo de cada seção.
+\usepackage{color}				% Controle das cores
+\usepackage{graphicx}			% Inclusão de gráficos
+\usepackage{amsfonts}			% Símbolos
+%----Ajuste no alinhamento das listas
+\usepackage{enumitem}
+\setitemize[0]{itemindent=0.4cm,itemsep=0pt}
+\setenumerate[0]{itemindent=0.5cm,itemsep=0pt}
+%------
+% ---
+% Pacotes de citações
+% ---
+\usepackage[brazilian,hyperpageref]{backref}	 					  % Paginas com as citações na bibl
+
+\usepackage[a4paper]{geometry}
+%Referência
+\usepackage[alf, 	
+			 		abnt-emphasize=bf,
+				    abnt-url-package=none,
+				    abnt-repeated-title-omit=yes,
+				    abnt-full-initials=yes,                                        %yes nome por extenso, no apenas iniciais
+					abnt-etal-list=3												%abreviar com mais de 3 autores
+]{abntex2/abntex2cite}				 														    % Citações padrão ABNT
+\usepackage{lipsum}							   								       % para geração de dummy text
+\usepackage{multirow}
+\usepackage{float}
+\usepackage{setspace}
+\usepackage{tabularx}
+\usepackage[table,xcdraw]{xcolor}
+\usepackage{booktabs}			% \toprule, \midrule e \bottomrule usados nas tabelas do modelo
+\usepackage{longtable}
+\usepackage{array}
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+
+% --- Figuras e gráficos vetoriais
+\usepackage{tikz}
+\usetikzlibrary{positioning,arrows.meta,shapes.geometric,shapes.multipart,fit,backgrounds,calc,shadows}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18, /pgf/number format/use comma, /pgf/number format/1000 sep={.}}
+\renewcommand{\arraystretch}{1.2}
+
+\tikzset{
+  caixa/.style={draw, rounded corners=2pt, align=center, font=\footnotesize, minimum height=0.9cm, inner sep=4pt, fill=white},
+  ia/.style={caixa, fill=black!8},
+  ext/.style={caixa, dashed},
+  seta/.style={-{Stealth[length=2.2mm]}, thick},
+  grupo/.style={draw, rounded corners=4pt, inner sep=8pt, dashed, black!60},
+  rotulo/.style={font=\scriptsize\itshape, align=center}
+}
+
+% --- Código-fonte nos apêndices
+\usepackage{listings}
+\lstdefinelanguage{JavaScript}{
+  keywords={const,let,var,function,return,if,else,for,of,new,true,false,null,typeof,throw,try,catch},
+  sensitive=true,
+  comment=[l]{//},
+  morecomment=[s]{/*}{*/},
+  morestring=[b]',
+  morestring=[b]",
+  morestring=[b]`
+}
+\lstset{
+  basicstyle=\ttfamily\scriptsize,
+  breaklines=true,
+  columns=fullflexible,
+  keepspaces=true,
+  frame=single,
+  numbers=left,
+  numberstyle=\tiny,
+  showstringspaces=false,
+  keywordstyle=\bfseries,
+  commentstyle=\itshape\color{black!60},
+  literate={á}{{\'a}}1 {à}{{\`a}}1 {ã}{{\~a}}1 {â}{{\^a}}1 {é}{{\'e}}1 {ê}{{\^e}}1 {í}{{\'i}}1
+           {ó}{{\'o}}1 {õ}{{\~o}}1 {ô}{{\^o}}1 {ú}{{\'u}}1 {ç}{{\c c}}1 {Á}{{\'A}}1 {É}{{\'E}}1
+           {Í}{{\'I}}1 {Ó}{{\'O}}1 {Ú}{{\'U}}1 {Ç}{{\c C}}1 {Ã}{{\~A}}1 {—}{{---}}1 {–}{{--}}1
+           {⚙}{{}}0 {·}{{$\cdot$}}1 {Õ}{{\~O}}1 {Ê}{{\^E}}1 {️}{{}}0 {→}{{$\rightarrow$}}1
+}
+%\usepackage[none]{hyphenat}
+%\captionsetup[table]{justification=raggedright}
+% Configurações de aparência do PDF final
+% alterando o aspecto da cor azul
+\definecolor{blue}{RGB}{41,5,195}
+
+% --- 
+% Espaçamentos entre linhas e parágrafos 
+% --- 
+% O tamanho do parágrafo é dado por:
+\setlength{\parindent}{2cm}
+\linespread{1.5}
+
+%Espaçamento depois dos títulos
+\setlength{\afterchapskip}{\baselineskip}
+% %\setlength{\afterchapskip}{\lineskip}
+
+% Controle do espaçamento entre um parágrafo e outro:
+\setlength{\parskip}{0cm}  % tente também \onelineskip
+\setlength{\emergencystretch}{2em} % evita linhas além da margem em parágrafos com termos longos
+
+\hangcaption
+\captionstyle[\raggedright]{}
+
+%Estava mostrando nas referencias quais paginas estavam sendo referenciadas
+\renewcommand{\backref}{}
+\renewcommand*{\backrefalt}[4]{}
+
+%Reduzir a fonte do caption
+%\captionnamefont{\centering\ABNTEXfontereduzida}
+%\captiontitlefont{\centering\ABNTEXfontereduzida}
+%Ajuste nas listas de tabela, ilustrações e quadros
+\setlength\cftbeforechapterskip{0pt}
+% ---
+% compila o indice
+% ---
+\makeindex
+% ---

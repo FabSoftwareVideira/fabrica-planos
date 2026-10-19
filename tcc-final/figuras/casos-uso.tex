@@ -1,0 +1,46 @@
+\begin{tikzpicture}[every node/.style={font=\footnotesize}]
+  \tikzset{
+    uc/.style={draw, ellipse, minimum width=4.6cm, minimum height=0.85cm, align=center, font=\scriptsize, inner sep=1pt, fill=white},
+    ator/.style={align=center, font=\scriptsize}
+  }
+  \newcommand{\boneco}[3]{%
+    \begin{scope}[shift={#1}]
+      \draw[thick] (0,0.55) circle (0.17);
+      \draw[thick] (0,0.38) -- (0,-0.1) (-0.3,0.2) -- (0.3,0.2) (0,-0.1) -- (-0.22,-0.5) (0,-0.1) -- (0.22,-0.5);
+      \node[ator, below] at (0,-0.55) {#2};
+      \coordinate (#3) at (0,0.15);
+    \end{scope}}
+
+  % Casos de uso, ordenados para evitar cruzamentos
+  \node[uc] (uc7) at (0,3.3) {UC07 Adicionar planos à pasta};
+  \node[uc] (uc1) at (0,2.1) {UC01 Validar lote de planos};
+  \node[uc] (uc3) at (0,0.9) {UC03 Consultar \textit{dashboard}};
+  \node[uc] (uc4) at (0,-0.3) {UC04 Ver detalhes por critério};
+  \node[uc] (uc5) at (0,-1.5) {UC05 Abrir PDF original};
+  \node[uc] (uc2) at (0,-2.7) {UC02 Agendar validação diária};
+  \node[uc] (uc6) at (0,-3.9) {UC06 Configurar modelo de IA};
+
+  % Fronteira do sistema
+  \begin{scope}[on background layer]
+    \draw[rounded corners=4pt] (-3.4,-4.6) rectangle (3.4,4.5);
+  \end{scope}
+  \node[font=\footnotesize\bfseries] at (0,4.15) {Sistema de validação de planos de ensino};
+
+  \boneco{(-6.2,2.0)}{Coordenação\\/ NDE (US1)}{coord}
+  \boneco{(-6.2,-1.2)}{Docente (US2)}{doc}
+  \boneco{(6.2,2.4)}{Agendador\\(tempo)}{agen}
+  \boneco{(6.2,-2.6)}{Administrador\\técnico (US3)}{adm}
+
+  \draw (coord) -- (uc7.west);
+  \draw (coord) -- (uc1.west);
+  \draw (coord) -- (uc3.west);
+  \draw (doc) -- (uc3.west);
+  \draw (doc) -- (uc5.west);
+  \draw (agen) -- (uc1.east);
+  \draw (adm) -- (uc1.east);
+  \draw (adm) -- (uc2.east);
+  \draw (adm) -- (uc6.east);
+
+  \draw[dashed, -{Stealth}] (uc4.north) -- node[right, font=\tiny]{$\ll$extend$\gg$} (uc3.south);
+  \draw[dashed, -{Stealth}] (uc5.north) -- node[right, font=\tiny]{$\ll$extend$\gg$} (uc4.south);
+\end{tikzpicture}

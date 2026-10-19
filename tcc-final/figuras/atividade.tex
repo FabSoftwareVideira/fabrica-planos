@@ -1,0 +1,40 @@
+\begin{tikzpicture}[node distance=0.45cm, every node/.style={font=\scriptsize}]
+  \tikzset{
+    acao/.style={draw, rounded corners=6pt, align=center, text width=4.6cm, minimum height=0.7cm, fill=white},
+    dec/.style={draw, diamond, aspect=2.6, align=center, inner sep=1pt, text width=2.6cm, fill=white},
+    ini/.style={circle, fill=black, minimum size=0.3cm, inner sep=0},
+    fim/.style={circle, draw, double, double distance=1.2pt, fill=black, minimum size=0.25cm, inner sep=0}
+  }
+  \node[ini] (i) {};
+  \node[acao, below=of i] (a1) {Receber resposta do Ollama para o plano};
+  \node[dec, below=of a1] (d1) {Resposta é JSON válido com \texttt{status\_geral}?};
+  \node[acao, right=1.4cm of d1, text width=3.2cm] (err) {Status geral = \textbf{ERRO}\\registrar motivo (\textit{timeout}, JSON truncado etc.)};
+  \node[acao, below=0.6cm of d1] (a2) {Substituir \textit{Referências} pela contagem determinística\\(OK se $\geq 3$ básicas \textbf{e} $\geq 5$ complementares)};
+  \node[acao, below=of a2] (a3) {Objetivo geral/específicos com texto $\Rightarrow$ OK};
+  \node[acao, below=of a3] (a4) {\textit{Proc. avaliação} INCOMPLETO só por interdisciplinaridade $\Rightarrow$ OK};
+  \node[dec, below=of a4] (d2) {Algum critério AUSENTE?};
+  \node[acao, right=1.4cm of d2, text width=2.4cm] (rep) {Status geral = \textbf{REPROVADO}};
+  \node[dec, below=0.6cm of d2] (d3) {Algum critério INCOMPLETO?};
+  \node[acao, right=1.4cm of d3, text width=2.4cm] (pen) {Status geral = \textbf{PENDENTE}};
+  \node[acao, below=0.6cm of d3, text width=2.4cm] (ok) {Status geral = \textbf{OK}};
+  \node[acao, below=0.9cm of ok] (reg) {Montar linha (29 colunas) e registrar na planilha};
+  \node[fim, below=of reg] (f) {};
+
+  \draw[seta] (i) -- (a1);
+  \draw[seta] (a1) -- (d1);
+  \draw[seta] (d1) -- node[above]{não} (err);
+  \draw[seta] (d1) -- node[right]{sim} (a2);
+  \draw[seta] (a2) -- (a3);
+  \draw[seta] (a3) -- (a4);
+  \draw[seta] (a4) -- (d2);
+  \draw[seta] (d2) -- node[above]{sim} (rep);
+  \draw[seta] (d2) -- node[right]{não} (d3);
+  \draw[seta] (d3) -- node[above]{sim} (pen);
+  \draw[seta] (d3) -- node[right]{não} (ok);
+  \coordinate (m) at ($(ok.south)!0.5!(reg.north)$);
+  \draw[seta] (ok) -- (reg);
+  \draw[seta] (rep.east) -- ++(0.5,0) |- (m);
+  \draw[seta] (pen.east) -- ++(0.5,0) |- (m);
+  \draw[seta] (err.east) -- ++(0.4,0) |- (m);
+  \draw[seta] (reg) -- (f);
+\end{tikzpicture}

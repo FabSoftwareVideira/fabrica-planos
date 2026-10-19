@@ -1,0 +1,326 @@
+\chapter{DESENVOLVIMENTO}
+\label{cap:desenvolvimento}
+
+Este capítulo documenta o sistema desenvolvido. A Seção \ref{sec:apresentacao} apresenta uma visão geral da solução e a Seção \ref{sec:processo} descreve o processo de desenvolvimento adotado. As Seções \ref{sec:rf} a \ref{sec:historias} especificam os requisitos, os atores, as regras de negócio e as histórias de usuário. A Seção \ref{sec:bd} apresenta a modelagem de dados, a Seção \ref{sec:diagramas} reúne os diagramas estruturais e comportamentais, a Seção \ref{sec:implementacao} detalha a implementação de cada etapa e a Seção \ref{sec:prototipo} apresenta a interface. Por fim, a Seção \ref{sec:testes} descreve a estratégia de testes.
+
+\section{Apresentação do Sistema}
+\label{sec:apresentacao}
+
+O sistema desenvolvido é um conjunto de dois fluxos de automação executados na plataforma n8n, apoiados por um servidor de modelos de linguagem local. O \textbf{fluxo de validação} percorre uma pasta do Google Drive com os planos de ensino em PDF, extrai e segmenta o texto de cada plano, solicita ao modelo de linguagem a avaliação dos critérios, aplica regras determinísticas sobre a resposta e grava o resultado em uma planilha do Google Sheets, uma linha por plano. O \textbf{fluxo do \textit{dashboard}} lê essa planilha e gera, a cada acesso, uma página HTML com os indicadores do lote e o detalhamento de cada plano.
+
+A Figura \ref{fig:arquitetura} apresenta a arquitetura da solução. Os dois serviços próprios, n8n e Ollama, são executados em contêineres Docker orquestrados por um arquivo Docker Compose e se comunicam por uma rede interna. O Ollama tem acesso à GPU do computador hospedeiro, onde o modelo Qwen2.5 é carregado. Google Drive e Google Sheets são serviços externos acessados por OAuth 2.0: o primeiro funciona como repositório de entrada, onde a coordenação deposita os planos; o segundo, como base de dados dos resultados, o que permite consultá-los e exportá-los com ferramentas já conhecidas pelos usuários.
+
+\begin{figure}[htbp]
+\centering
+\caption{Arquitetura do sistema}
+\label{fig:arquitetura}
+\input{figuras/arquitetura}
+\legend{Fonte: Elaborado pelo autor (2026).}
+\end{figure}
+
+Três princípios orientaram o projeto. O primeiro é a \textbf{divisão de trabalho entre regras e modelo}: o que pode ser verificado de forma exata, como contar referências, é feito por código, e o LLM é reservado aos julgamentos que exigem interpretação. O segundo é a \textbf{verificabilidade}: cada critério recebe um status de um conjunto fechado e uma observação curta, e o \textit{dashboard} oferece acesso direto ao PDF original. O terceiro é o \textbf{controle humano}: o sistema faz uma triagem e não toma decisões, cabendo à coordenação e ao NDE confirmar ou descartar cada apontamento.
+
+\section{Metodologia de desenvolvimento de software}
+\label{sec:processo}
+
+O desenvolvimento seguiu um processo iterativo e incremental, no qual o sistema é construído em versões sucessivas e cada versão é avaliada antes de orientar a seguinte \cite{Sommerville2016, Pressman2016}. A escolha se justifica pelo caráter exploratório do projeto: não era possível prever, antes de executar o sistema sobre planos reais, como o modelo de linguagem se comportaria diante dos documentos, quais regras seriam ambíguas ou quais limites de infraestrutura seriam atingidos. Em linha com os valores do Manifesto Ágil \cite{Beck2001}, privilegiou-se ter software funcionando desde a primeira iteração e responder às mudanças identificadas nas execuções, em vez de seguir um plano fechado.
+
+Cada iteração seguiu o mesmo ciclo: (i) executar a versão corrente sobre o corpus completo; (ii) inspecionar, na planilha e no histórico de execuções do n8n, os resultados e as falhas; (iii) identificar a causa raiz do problema mais grave; e (iv) implementar e documentar a correção. O código dos fluxos, exportado do n8n em formato JSON, e a configuração da infraestrutura foram versionados com Git em um repositório no GitHub, e um arquivo de documentação registrou as instruções de instalação e os problemas conhecidos com suas soluções. A Tabela \ref{tab:iteracoes} resume as iterações realizadas.
+
+\begin{table}[H]
+\centering
+\caption{Iterações de desenvolvimento}
+\label{tab:iteracoes}
+\footnotesize
+\begin{tabular}{@{}L{2.2cm}L{9.3cm}L{2.9cm}@{}}
+\toprule
+\rowcolor[HTML]{EFEFEF}
+\textbf{Período} & \textbf{Principais entregas e correções} & \textbf{Execução de referência} \\ \midrule
+Maio/2026 & Primeira versão do fluxo: busca no Drive, extração de texto, avaliação do plano pelo LLM e registro na planilha & 22/05: 86,2\% de ERRO \\
+Julho/2026 & Critérios definidos com o orientador; segmentação do texto por seções; \textit{dashboard} HTML; suporte a GPU; documentação de instalação & 07/07: 3,4\% de ERRO \\
+Agosto/2026 & Processamento em blocos com uma requisição por vez e retentativas; adoção do Qwen2.5 7B; correção do contexto máximo do modelo (de 4.096 para 12.288 \textit{tokens}) & 10/08: 69,0\%; 25/08: 49,1\% de ERRO \\
+Setembro/2026 & Contagem determinística de referências; regras determinísticas para objetivos e status geral; remoção da exigência de interdisciplinaridade & 10/09: 0\%; 15/09: 17,2\% de ERRO \\
+Outubro/2026 & Segmentação ancorada no início da linha; contexto de 8.192 \textit{tokens}; \textit{FlashAttention} e \textit{KV cache} em 8 bits; \textit{timeout} de 180 s & 19/10: 0\% de ERRO \\ \bottomrule
+\end{tabular}
+\legend{Fonte: Elaborado pelo autor (2026), com base no histórico de execuções e na planilha de resultados.}
+\end{table}
+
+Os problemas encontrados em cada iteração e o efeito das correções são analisados na Seção \ref{sec:res-robustez}.
+
+\section{Requisitos Funcionais}
+\label{sec:rf}
+
+Os requisitos funcionais descrevem os serviços que o sistema deve oferecer \cite{Sommerville2016}. Eles foram levantados a partir do processo manual de conferência e refinados ao longo das iterações. A Tabela \ref{tab:rf} apresenta os requisitos funcionais implementados.
+
+\begin{table}[H]
+\centering
+\caption{Requisitos funcionais}
+\label{tab:rf}
+\footnotesize
+\begin{tabular}{@{}L{1.1cm}L{13.3cm}@{}}
+\toprule
+\rowcolor[HTML]{EFEFEF}
+\textbf{Nº} & \textbf{Descrição do Requisito Funcional} \\ \midrule
+RF01 & O sistema deve listar os arquivos de uma pasta configurada do Google Drive e processar apenas os arquivos PDF. \\
+RF02 & O sistema deve extrair o texto de cada plano de ensino em PDF. \\
+RF03 & O sistema deve segmentar o texto nas seções do plano: identificação, ementa, metodologia, procedimentos de avaliação, horário de atendimento, objetivo geral, objetivos específicos, conteúdo programático, cronograma, avaliações e referências. \\
+RF04 & O sistema deve contar as referências básicas e complementares de cada plano. \\
+RF05 & O sistema deve avaliar os doze critérios da Tabela \ref{tab:criterios}, atribuindo a cada um o status OK, INCOMPLETO ou AUSENTE e uma observação. \\
+RF06 & O sistema deve calcular o status geral do plano (OK, PENDENTE ou REPROVADO) a partir dos status dos critérios. \\
+RF07 & O sistema deve registrar o status ERRO e o motivo da falha quando não for possível avaliar um plano. \\
+RF08 & O sistema deve gravar o resultado de cada plano na planilha de resultados, com data e hora da validação e o \textit{link} para o PDF original. \\
+RF09 & O sistema deve executar a validação automaticamente uma vez por dia e permitir a execução manual. \\
+RF10 & O sistema deve disponibilizar um \textit{dashboard} com o total de planos e as quantidades e percentuais de planos aprovados, pendentes e com problemas. \\
+RF11 & O \textit{dashboard} deve exibir, para cada plano, o status e a observação de cada critério. \\
+RF12 & O \textit{dashboard} deve permitir abrir o PDF original de cada plano. \\
+RF13 & O sistema deve permitir trocar o modelo de linguagem utilizado, inclusive por um serviço externo. \\ \bottomrule
+\end{tabular}
+\legend{Fonte: Elaborado pelo autor (2026).}
+\end{table}
+
+\section{Requisitos Não Funcionais}
+\label{sec:rnf}
+
+Os requisitos não funcionais expressam restrições e qualidades do sistema \cite{Sommerville2016}. Eles foram organizados segundo as características de qualidade da norma ISO/IEC 25010 \cite{ISO25010} e estão na Tabela \ref{tab:rnf}.
+
+\begin{table}[H]
+\centering
+\caption{Requisitos não funcionais}
+\label{tab:rnf}
+\footnotesize
+\begin{tabular}{@{}L{1.2cm}L{2.8cm}L{10.4cm}@{}}
+\toprule
+\rowcolor[HTML]{EFEFEF}
+\textbf{Nº} & \textbf{Característica} & \textbf{Descrição do Requisito Não Funcional} \\ \midrule
+RNF01 & Segurança & O conteúdo dos planos não deve ser enviado a serviços externos de IA na configuração padrão; o modelo deve ser executado localmente. \\
+RNF02 & Segurança & O acesso ao Google Drive e ao Google Sheets deve usar credenciais OAuth 2.0 armazenadas de forma cifrada pelo n8n. \\
+RNF03 & Eficiência de desempenho & O sistema deve validar um lote de 30 planos em menos de 30 minutos no ambiente da Tabela \ref{tab:ambiente}. \\
+RNF04 & Eficiência de desempenho & O sistema deve operar com uma GPU de 6 GB de VRAM. \\
+RNF05 & Confiabilidade & A falha na avaliação de um plano não deve interromper o processamento dos demais. \\
+RNF06 & Confiabilidade & Requisições ao modelo devem ser repetidas até 3 vezes em caso de falha, com limite de tempo por requisição. \\
+RNF07 & Confiabilidade & Os resultados de cada bloco de planos devem ser gravados antes do processamento do bloco seguinte. \\
+RNF08 & Adequação funcional & A resposta do modelo deve seguir um esquema JSON com campos e valores predefinidos. \\
+RNF09 & Usabilidade & O \textit{dashboard} deve funcionar em navegadores atuais, sem instalação, e indicar o status por cor e por texto. \\
+RNF10 & Portabilidade & O sistema deve ser implantável com Docker Compose em Windows, Linux ou macOS; a GPU deve ser opcional. \\
+RNF11 & Manutenibilidade & As regras de avaliação e o modelo devem ser configuráveis em um único ponto do fluxo. \\
+RNF12 & Manutenibilidade & Os fluxos e a infraestrutura devem ser versionados em repositório Git. \\ \bottomrule
+\end{tabular}
+\legend{Fonte: Elaborado pelo autor (2026).}
+\end{table}
+
+\section{Atores do Sistema}
+\label{sec:atores}
+
+A Tabela \ref{tab:atores} apresenta os usuários do sistema e o que cada um pode fazer. Além deles, o agendador do n8n atua como ator temporal, disparando a validação diariamente.
+
+\begin{table}[H]
+\centering
+\caption{Atores do sistema}
+\label{tab:atores}
+\footnotesize
+\begin{tabular}{@{}L{1.1cm}L{3.4cm}L{9.9cm}@{}}
+\toprule
+\rowcolor[HTML]{EFEFEF}
+\textbf{Nº} & \textbf{Nome} & \textbf{Descrição} \\ \midrule
+US1 & Coordenação de curso / NDE & Deposita os planos na pasta do Drive, dispara ou aguarda a validação, consulta o \textit{dashboard}, analisa os apontamentos e decide sobre cada plano. \\
+US2 & Docente & Consulta o resultado do próprio plano no \textit{dashboard}, identifica os itens apontados e reenvia o plano corrigido. \\
+US3 & Administrador técnico & Instala e mantém a infraestrutura, configura credenciais, pasta, planilha e modelo de linguagem, e acompanha as execuções no n8n. \\ \bottomrule
+\end{tabular}
+\legend{Fonte: Elaborado pelo autor (2026).}
+\end{table}
+
+\section{Regras de Negócio}
+\label{sec:rn}
+
+As regras de negócio orientam e controlam o comportamento do sistema. Elas derivam da Organização Didática \cite{ifc2022}, das orientações da coordenação e das decisões tomadas durante as iterações:
+
+\begin{itemize}
+    \item \textbf{RN01} -- Cada critério recebe exatamente um status entre OK, INCOMPLETO e AUSENTE; havendo conteúdo relacionado ao critério, o status AUSENTE não deve ser usado.
+    \item \textbf{RN02} -- O plano é REPROVADO se algum critério estiver AUSENTE; PENDENTE se algum estiver INCOMPLETO e nenhum AUSENTE; e OK se todos estiverem OK.
+    \item \textbf{RN03} -- O critério de referências é conforme somente com no mínimo 3 referências básicas e 5 complementares, contadas pelo sistema e não pelo modelo.
+    \item \textbf{RN04} -- Os critérios de objetivo geral e de objetivos específicos são conformes quando possuem texto preenchido, independentemente da redação.
+    \item \textbf{RN05} -- Os procedimentos de avaliação não são considerados incompletos pela ausência de menção à interdisciplinaridade.
+    \item \textbf{RN06} -- A avaliação de cada critério deve se basear apenas no texto do plano, sem inferência de informações ausentes.
+    \item \textbf{RN07} -- O status calculado pelo sistema é indicativo; a decisão sobre o plano cabe à coordenação e ao NDE.
+    \item \textbf{RN08} -- Uma falha técnica na avaliação de um plano gera o status ERRO, com o motivo registrado, e o plano deve ser reavaliado em nova execução.
+\end{itemize}
+
+\section{Histórias de Usuário}
+\label{sec:historias}
+
+As histórias de usuário descrevem funcionalidades do ponto de vista de quem as utiliza, no formato ``como \textless papel\textgreater, quero \textless funcionalidade\textgreater, para \textless benefício\textgreater'', acompanhadas de critérios de aceitação \cite{Cohn2004}. A Tabela \ref{tab:historias} relaciona as histórias que representam o escopo implementado.
+
+\begin{table}[H]
+\centering
+\caption{Histórias de usuário}
+\label{tab:historias}
+\footnotesize
+\begin{tabular}{@{}L{1.1cm}L{7.0cm}L{6.3cm}@{}}
+\toprule
+\rowcolor[HTML]{EFEFEF}
+\textbf{Nº} & \textbf{História} & \textbf{Critérios de aceitação} \\ \midrule
+HU01 & Como coordenador, quero validar todos os planos de uma pasta de uma só vez, para não precisar abrir documento por documento. & Todos os PDFs da pasta geram uma linha na planilha; arquivos de outros tipos são ignorados. (RF01, RF02, RF08) \\
+HU02 & Como coordenador, quero ver quantos planos estão aprovados, pendentes ou com problemas, para dimensionar o trabalho de revisão. & O \textit{dashboard} exibe total, quantidades e percentuais por status. (RF10) \\
+HU03 & Como membro do NDE, quero ver o status e a justificativa de cada critério de um plano, para revisar apenas os itens apontados. & Ao expandir um plano, os doze critérios aparecem com status, cor e observação. (RF05, RF11) \\
+HU04 & Como membro do NDE, quero abrir o PDF original a partir do resultado, para confirmar ou descartar um apontamento. & Cada plano possui um \textit{link} que abre o arquivo no Drive. (RF12) \\
+HU05 & Como coordenador, quero que a contagem de referências seja exata, para cobrar o mínimo exigido com segurança. & A observação informa a quantidade de referências básicas e complementares encontradas. (RF04, RN03) \\
+HU06 & Como coordenador, quero que a validação rode sozinha todos os dias, para que planos novos sejam avaliados sem intervenção. & O fluxo é disparado diariamente às 5h. (RF09) \\
+HU07 & Como docente, quero saber exatamente o que falta no meu plano, para corrigi-lo antes do prazo. & Cada critério não conforme tem observação que indica o problema. (RF05, RF11) \\
+HU08 & Como administrador, quero que uma falha em um plano não interrompa os demais e fique registrada, para reprocessar apenas o necessário. & O plano com falha recebe status ERRO com o motivo; os demais seguem. (RF07, RNF05) \\
+HU09 & Como administrador, quero trocar o modelo de linguagem em um único lugar, para testar modelos maiores ou um serviço externo. & O modelo é definido por uma constante no nó de preparação do \textit{prompt}. (RF13, RNF11) \\ \bottomrule
+\end{tabular}
+\legend{Fonte: Elaborado pelo autor (2026).}
+\end{table}
+
+\section{Modelagem do Banco de Dados}
+\label{sec:bd}
+
+O sistema não utiliza um sistema gerenciador de banco de dados relacional: os resultados são armazenados em uma planilha do Google Sheets, acessada pela API do serviço \cite{GoogleSheetsAPI}. A escolha reduz a infraestrutura a manter e permite que a coordenação consulte, filtre e exporte os resultados com uma ferramenta já conhecida. Os planos de ensino, por sua vez, permanecem no Google Drive.
+
+A Figura \ref{fig:dados} apresenta o modelo conceitual dos dados. Um plano de ensino pode ser avaliado em várias execuções, e cada validação compõe-se de exatamente doze resultados de critério e de uma contagem de referências.
+
+\begin{figure}[htbp]
+\centering
+\caption{Modelo conceitual dos dados}
+\label{fig:dados}
+\input{figuras/dados}
+\legend{Fonte: Elaborado pelo autor (2026).}
+\end{figure}
+
+Na implementação, esse modelo é desnormalizado em uma única tabela, a aba \textit{Validações}, em que cada linha corresponde a uma validação e os doze resultados de critério são representados por pares de colunas (status e observação), totalizando 29 colunas, descritas na Tabela \ref{tab:colunas}. A desnormalização simplifica a gravação, feita com uma única operação de inclusão por plano, e a leitura pelo \textit{dashboard}. Como cada execução acrescenta novas linhas sem apagar as anteriores, a planilha preserva o histórico completo das validações, o que permitiu reconstruir a evolução do sistema apresentada no Capítulo \ref{cap:resultados}.
+
+\begin{table}[H]
+\centering
+\caption{Estrutura da aba \textit{Validações}}
+\label{tab:colunas}
+\footnotesize
+\begin{tabular}{@{}L{4.6cm}L{2.0cm}L{7.8cm}@{}}
+\toprule
+\rowcolor[HTML]{EFEFEF}
+\textbf{Coluna} & \textbf{Tipo} & \textbf{Conteúdo} \\ \midrule
+Arquivo & Texto & Nome do arquivo PDF no Drive \\
+Link PDF & URL & Endereço de visualização do arquivo no Drive \\
+Data Validação & Data e hora & Momento da validação (fuso de Brasília) \\
+Status Geral & Enumeração & OK, PENDENTE, REPROVADO ou ERRO \\
+Observação Geral & Texto & Resumo em uma frase ou motivo da falha \\
+\textless Critério\textgreater{} (12 colunas) & Enumeração & OK, INCOMPLETO, AUSENTE ou ERRO \\
+\textless Critério\textgreater{} Obs (12 colunas) & Texto & Justificativa do status do critério \\ \bottomrule
+\end{tabular}
+\legend{Fonte: Elaborado pelo autor (2026).}
+\end{table}
+
+\section{Diagramas}
+\label{sec:diagramas}
+
+Esta seção apresenta os diagramas que descrevem a estrutura e o comportamento do sistema, elaborados com base na notação da UML \cite{OMG2017}. Como a solução é composta por fluxos de automação e não por um programa orientado a objetos, foram selecionados os diagramas que melhor representam seus elementos: o diagrama de fluxo do \textit{pipeline}, como visão estrutural complementar à arquitetura da Figura \ref{fig:arquitetura}, e os diagramas de casos de uso, de sequência, de atividades e de estados, como visões comportamentais.
+
+\subsection{Diagramas Estruturais}
+
+A Figura \ref{fig:pipeline} apresenta a estrutura do fluxo de validação no n8n. Cada caixa corresponde a um nó do fluxo. A etapa de \textbf{aquisição} é disparada por um gatilho agendado ou manual, lista os arquivos da pasta, baixa cada arquivo, descarta os que não são PDF e extrai o texto. A etapa de \textbf{análise e registro} separa o texto em seções, prepara o \textit{prompt} e então entra em um laço controlado pelo nó \textit{Processar em blocos}: cada bloco de até dez planos é enviado ao modelo, um plano por requisição; as respostas são interpretadas e gravadas na planilha; e só então o bloco seguinte é processado. Esse laço garante que uma interrupção no meio do lote não descarte os resultados já obtidos (RNF07).
+
+\begin{figure}[htbp]
+\centering
+\caption{Estrutura do fluxo de validação no n8n}
+\label{fig:pipeline}
+\resizebox{\textwidth}{!}{\input{figuras/pipeline}}
+\legend{Fonte: Elaborado pelo autor (2026).}
+\end{figure}
+
+O fluxo do \textit{dashboard} é mais simples e tem quatro nós: um \textit{webhook} que recebe a requisição HTTP, um nó que lê a aba \textit{Validações}, um nó de código que gera a página HTML e um nó que devolve a página ao navegador.
+
+\subsection{Diagramas Comportamentais}
+
+A Figura \ref{fig:casos} apresenta o diagrama de casos de uso. A coordenação e o NDE validam lotes, adicionam planos à pasta e consultam o \textit{dashboard}; o docente consulta o \textit{dashboard} e abre o PDF original; o administrador configura o agendamento e o modelo; e o agendador dispara a validação diária. Ver o detalhe por critério e abrir o PDF são extensões da consulta ao \textit{dashboard}.
+
+\begin{figure}[htbp]
+\centering
+\caption{Diagrama de casos de uso}
+\label{fig:casos}
+\resizebox{0.95\textwidth}{!}{\input{figuras/casos-uso}}
+\legend{Fonte: Elaborado pelo autor (2026).}
+\end{figure}
+
+A Figura \ref{fig:sequencia} apresenta o diagrama de sequência de uma execução de validação. Após o disparo, o n8n obtém a lista de arquivos e os PDFs do Drive e executa localmente a extração, a segmentação e a montagem dos \textit{prompts}. No laço, envia cada plano ao Ollama com o esquema JSON no parâmetro \texttt{format}, interpreta a resposta e, ao fim de cada bloco, acrescenta as linhas correspondentes à planilha.
+
+\begin{figure}[htbp]
+\centering
+\caption{Diagrama de sequência da validação}
+\label{fig:sequencia}
+\resizebox{\textwidth}{!}{\input{figuras/sequencia}}
+\legend{Fonte: Elaborado pelo autor (2026).}
+\end{figure}
+
+A Figura \ref{fig:atividade} detalha, em um diagrama de atividades, a interpretação da resposta do modelo para um plano. Se a resposta não for um JSON válido, ou se a requisição tiver falhado, o plano recebe o status ERRO com o motivo. Caso contrário, as regras determinísticas RN03 a RN05 substituem o julgamento do modelo nos critérios correspondentes e o status geral é recalculado por código, segundo a RN02, em vez de se aceitar o valor sugerido pelo modelo.
+
+\begin{figure}[htbp]
+\centering
+\caption{Diagrama de atividades da interpretação da resposta}
+\label{fig:atividade}
+\input{figuras/atividade}
+\legend{Fonte: Elaborado pelo autor (2026).}
+\end{figure}
+
+A Figura \ref{fig:estados} apresenta o ciclo de vida de um plano de ensino no processo apoiado pelo sistema. Planos PENDENTES ou REPROVADOS seguem para revisão humana, que pode levar à correção e ao reenvio do plano pelo docente ou ao descarte do apontamento pelo NDE, quando se tratar de um falso positivo. Planos com ERRO voltam a aguardar validação.
+
+\begin{figure}[htbp]
+\centering
+\caption{Diagrama de estados de um plano de ensino}
+\label{fig:estados}
+\resizebox{\textwidth}{!}{\input{figuras/estados}}
+\legend{Fonte: Elaborado pelo autor (2026).}
+\end{figure}
+
+\section{Implementação}
+\label{sec:implementacao}
+
+Esta seção descreve como cada etapa do fluxo de validação foi implementada e justifica as principais decisões técnicas. Os trechos de código mais relevantes estão nos Apêndices \ref{ap:prompt} e \ref{ap:segmentacao}.
+
+\subsection{Infraestrutura}
+
+A infraestrutura é descrita em um arquivo Docker Compose com dois serviços na mesma rede: o n8n, publicado na porta 5678, e o Ollama, publicado na porta 11434 e com acesso à GPU por meio do recurso de reserva de dispositivos do Docker. Volumes persistentes preservam as credenciais e o histórico do n8n e os modelos baixados pelo Ollama. No Ollama foram configurados o \textit{FlashAttention} (\texttt{OLLAMA\_FLASH\_ATTENTION=1}), a quantização do \textit{KV cache} em 8 bits (\texttt{OLLAMA\_KV\_CACHE\_TYPE=q8\_0}) e a permanência do modelo na memória por 30 minutos após o último uso, evitando recarregá-lo entre requisições. No n8n, o tempo máximo de execução de nós de código foi ampliado para 30 minutos, pois um bloco com retentativas pode ultrapassar o limite padrão.
+
+\subsection{Aquisição e extração de texto}
+
+O fluxo usa o nó do Google Drive para listar os arquivos da pasta configurada, retornando identificador, nome e tipo MIME, e para baixar cada arquivo. Um nó de desvio encaminha apenas os arquivos do tipo \texttt{application/pdf}; ramificações para planilhas foram previstas, mas não são utilizadas. O texto é extraído pelo nó \textit{Extract from File}, que utiliza o PDF.js \cite{PDFjs}. O texto resultante preserva as quebras de linha da diagramação e intercala, a cada página, o cabeçalho e o rodapé institucionais com o conteúdo, como se observa no trecho do Apêndice \ref{ap:segmentacao}.
+
+\subsection{Segmentação e contagem de referências}
+
+A segmentação é feita por um nó de código JavaScript que localiza no texto os rótulos das seções do modelo do SIGAA por meio de expressões regulares e recorta o conteúdo de cada seção desde o fim de seu rótulo até o início do rótulo seguinte. Duas decisões foram decisivas para a qualidade desse recorte. Primeiro, os padrões são ancorados no início da linha e tolerantes a variações de caixa e de acentuação, pois, sem a âncora, uma frase como ``As avaliações serão\ldots'' no meio dos procedimentos de avaliação era tomada como o início da seção \textit{Avaliações}, truncando a primeira e preenchendo a segunda com texto errado. Segundo, cada seção termina no início do cabeçalho seguinte, e não no início de seu conteúdo, para que nenhum rótulo vaze para a seção anterior. A seção de objetivos é ainda dividida em objetivo geral e objetivos específicos a partir de marcadores como ``Objetivo geral'' e ``Específicos''.
+
+A contagem de referências também é feita por expressão regular. No PDF do SIGAA, as referências aparecem em uma tabela com as colunas ``Tipo de Material'' e ``Descrição'', de modo que cada referência começa, no texto extraído, por um tipo de material como ``Livro'', ``Periódico'' ou ``Site''. O sistema conta essas ocorrências nos blocos de referências básicas e complementares. A decisão de retirar a contagem do modelo decorreu da observação, nas primeiras iterações, de que o LLM errava contagens de linhas de tabela com frequência, o que é consistente com a dificuldade desses modelos em operações exatas discutida na Seção \ref{sec:llm}.
+
+\subsection{Construção do \textit{prompt} e saída estruturada}
+
+Para cada plano é montado um único \textit{prompt}, reproduzido no Apêndice \ref{ap:prompt}, com quatro partes: (i) a persona de avaliador de planos de ensino e a instrução de avaliar apenas com base no texto fornecido, sem inventar informações; (ii) a definição dos três status e a restrição de nunca usar AUSENTE quando houver conteúdo relacionado; (iii) a regra de cada critério, correspondente à Tabela \ref{tab:criterios}; e (iv) o texto de cada seção, truncado em 1.500 caracteres, ou 2.500 para conteúdo programático e cronograma, acompanhado da contagem de referências já verificada. Avaliar o plano seção por seção, em vez de entregar o documento inteiro, reduz o ruído dos cabeçalhos e rodapés e coloca cada trecho junto do rótulo a que pertence, mitigando a perda de informação em contextos longos \cite{Liu2024}.
+
+O mesmo nó gera o esquema JSON enviado no parâmetro \texttt{format} da requisição ao Ollama. O esquema exige um objeto com os doze critérios, cada um com os campos \texttt{status}, restrito à enumeração OK, INCOMPLETO e AUSENTE, e \texttt{obs}, além de \texttt{status\_geral} e \texttt{obs\_geral}. Como discutido na Seção \ref{sec:tecnicas}, o esquema faz com que a validade estrutural da resposta seja garantida pela decodificação \cite{Willard2023, OllamaStructured}. O nó também gera um \textit{payload} equivalente para a API do Google Gemini, o que permite trocar o modelo local por um serviço externo alterando apenas a URL e o corpo da requisição (RF13).
+
+\subsection{Chamada ao modelo e interpretação da resposta}
+
+A requisição ao Ollama é feita por um nó HTTP com limite de 180 segundos, até três tentativas com intervalo de 5 segundos e envio de uma requisição por vez. O envio sequencial foi adotado porque requisições simultâneas faziam o servidor de inferência enfileirar e interromper respostas, produzindo JSON truncado.
+
+A interpretação, cujo comportamento foi apresentado na Figura \ref{fig:atividade}, extrai o objeto JSON da resposta, verifica a presença do status geral e aplica as regras determinísticas. Quando a requisição falha, o motivo informado pelo nó HTTP, como o estouro do tempo limite, é registrado na observação geral, o que facilitou o diagnóstico dos problemas durante as iterações. Por fim, o nó monta a linha de 29 colunas da Tabela \ref{tab:colunas}, gravada na planilha pelo nó do Google Sheets.
+
+\subsection{\textit{Dashboard}}
+
+O \textit{dashboard} é gerado por um nó de código que lê todas as linhas da planilha e produz uma página HTML autocontida, sem dependências externas. Todo conteúdo proveniente da planilha é escapado antes de ser inserido na página, evitando que textos dos planos ou das observações sejam interpretados como HTML. O uso de elementos HTML nativos de expansão (\texttt{details} e \texttt{summary}) permite exibir o detalhe de cada plano sem JavaScript.
+
+\section{Prototipação}
+\label{sec:prototipo}
+
+A interface com o usuário é o \textit{dashboard}, acessado pelo caminho de \textit{webhook} \texttt{dashboard} do n8n e apresentado na Figura \ref{fig:dashboard} com os dados da execução final. No topo, quatro indicadores mostram o total de planos e as quantidades e percentuais de aprovados, pendentes e com problemas, estes últimos somando os planos reprovados e com erro. Abaixo, cada plano é um cartão com o nome, o status geral e o atalho para o PDF. Ao clicar em um cartão, são exibidos a observação geral e os doze critérios, cada um com uma faixa e um selo coloridos e a observação correspondente. As cores seguem a convenção verde para OK, amarelo para INCOMPLETO e PENDENTE, e vermelho para AUSENTE, REPROVADO e ERRO, sempre acompanhadas do texto do status, para não depender apenas da cor (RNF09).
+
+\begin{figure}[htbp]
+\centering
+\caption{\textit{Dashboard} de validação com o plano P05 expandido}
+\label{fig:dashboard}
+\includegraphics[width=0.92\textwidth]{images/dashboard.png}
+\legend{Fonte: Elaborado pelo autor (2026). Nomes dos arquivos substituídos por códigos para anonimização.}
+\end{figure}
+
+O plano P05, expandido na figura, ilustra o uso pretendido: o avaliador vê imediatamente que faltam o horário de atendimento e os objetivos específicos e que o conteúdo programático está incompleto, e pode abrir o PDF para confirmar. O mesmo exemplo revela também uma limitação discutida na Seção \ref{sec:res-erros}: o objetivo geral aparece como OK, embora o campo contenha apenas o texto provisório ``Não Cadastrado!'' do SIGAA.
+
+\section{Testes}
+\label{sec:testes}
+
+A estratégia de testes combinou três abordagens. Os \textbf{testes de execução}, feitos a cada alteração de um nó, usaram o modo de execução manual do n8n, que exibe a entrada e a saída de cada nó e permite inspecionar o resultado da extração, da segmentação, do \textit{prompt} e da resposta do modelo para um plano específico. Os \textbf{testes de regressão}, feitos ao fim de cada iteração, consistiram em processar novamente o corpus completo e comparar os resultados com os da execução anterior, verificando se a correção resolvia o problema visado sem introduzir novos erros. Por fim, a \textbf{avaliação} da versão final, segundo o protocolo da Seção \ref{sec:protocolo}, mediu robustez, desempenho e concordância. Os resultados dessas avaliações são apresentados no Capítulo \ref{cap:resultados}.

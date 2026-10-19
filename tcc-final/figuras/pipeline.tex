@@ -1,0 +1,24 @@
+\begin{tikzpicture}[node distance=0.55cm, every node/.style={font=\scriptsize}]
+  \tikzset{no/.style={caixa, font=\scriptsize, minimum width=2.25cm, minimum height=1.1cm, text width=2.05cm}}
+  % Linha 1: aquisição
+  \node[no] (n1) {\textbf{Gatilho}\\agendado (5h) ou manual};
+  \node[no, right=of n1] (n2) {\textbf{Buscar arquivos}\\pasta do Drive};
+  \node[no, right=of n2] (n3) {\textbf{Baixar arquivo}\\binário do PDF};
+  \node[no, right=of n3] (n4) {\textbf{Filtrar tipo}\\somente PDF};
+  \node[no, right=of n4] (n5) {\textbf{Extrair texto}\\PDF.js};
+  % Linha 2: processamento
+  \node[no, below=1.5cm of n5] (n6) {\textbf{Separar por tópicos}\\regex + contagem de referências};
+  \node[no, left=of n6] (n7) {\textbf{Preparar \textit{prompt}}\\regras + esquema JSON};
+  \node[no, left=of n7] (n8) {\textbf{Processar em blocos}\\10 planos por vez};
+  \node[ia, no, left=of n8] (n9) {\textbf{Validar com IA}\\Ollama, 1 req./vez};
+  \node[no, left=of n9] (n10) {\textbf{Interpretar}\\regras determinísticas};
+  \node[no, below=1.2cm of n10] (n11) {\textbf{Registrar}\\Google Sheets};
+
+  \foreach \a/\b in {n1/n2,n2/n3,n3/n4,n4/n5,n6/n7,n7/n8,n9/n10,n10/n11} \draw[seta] (\a) -- (\b);
+  \draw[seta] (n5) -- (n6);
+  \draw[seta] (n8) -- (n9);
+  \draw[seta] (n11.east) -| node[rotulo, pos=0.25, below]{próximo bloco} (n8.south);
+
+  \node[grupo, fit=(n1)(n5), label={[font=\footnotesize\bfseries]above:Aquisição}] {};
+  \node[grupo, fit=(n6)(n10)(n11), label={[font=\footnotesize\bfseries]below:Análise e registro}] {};
+\end{tikzpicture}

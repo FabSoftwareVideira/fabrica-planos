@@ -1,0 +1,29 @@
+\chapter{CONCLUSÃO}
+\label{cap:conclusao}
+
+Este trabalho investigou de que forma um sistema baseado em modelos de linguagem pode apoiar a validação de planos de ensino, reduzindo o esforço de conferência manual e preservando a aderência às normas do IFC e o controle humano sobre a decisão final. Para responder a essa questão, foi desenvolvido e avaliado um sistema semiautomático que obtém os planos de ensino de uma pasta compartilhada, extrai e segmenta seu texto, avalia doze critérios com um LLM aberto executado localmente, combina essa avaliação com regras determinísticas e apresenta os resultados em um painel \textit{web}.
+
+Os objetivos específicos foram atendidos. Os elementos obrigatórios do plano de ensino foram convertidos em doze critérios com regras explícitas, definidos a partir da Organização Didática do IFC e das orientações do orientador e ajustados ao longo das iterações (objetivo 1). O \textit{pipeline} de automação foi implementado no n8n, com extração e segmentação de texto, saída estruturada por esquema JSON, regras determinísticas e registro rastreável de cada validação (objetivo 2). O \textit{dashboard} permite acompanhar os indicadores do lote, consultar o status e a justificativa de cada critério e abrir o PDF original (objetivo 3). Por fim, o sistema foi avaliado com os 29 planos de ensino do semestre 2024/1 quanto à robustez, ao desempenho e à concordância, e a análise de erros resultou em propostas concretas de aprimoramento (objetivo 4).
+
+Os resultados mostram que a abordagem é viável. Ao longo de cinco iterações, a proporção de planos com falha técnica caiu de 86,2\% para zero, e a versão final processou o lote completo em 8 minutos e 54 segundos, com 11,5 segundos de inferência por plano em uma GPU de 6 GB, sem custos por requisição e sem envio dos documentos a serviços externos. No critério verificável por oráculo estrutural, o sistema alcançou \textit{recall} de 100\%, precisão de 93,8\% e Kappa de Cohen de 0,93, e todos os apontamentos verificados nos demais critérios correspondiam a não conformidades reais. A validação revelou ainda um problema sistemático no curso, a ausência do horário de atendimento em mais da metade dos planos, que dificilmente seria percebido em uma conferência manual plano a plano.
+
+A principal lição do trabalho é que a confiabilidade de um sistema com LLMs depende menos do modelo do que da engenharia em torno dele. As falhas mais graves das primeiras versões, como respostas truncadas, JSON malformado e \textit{prompts} cortados pelo limite de contexto, foram resolvidas com controle de concorrência, saída estruturada e dimensionamento do contexto, e não com a troca do modelo. Da mesma forma, atribuir as verificações exatas a regras determinísticas e os julgamentos interpretativos ao modelo mostrou-se uma divisão de trabalho eficaz, desde que as próprias regras também sejam validadas, como evidenciou o falso negativo causado pela aceitação de um texto provisório do SIGAA.
+
+\section{Limitações}
+
+Os resultados devem ser interpretados à luz de algumas limitações. A primeira é a ausência de uma referência humana completa: a concordância foi medida com um oráculo estrutural em um único critério e complementada pela verificação dos apontamentos do sistema, o que permite avaliar a precisão dos apontamentos, mas não estimar os falsos negativos nos critérios interpretativos. A anotação de todos os critérios por membros do NDE, prevista no protocolo da Seção \ref{sec:protocolo} e para a qual foram preparados os artefatos do Apêndice \ref{ap:analise}, não coube no período deste trabalho. A segunda é o tamanho e a homogeneidade do corpus: 29 planos de um único curso, de um único semestre e de um único sistema de origem. A terceira é a dependência do formato do SIGAA, pois a segmentação se baseia nos rótulos de suas seções e precisaria ser revista caso o modelo do documento mude. A quarta é a instabilidade do modelo na escolha entre INCOMPLETO e AUSENTE, que afeta o status geral de alguns planos. Por fim, não foi realizada uma avaliação com usuários sobre a utilidade percebida do \textit{dashboard} e o impacto real na carga de trabalho da coordenação.
+
+\section{Trabalhos futuros}
+\label{sec:futuros}
+
+A partir dos resultados e das limitações, sugerem-se os seguintes trabalhos futuros:
+
+\begin{itemize}
+    \item \textbf{Avaliação com o NDE}: executar o protocolo de anotação humana de todos os critérios e calcular, por critério, precisão, \textit{recall}, $F_1$ e Kappa de Cohen, ampliando o corpus para outros semestres e cursos.
+    \item \textbf{Detecção determinística de campos vazios e provisórios}: atribuir AUSENTE por regra a seções vazias ou que contenham apenas textos provisórios do SIGAA, como ``Não Cadastrado!'' e ``A cadastrar'', eliminando o falso negativo identificado e a instabilidade entre INCOMPLETO e AUSENTE nesses casos.
+    \item \textbf{Observação geral gerada por código}: produzir o resumo de cada plano a partir dos status finais dos critérios, eliminando as contradições observadas.
+    \item \textbf{RAG sobre documentos normativos extensos}: incorporar o PPC do curso e as ementas oficiais em uma base vetorial, permitindo verificar, por exemplo, se a ementa e as referências do plano correspondem às aprovadas no PPC.
+    \item \textbf{Comparação de modelos}: avaliar modelos maiores ou mais recentes, locais e externos, comparando qualidade, tempo e custo sobre o mesmo corpus.
+    \item \textbf{Integração ao fluxo institucional}: notificar automaticamente os docentes sobre os itens pendentes e integrar a validação ao momento de cadastro do plano no SIGAA, antes de sua publicação.
+    \item \textbf{Avaliação com usuários}: medir, com coordenadores, membros do NDE e docentes, a utilidade percebida, a clareza das justificativas e o tempo economizado em relação à conferência manual.
+\end{itemize}

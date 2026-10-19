@@ -1,0 +1,43 @@
+\chapter{INTRODUÇÃO}
+\label{cap:introducao}
+
+Os avanços recentes em Inteligência Artificial (IA), em especial no Processamento de Linguagem Natural (PLN) e nos modelos de linguagem de grande escala (\textit{Large Language Models}, LLMs), ampliaram as possibilidades de automação de tarefas que antes dependiam exclusivamente da leitura humana de documentos \cite{Zhao2023, ADIGUZEL2023}. A UNESCO aponta que a IA pode apoiar tanto a aprendizagem quanto a gestão educacional, desde que sua adoção seja acompanhada de políticas que garantam equidade e supervisão humana \cite{Pedro2019}. No Brasil, pesquisa da Chegg.org divulgada pela \citeonline{CNNBrasil2023} indica que cerca de metade dos universitários já utiliza ferramentas de IA em sua rotina acadêmica, o que evidencia a rápida difusão dessas tecnologias no ambiente educacional.
+
+No campo da gestão educacional, \citeonline{Sposato2025} classifica as aplicações de IA na liderança e na administração de instituições de ensino e destaca a automação de tarefas rotineiras, a análise de documentos e o suporte à tomada de decisão como usos recorrentes. A revisão sistemática de \citeonline{Tan2025} reforça esse cenário ao identificar o apoio ao planejamento docente e a otimização de tarefas administrativas entre as aplicações mais frequentes, ao mesmo tempo em que aponta a escassez de estudos sobre processos administrativos do ensino superior. \citeonline{Walter2024}, por sua vez, ressalta que a integração da IA na educação exige letramento em IA e pensamento crítico, o que reforça a necessidade de manter a supervisão humana em qualquer solução automatizada.
+
+Entre os documentos que estruturam o trabalho docente está o plano de ensino. A Lei de Diretrizes e Bases da Educação Nacional (LDB) atribui aos docentes a incumbência de elaborar e cumprir seu plano de trabalho e determina que as instituições informem aos estudantes, antes de cada período letivo, os programas dos componentes curriculares e seus critérios de avaliação \cite{Brasil1996}. No Instituto Federal Catarinense (IFC), cada componente curricular possui um plano de ensino elaborado pelo docente a cada semestre, e a Organização Didática da instituição define os elementos que esse documento deve conter, como ementa, objetivos, conteúdos, metodologia, avaliação e referências bibliográficas \cite{ifc2022}. A verificação de que cada plano contém esses elementos é feita manualmente pela coordenação de curso e pelo Núcleo Docente Estruturante (NDE), lendo documento por documento.
+
+Essa conferência manual é repetitiva e sujeita a inconsistências entre avaliadores, e seu custo cresce com o número de componentes curriculares. Ao mesmo tempo, os planos de ensino do IFC são emitidos pelo Sistema Integrado de Gestão de Atividades Acadêmicas (SIGAA) em um formato padronizado, mas com conteúdo textual livre e heterogêneo, o que dificulta soluções baseadas apenas em regras fixas. Os LLMs são capazes de interpretar texto livre, mas estão sujeitos a alucinações, isto é, à geração de conteúdo plausível porém incorreto \cite{Ji2023}. Uma solução útil para esse contexto precisa, portanto, combinar a flexibilidade dos modelos de linguagem com mecanismos que tornem suas saídas verificáveis e manter o avaliador humano como responsável pela decisão final \cite{USDeptEd2023, Shneiderman2022}.
+
+Este trabalho apresenta o desenvolvimento e a avaliação de um sistema semiautomático que apoia a validação dos planos de ensino do curso de Ciência da Computação do IFC -- Campus Videira. O sistema obtém os planos em PDF de uma pasta compartilhada, extrai e segmenta o texto, avalia doze critérios com um LLM aberto executado localmente, combina essa avaliação com regras determinísticas e apresenta o resultado de cada critério em um painel \textit{web}, de modo que a coordenação e o NDE concentrem sua atenção nos planos e nos itens que efetivamente exigem revisão.
+
+\section{Problema de pesquisa}
+
+De que forma um sistema baseado em modelos de linguagem pode apoiar a validação de planos de ensino, reduzindo o esforço de conferência manual e preservando a aderência às normas do IFC e o controle humano sobre a decisão final?
+
+\section{Objetivos}
+
+\subsection{Objetivo Geral}
+
+Desenvolver e avaliar um sistema semiautomático baseado em IA para apoiar a validação dos planos de ensino do curso de Ciência da Computação do IFC -- Campus Videira, alinhado à Organização Didática da instituição.
+
+\subsection{Objetivos Específicos}
+
+\begin{enumerate}
+    \item Identificar os elementos obrigatórios dos planos de ensino a partir da Organização Didática do IFC e das orientações da coordenação do curso, convertendo-os em critérios de avaliação verificáveis.
+    \item Projetar e implementar um \textit{pipeline} de automação que extraia e segmente o texto dos planos, avalie cada critério com um LLM executado localmente e registre os resultados de forma rastreável.
+    \item Disponibilizar um painel \textit{web} que permita acompanhar os planos processados e consultar o resultado e a justificativa de cada critério.
+    \item Avaliar o sistema com os planos de ensino reais do semestre 2024/1 quanto à robustez técnica, ao desempenho computacional e à concordância com verificações de referência, analisando seus erros e propondo aprimoramentos.
+\end{enumerate}
+
+\section{Justificativa}
+
+A conferência manual dos planos de ensino consome tempo da coordenação e do NDE que poderia ser dedicado a ações pedagógicas de maior impacto, como a análise da coerência entre componentes curriculares e a atualização do Projeto Pedagógico de Curso (PPC). Por ser repetitiva, essa conferência também está sujeita a variações entre avaliadores e entre semestres, o que dificulta garantir que todos os planos atendam aos mesmos critérios.
+
+Do ponto de vista científico, a revisão de \citeonline{Vieira2025} sobre as experiências com IA nos Institutos Federais constatou pouca produção acadêmica sobre o tema e identificou a IA como apoio administrativo como a forma de incorporação menos explorada. A aplicação de LLMs à verificação normativa de documentos acadêmicos internos é, portanto, um nicho pouco investigado, especialmente em instituições públicas brasileiras e com modelos executados localmente.
+
+Do ponto de vista prático, a opção por ferramentas de código aberto e por um modelo executado em equipamento próprio elimina custos de licenciamento e evita o envio dos documentos a serviços externos de IA, o que facilita a adoção institucional e o atendimento à Lei Geral de Proteção de Dados Pessoais (LGPD) \cite{Brasil2018}. Por fim, a abordagem semiautomática, em que o sistema aponta possíveis não conformidades e o avaliador humano decide, segue as recomendações de uso responsável de IA na educação \cite{USDeptEd2023, Pedro2019}.
+
+\section{Estrutura do trabalho}
+
+Além desta introdução, o trabalho está organizado em cinco capítulos. O Capítulo \ref{cap:fundamentacao} apresenta a fundamentação teórica sobre planos de ensino, modelos de linguagem, técnicas para reduzir alucinações, ferramentas de automação e métricas de avaliação, além dos trabalhos relacionados. O Capítulo \ref{cap:metodologia} descreve a metodologia da pesquisa, incluindo o corpus utilizado e o protocolo de avaliação. O Capítulo \ref{cap:desenvolvimento} documenta o desenvolvimento do sistema: requisitos, atores, regras de negócio, histórias de usuário, modelagem de dados, diagramas e protótipo. O Capítulo \ref{cap:resultados} apresenta e discute os resultados da avaliação. Por fim, o Capítulo \ref{cap:conclusao} apresenta as conclusões, as limitações e as sugestões de trabalhos futuros.

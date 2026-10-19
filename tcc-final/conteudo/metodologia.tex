@@ -1,0 +1,107 @@
+\chapter{METODOLOGIA}
+\label{cap:metodologia}
+
+Este capítulo descreve como a pesquisa foi conduzida: sua classificação, as etapas realizadas, o corpus de documentos, os critérios de avaliação, o ambiente experimental, o protocolo de avaliação e os cuidados éticos adotados. O processo de desenvolvimento de software propriamente dito é detalhado na Seção \ref{sec:processo}.
+
+\section{Classificação da pesquisa}
+
+Quanto à natureza, trata-se de uma pesquisa aplicada, pois busca gerar conhecimento para a solução de um problema concreto \cite{Gil2017}: a conferência dos planos de ensino de um curso de graduação. Quanto aos objetivos, é exploratória, por investigar a viabilidade de uma tecnologia ainda pouco aplicada a esse problema, e descritiva, por caracterizar o comportamento do sistema sobre documentos reais \cite{Gil2017}. A abordagem é predominantemente quantitativa, com métricas de desempenho e de concordância, complementada por uma análise qualitativa dos erros.
+
+Quanto ao procedimento, adota-se o estudo de caso, que investiga um fenômeno contemporâneo em seu contexto real \cite{Yin2015}. O caso estudado é a validação dos planos de ensino do curso de Ciência da Computação do IFC -- Campus Videira, e a unidade de análise é o par (plano de ensino, critério de avaliação).
+
+\section{Etapas da pesquisa}
+
+A pesquisa foi organizada em cinco etapas, relacionadas aos objetivos específicos:
+
+\begin{enumerate}
+    \item \textbf{Levantamento de critérios} (objetivo específico 1): leitura da Organização Didática do IFC \cite{ifc2022} e dos planos exportados pelo SIGAA, e definição, em conjunto com o orientador, dos critérios de avaliação e de suas regras.
+    \item \textbf{Projeto e implementação} (objetivos específicos 2 e 3): desenvolvimento iterativo do fluxo de validação e do painel \textit{web}, descrito no Capítulo \ref{cap:desenvolvimento}.
+    \item \textbf{Execuções sobre o corpus}: processamento repetido dos planos de ensino a cada nova versão do sistema, com registro de todos os resultados.
+    \item \textbf{Avaliação} (objetivo específico 4): cálculo das métricas de robustez, desempenho e concordância e análise dos erros.
+    \item \textbf{Redação}: consolidação dos resultados e elaboração deste documento.
+\end{enumerate}
+
+\section{Corpus}
+\label{sec:corpus}
+
+O corpus é formado pelos 29 planos de ensino do semestre letivo 2024/1 do curso de Ciência da Computação disponibilizados em uma pasta do Google Drive para este trabalho. Todos foram exportados do SIGAA em PDF com texto pesquisável, o que dispensou o reconhecimento óptico de caracteres. Os documentos têm entre 3 e 5 páginas (média de 3,4) e, após a extração, entre 4.520 e 11.436 caracteres (média de 7.048, desvio-padrão de 1.700). Entre os componentes curriculares há disciplinas de formação básica, como matemática e estatística, de formação tecnológica, como programação, banco de dados e redes, e de formação complementar, como metodologia científica e trabalho de conclusão de curso. Dois planos correspondem a turmas distintas de um mesmo componente, o que permitiu observar a consistência do sistema diante de documentos quase idênticos.
+
+\section{Critérios de avaliação}
+\label{sec:criterios}
+
+Os critérios foram definidos a partir dos elementos exigidos pela Organização Didática \cite{ifc2022} e das orientações do orientador deste trabalho, que sugeriu a lista inicial de itens a verificar e participou dos ajustes posteriores. Dois ajustes merecem registro. O item ``adequação à ementa'' foi incorporado ao critério de coerência, por se sobrepor a ele. A exigência de que os procedimentos de avaliação mencionassem a interdisciplinaridade foi removida, pois as primeiras execuções mostraram que ela levava o modelo a reprovar planos que descreviam adequadamente seus instrumentos de avaliação. Os doze critérios resultantes e suas regras estão na Tabela \ref{tab:criterios}.
+
+\begin{table}[H]
+\centering
+\caption{Critérios de avaliação e regras de conformidade}
+\label{tab:criterios}
+\footnotesize
+\begin{tabular}{@{}L{3.3cm}L{9.0cm}L{2.0cm}@{}}
+\toprule
+\rowcolor[HTML]{EFEFEF}
+\textbf{Critério} & \textbf{Regra para o status OK} & \textbf{Avaliado por} \\ \midrule
+Identificação & Contém o nome da instituição, do componente curricular e do docente & LLM \\
+Ementa & Descreve os temas da disciplina em texto corrido com ao menos 15 palavras & LLM \\
+Objetivo geral & Possui texto preenchido & Regra \\
+Objetivos específicos & Possuem texto preenchido & Regra \\
+Conteúdo programático & Lista os tópicos ou unidades de conteúdo & LLM \\
+Metodologia & Descreve como as aulas serão conduzidas (estratégias e recursos) & LLM \\
+Procedimentos de avaliação & Descreve os instrumentos de avaliação & LLM \\
+Cronograma & Apresenta distribuição temporal dos conteúdos (datas ou semanas) & LLM \\
+Avaliações & Indica as avaliações previstas (instrumentos, datas ou pesos) & LLM \\
+Horário de atendimento & Informa dia(s) e/ou horário(s) de atendimento ao estudante & LLM \\
+Referências & No mínimo 3 referências básicas e 5 complementares & Regra \\
+Coerência & Objetivos, metodologia e avaliação compatíveis entre si & LLM \\ \bottomrule
+\end{tabular}
+\legend{Fonte: Elaborado pelo autor (2026), com base em \citeonline{ifc2022}.}
+\end{table}
+
+Cada critério recebe um entre três status: \textbf{OK}, quando atende à regra; \textbf{INCOMPLETO}, quando há conteúdo relacionado que não atende à regra; e \textbf{AUSENTE}, quando o campo está vazio ou sem relação com o critério. O plano recebe um status geral: \textbf{OK}, se todos os critérios estão OK; \textbf{PENDENTE}, se há ao menos um critério INCOMPLETO e nenhum AUSENTE; e \textbf{REPROVADO}, se há ao menos um critério AUSENTE. Falhas técnicas que impeçam a avaliação geram o status \textbf{ERRO}.
+
+\section{Ambiente experimental}
+
+Todas as execuções foram realizadas em um computador portátil, com os componentes descritos na Tabela \ref{tab:ambiente}. O modelo de linguagem foi executado inteiramente no equipamento local, sem envio dos documentos a serviços de IA externos.
+
+\begin{table}[H]
+\centering
+\caption{Ambiente experimental}
+\label{tab:ambiente}
+\footnotesize
+\begin{tabular}{@{}L{4.2cm}L{10.2cm}@{}}
+\toprule
+\rowcolor[HTML]{EFEFEF}
+\textbf{Componente} & \textbf{Especificação} \\ \midrule
+Processador & Intel Core Ultra 7 155H \\
+Memória RAM & 32 GB \\
+GPU & NVIDIA GeForce RTX 4050 Laptop, 6 GB de VRAM \\
+Sistema operacional & Windows 11, com Docker Desktop \\
+Orquestração & n8n 2.21.7 (contêiner \texttt{docker.n8n.io/n8nio/n8n}) \\
+Servidor de inferência & Ollama 0.24.0 (contêiner \texttt{ollama/ollama}) \\
+Modelo de linguagem & Qwen2.5 7B Instruct, 7,6 bilhões de parâmetros, quantização Q4\_K\_M \\
+Parâmetros de geração & temperatura 0,1; contexto de 8.192 \textit{tokens}; máximo de 1.500 \textit{tokens} gerados \\
+Otimizações do Ollama & \textit{FlashAttention} ativado; \textit{KV cache} quantizado em 8 bits (\texttt{q8\_0}) \\
+Armazenamento & Google Drive (planos) e Google Sheets (resultados) \\ \bottomrule
+\end{tabular}
+\legend{Fonte: Elaborado pelo autor (2026).}
+\end{table}
+
+A temperatura de 0,1 foi escolhida para tornar as respostas praticamente determinísticas, característica desejável em uma tarefa de verificação, na qual o mesmo documento deve receber a mesma avaliação em execuções diferentes.
+
+\section{Protocolo de avaliação}
+\label{sec:protocolo}
+
+A avaliação foi organizada em quatro dimensões.
+
+\textbf{Robustez técnica.} Para cada execução do sistema sobre o corpus, registrou-se a proporção de planos com status ERRO e o motivo da falha. Como a planilha de resultados acumula todas as execuções, foi possível reconstruir a evolução da robustez ao longo das iterações de desenvolvimento.
+
+\textbf{Desempenho computacional.} Para cada requisição ao modelo, o Ollama informa o número de \textit{tokens} de entrada e de saída e o tempo gasto em cada fase. Esses metadados, preservados no histórico de execuções do n8n, foram usados para calcular o tempo de inferência por plano, a velocidade de geração em \textit{tokens} por segundo e o tempo total de processamento do lote.
+
+\textbf{Concordância com oráculo estrutural.} Para o critério de horário de atendimento, a presença de conteúdo pode ser verificada de forma objetiva no texto extraído: no modelo do SIGAA, o rótulo ``Horário de Atendimento'' é seguido imediatamente pela seção ``Programa'', e o texto entre os dois indica se o campo foi preenchido. Esse oráculo estrutural, implementado no \textit{script} do Apêndice \ref{ap:analise}, serve como referência independente do modelo de linguagem para o cálculo das métricas da Seção \ref{sec:metricas}. Para os critérios de referências e de objetivos, avaliados por regras determinísticas, verificou-se por amostragem, no texto extraído, se as contagens e detecções correspondiam ao conteúdo dos documentos.
+
+\textbf{Análise de erros.} Todos os planos com algum critério diferente de OK na execução final foram confrontados com o texto extraído do PDF, classificando cada apontamento como correto ou incorreto e identificando a causa dos erros.
+
+Para os critérios que dependem de interpretação, como metodologia e coerência, não existe oráculo estrutural, e a referência adequada é o parecer de avaliadores humanos. O protocolo previsto para essa comparação consiste em: (i) solicitar a membros do NDE que classifiquem, de forma independente e sem acesso à saída do sistema, cada critério de cada plano; (ii) consolidar os pareceres em uma referência única, resolvendo divergências por consenso; e (iii) calcular, por critério, precisão, \textit{recall}, $F_1$ e Kappa de Cohen entre o sistema e a referência. Os artefatos necessários para executar esse protocolo, a planilha de anotação e o \textit{script} de cálculo das métricas, foram produzidos e estão descritos no Apêndice \ref{ap:analise}. A realização da anotação pelo NDE não coube no período deste trabalho e é discutida como limitação no Capítulo \ref{cap:conclusao}.
+
+\section{Aspectos éticos}
+
+Os planos de ensino são documentos institucionais de caráter público para a comunidade acadêmica, mas contêm o nome dos docentes responsáveis. Para evitar qualquer exposição individual, os resultados deste trabalho são apresentados de forma anonimizada: os planos são identificados por códigos de P01 a P29, atribuídos pela ordem alfabética do nome do arquivo, e nenhuma tabela associa resultados a docentes ou a componentes curriculares. O processamento foi realizado em equipamento local, sem envio dos documentos a provedores externos de IA, em consonância com os princípios de finalidade e de necessidade da LGPD \cite{Brasil2018}. Os resultados do sistema têm caráter indicativo e não foram utilizados para qualquer decisão sobre os planos avaliados.

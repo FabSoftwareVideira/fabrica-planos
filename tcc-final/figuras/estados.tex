@@ -1,0 +1,26 @@
+\begin{tikzpicture}[every node/.style={font=\scriptsize}]
+  \tikzset{
+    est/.style={draw, rounded corners=8pt, minimum width=2.4cm, minimum height=0.8cm, align=center, fill=white},
+    ini/.style={circle, fill=black, minimum size=0.3cm, inner sep=0}
+  }
+  \node[ini] (i) at (0,0) {};
+  \node[est] (ag) at (2.0,0) {Aguardando\\validação};
+  \node[est] (ev) at (6.4,0) {Em validação};
+  \node[est] (ok) at (12.0,1.7) {\textbf{OK}};
+  \node[est] (pen) at (12.0,0) {\textbf{PENDENTE}};
+  \node[est] (rep) at (12.0,-1.7) {\textbf{REPROVADO}};
+  \node[est] (err) at (6.4,-2.8) {\textbf{ERRO}};
+  \node[est] (rev) at (12.0,-4.0) {Em revisão\\humana};
+
+  \draw[seta] (i) -- (ag);
+  \draw[seta] (ag) -- node[above, align=center]{execução\\iniciada} (ev);
+  \draw[seta] (ev) -- node[above, sloped]{12 critérios OK} (ok);
+  \draw[seta] (ev) -- node[above]{há INCOMPLETO} (pen);
+  \draw[seta] (ev) -- node[below, sloped]{há AUSENTE} (rep);
+  \draw[seta] (ev) -- node[left]{falha técnica} (err);
+  \draw[seta] (err) -| node[pos=0.3, below]{nova execução} (ag);
+  \draw[seta] (rep) -- (rev);
+  \draw[seta] (pen.east) -- ++(0.6,0) |- ([yshift=2mm]rev.east);
+  \draw[seta] (rev.south) -- ++(0,-0.6) -| node[pos=0.25, below]{docente corrige e reenvia o PDF} ([xshift=-4mm]ag.south);
+  \draw[seta] ([yshift=-2mm]rev.east) -- ++(1.2,0) |- node[pos=0.2, right, align=left]{NDE descarta\\o apontamento\\(falso positivo)} (ok.east);
+\end{tikzpicture}

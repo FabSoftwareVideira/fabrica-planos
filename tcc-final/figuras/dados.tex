@@ -1,0 +1,24 @@
+\begin{tikzpicture}[every node/.style={font=\scriptsize}]
+  \tikzset{
+    ent/.style={draw, rectangle split, rectangle split parts=2, align=left, fill=white, text width=4.4cm, inner sep=4pt},
+  }
+  \node[ent] (plano) at (0,0) {\centering\textbf{PlanoDeEnsino}\nodepart{second}
+    arquivo: texto (nome no Drive)\\
+    link\_pdf: URL\\
+    id\_drive: texto};
+  \node[ent] (val) at (8.0,0) {\centering\textbf{Validação}\nodepart{second}
+    data\_validacao: data e hora\\
+    status\_geral: \{OK, PENDENTE,\\\hspace{1.2em}REPROVADO, ERRO\}\\
+    observacao\_geral: texto};
+  \node[ent] (crit) at (8.0,-3.8) {\centering\textbf{ResultadoCritério}\nodepart{second}
+    criterio: \{Identificação, Ementa, \ldots,\\\hspace{1.2em}Coerência\} (12 valores)\\
+    status: \{OK, INCOMPLETO,\\\hspace{1.2em}AUSENTE, ERRO\}\\
+    observacao: texto};
+  \node[ent] (cont) at (0,-3.8) {\centering\textbf{ContagemReferências}\nodepart{second}
+    ref\_basicas: inteiro\\
+    ref\_complementares: inteiro};
+
+  \draw[thick] (plano.east) -- node[above, pos=0.08]{1} node[above, pos=0.9]{0..*} node[below, midway]{é avaliado em} (val.west);
+  \draw[thick] (val.south) -- node[right, pos=0.12]{1} node[right, pos=0.85]{12} node[left, midway]{compõe-se de} (crit.north);
+  \draw[thick] (val.south west) -- node[above, pos=0.1]{1} node[above, pos=0.9]{1} node[above, sloped, midway]{deriva} (cont.north east);
+\end{tikzpicture}

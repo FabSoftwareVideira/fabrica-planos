@@ -1,0 +1,33 @@
+\begin{tikzpicture}[every node/.style={font=\footnotesize}]
+  % Linha 1: entrada, validação e modelo
+  \node[ext, text width=2.4cm] (drive) at (0,2) {Google Drive\\\scriptsize pasta de planos (PDF)};
+  \node[caixa, text width=3.9cm] (wfval) at (5.4,2) {\textbf{Workflow de validação}\\\scriptsize busca, extração, segmentação, \textit{prompt}, interpretação e registro};
+  \node[ia, text width=2.7cm] (llm) at (11.0,2) {\textbf{Ollama}\\\scriptsize Qwen2.5 7B (Q4\_K\_M)\\\texttt{/api/generate}};
+  \node[caixa, text width=2.7cm, font=\scriptsize] (gpu) at (11.0,0.25) {GPU NVIDIA (6 GB)};
+
+  % Linha 2: resultados e dashboard
+  \node[ext, text width=2.4cm] (sheets) at (0,-1.4) {Google Sheets\\\scriptsize aba \textit{Validações}};
+  \node[caixa, text width=3.9cm] (wfdash) at (5.4,-1.4) {\textbf{Workflow do \textit{dashboard}}\\\scriptsize leitura da planilha e geração do HTML};
+
+  % Linha 3: usuário
+  \node[caixa, text width=3.9cm] (user) at (5.4,-4.2) {Coordenação, NDE ou docente\\\scriptsize navegador \textit{web}};
+
+  % Agrupamentos
+  \begin{scope}[on background layer]
+    \node[grupo, fit=(wfval)(wfdash), inner sep=10pt] (n8n) {};
+    \node[grupo, fit=(llm)(gpu), inner sep=10pt] (oll) {};
+    \node[draw, rounded corners=4pt, black!80, fit=(n8n)(oll), inner sep=8pt] (docker) {};
+  \end{scope}
+  \node[font=\scriptsize\bfseries, anchor=south] at (n8n.north) {Contêiner n8n};
+  \node[font=\scriptsize\bfseries, anchor=south] at (oll.north) {Contêiner Ollama};
+  \node[font=\scriptsize\bfseries, anchor=south west] at ([yshift=1mm]docker.north west) {Docker Compose -- rede interna \texttt{tc-network}};
+
+  % Fluxos
+  \draw[seta] (drive) -- node[rotulo, above]{1. lista e baixa} (wfval);
+  \draw[seta] ([yshift=2.5mm]wfval.east) -- node[rotulo, above]{2. \textit{prompt} + esquema} ([yshift=2.5mm]llm.west);
+  \draw[seta] ([yshift=-2.5mm]llm.west) -- node[rotulo, below]{3. JSON} ([yshift=-2.5mm]wfval.east);
+  \draw[thick, dotted] (llm) -- (gpu);
+  \draw[seta] (wfval.south west) -- node[rotulo, above, sloped]{4. uma linha por plano} (sheets.north east);
+  \draw[seta] (sheets) -- node[rotulo, above]{5. leitura} (wfdash);
+  \draw[seta, {Stealth[length=2.2mm]}-{Stealth[length=2.2mm]}] (user) -- node[rotulo, right]{6. \texttt{GET /webhook/dashboard}} (wfdash);
+\end{tikzpicture}
