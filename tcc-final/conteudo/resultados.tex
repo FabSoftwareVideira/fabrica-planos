@@ -6,7 +6,7 @@ Este capítulo apresenta e discute os resultados obtidos segundo o protocolo da 
 \section{Robustez técnica ao longo das iterações}
 \label{sec:res-robustez}
 
-A Figura \ref{fig:evolucao} mostra a proporção de planos que receberam o status ERRO em cada data de execução registrada na planilha de resultados. Nas datas com mais de uma execução, como 25/08, o valor agrega todas as execuções do dia.
+A primeira dimensão avaliada é a robustez técnica, pois um sistema que falha ao processar os planos não pode ter seus resultados avaliados nas demais dimensões. A Figura \ref{fig:evolucao} mostra a proporção de planos que receberam o status ERRO em cada data de execução registrada na planilha de resultados. Nas datas com mais de uma execução, como 25/08, o valor agrega todas as execuções do dia.
 
 \begin{figure}[htbp]
 \centering
@@ -44,7 +44,7 @@ Na execução de 15/09, cinco planos falharam por estouro do tempo limite, entã
 \section{Desempenho computacional}
 \label{sec:res-desempenho}
 
-A Tabela \ref{tab:desempenho} resume os metadados de inferência da execução final. Cada plano gerou, em média, um \textit{prompt} de 3.248 \textit{tokens} e uma resposta de 274 \textit{tokens}. A leitura do \textit{prompt} levou em média 1,6 segundo e a geração da resposta, 9,9 segundos, totalizando 11,5 segundos de inferência por plano. A velocidade média de geração foi de 27,6 \textit{tokens} por segundo. O lote completo de 29 planos, incluindo a listagem e o \textit{download} dos arquivos, a extração, as chamadas ao modelo e a gravação na planilha, foi processado em 8 minutos e 54 segundos, abaixo do limite de 30 minutos estabelecido no RNF03.
+Eliminadas as falhas técnicas, a questão seguinte é se o sistema processa o lote em tempo compatível com o uso real. A Tabela \ref{tab:desempenho} resume os metadados de inferência da execução final. Cada plano gerou, em média, um \textit{prompt} de 3.248 \textit{tokens} e uma resposta de 274 \textit{tokens}. A leitura do \textit{prompt} levou em média 1,6 segundo e a geração da resposta, 9,9 segundos, totalizando 11,5 segundos de inferência por plano. A velocidade média de geração foi de 27,6 \textit{tokens} por segundo. O lote completo de 29 planos, incluindo a listagem e o \textit{download} dos arquivos, a extração, as chamadas ao modelo e a gravação na planilha, foi processado em 8 minutos e 54 segundos, abaixo do limite de 30 minutos estabelecido no RNF03.
 
 \begin{table}[H]
 \centering
@@ -82,7 +82,7 @@ Extrapolando a média de 11,5 segundos de inferência por plano, a validação d
 \section{Resultados da validação do corpus}
 \label{sec:res-corpus}
 
-Na execução final, 11 planos (37,9\%) foram considerados conformes (OK), 3 (10,3\%) pendentes e 15 (51,7\%) reprovados. A Figura \ref{fig:criterios} detalha o resultado por critério.
+Com o sistema estável e com desempenho adequado, esta seção apresenta o que ele apontou sobre os planos. Na execução final, 11 planos (37,9\%) foram considerados conformes (OK), 3 (10,3\%) pendentes e 15 (51,7\%) reprovados. A Figura \ref{fig:criterios} detalha o resultado por critério.
 
 \begin{figure}[htbp]
 \centering
@@ -101,7 +101,7 @@ O segundo critério mais apontado foi o de \textbf{referências}, incompleto em 
 \section{Concordância com o oráculo estrutural}
 \label{sec:res-oraculo}
 
-Para o critério de horário de atendimento, o oráculo estrutural descrito na Seção \ref{sec:protocolo} identificou 15 planos com o campo vazio e 14 com conteúdo. A Tabela \ref{tab:confusao} apresenta a matriz de confusão do sistema em relação a esse oráculo, considerando como positivo o plano não conforme, isto é, com status INCOMPLETO ou AUSENTE.
+Os resultados da seção anterior só são úteis se os apontamentos estiverem corretos. O critério de horário de atendimento, o mais apontado, é também o único que pode ser conferido por uma referência independente do modelo. Para esse critério, o oráculo estrutural descrito na Seção \ref{sec:protocolo} identificou 15 planos com o campo vazio e 14 com conteúdo. A Tabela \ref{tab:confusao} apresenta a matriz de confusão do sistema em relação a esse oráculo, considerando como positivo o plano não conforme, isto é, com status INCOMPLETO ou AUSENTE.
 
 \begin{table}[H]
 \centering
@@ -126,7 +126,7 @@ O único falso positivo em relação ao oráculo, o plano P19, merece atenção.
 \section{Análise de erros}
 \label{sec:res-erros}
 
-Todos os apontamentos da execução final, além dos de horário de atendimento, foram confrontados com o texto extraído dos PDFs. A Tabela \ref{tab:erros} apresenta o resultado dessa verificação.
+Para os demais critérios, que não têm oráculo estrutural, a correção dos apontamentos foi verificada manualmente. Todos os apontamentos da execução final, além dos de horário de atendimento, foram confrontados com o texto extraído dos PDFs. A Tabela \ref{tab:erros} apresenta o resultado dessa verificação.
 
 \begin{table}[H]
 \centering
@@ -157,7 +157,7 @@ Por fim, a análise revelou um problema de consistência na observação geral, 
 \section{Discussão}
 \label{sec:res-discussao}
 
-Os resultados permitem responder ao problema de pesquisa sob três aspectos. Quanto à \textbf{viabilidade técnica}, o sistema processou o corpus completo sem falhas, em menos de 9 minutos, em um computador portátil com GPU de 6 GB e sem custos por requisição. A evolução das iterações mostra, porém, que essa robustez não veio do modelo, mas da engenharia em torno dele: controle de concorrência, saída estruturada, dimensionamento do contexto e registro detalhado das execuções. Esse resultado é coerente com a visão de \citeonline{Kreuzberger2023} de que sistemas com componentes de aprendizado de máquina dependem tanto da infraestrutura e da operação quanto do modelo.
+As seções anteriores analisaram cada dimensão da avaliação separadamente. Considerados em conjunto, os resultados permitem responder ao problema de pesquisa sob três aspectos. Quanto à \textbf{viabilidade técnica}, o sistema processou o corpus completo sem falhas, em menos de 9 minutos, em um computador portátil com GPU de 6 GB e sem custos por requisição. A evolução das iterações mostra, porém, que essa robustez não veio do modelo, mas da engenharia em torno dele: controle de concorrência, saída estruturada, dimensionamento do contexto e registro detalhado das execuções. Esse resultado é coerente com a visão de \citeonline{Kreuzberger2023} de que sistemas com componentes de aprendizado de máquina dependem tanto da infraestrutura e da operação quanto do modelo.
 
 Quanto à \textbf{qualidade da triagem}, o sistema não deixou de apontar nenhuma das não conformidades verificáveis por oráculo e todos os seus apontamentos verificados correspondiam a problemas reais, com um único falso negativo identificado, causado por uma regra determinística e não pelo modelo. A principal fragilidade está na distinção entre INCOMPLETO e AUSENTE. Para uma ferramenta de triagem, cujo objetivo é dirigir a atenção do avaliador, a detecção do problema é mais importante que sua categoria, mas a categoria afeta o status geral e, portanto, a priorização dos planos. Esses resultados estão alinhados com a literatura sobre LLMs como avaliadores, que relata boa concordância com humanos acompanhada de vieses e inconsistências que precisam ser controlados \cite{Zheng2023, Chang2024}.
 

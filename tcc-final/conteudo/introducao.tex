@@ -7,15 +7,17 @@ No campo da gestão educacional, \citeonline{Sposato2025} classifica as aplicaç
 
 Entre os documentos que estruturam o trabalho docente está o plano de ensino. A Lei de Diretrizes e Bases da Educação Nacional (LDB) atribui aos docentes a incumbência de elaborar e cumprir seu plano de trabalho e determina que as instituições informem aos estudantes, antes de cada período letivo, os programas dos componentes curriculares e seus critérios de avaliação \cite{Brasil1996}. No Instituto Federal Catarinense (IFC), cada componente curricular possui um plano de ensino elaborado pelo docente a cada semestre, e a Organização Didática da instituição define os elementos que esse documento deve conter, como ementa, objetivos, conteúdos, metodologia, avaliação e referências bibliográficas \cite{ifc2022}. A verificação de que cada plano contém esses elementos é feita manualmente pela coordenação de curso e pelo Núcleo Docente Estruturante (NDE), lendo documento por documento.
 
-Essa conferência manual é repetitiva e sujeita a inconsistências entre avaliadores, e seu custo cresce com o número de componentes curriculares. Ao mesmo tempo, os planos de ensino do IFC são emitidos pelo Sistema Integrado de Gestão de Atividades Acadêmicas (SIGAA) em um formato padronizado, mas com conteúdo textual livre e heterogêneo, o que dificulta soluções baseadas apenas em regras fixas. Os LLMs são capazes de interpretar texto livre, mas estão sujeitos a alucinações, isto é, à geração de conteúdo plausível porém incorreto \cite{Ji2023}. Uma solução útil para esse contexto precisa, portanto, combinar a flexibilidade dos modelos de linguagem com mecanismos que tornem suas saídas verificáveis e manter o avaliador humano como responsável pela decisão final \cite{USDeptEd2023, Shneiderman2022}.
+Essa conferência manual é repetitiva e sujeita a inconsistências entre avaliadores, e seu custo cresce com o número de componentes curriculares. Automatizá-la, contudo, não é trivial: os planos de ensino do IFC são emitidos pelo Sistema Integrado de Gestão de Atividades Acadêmicas (SIGAA) em um formato padronizado, com as mesmas seções em todos os documentos, mas o conteúdo de cada seção é texto livre e heterogêneo, escrito por docentes diferentes. Regras fixas conseguem verificar se uma seção existe ou quantas referências ela contém, mas não se uma metodologia descreve de fato como as aulas serão conduzidas. Esse tipo de julgamento exige interpretar o texto, tarefa para a qual os LLMs são adequados. Esses modelos, porém, estão sujeitos a alucinações, isto é, à geração de conteúdo plausível porém incorreto \cite{Ji2023}, de modo que, aplicados à conferência dos planos, seus apontamentos precisam ser verificáveis e a decisão sobre cada plano precisa permanecer com o avaliador humano \cite{USDeptEd2023, Shneiderman2022}.
 
-Este trabalho apresenta o desenvolvimento e a avaliação de um sistema semiautomático que apoia a validação dos planos de ensino do curso de Ciência da Computação do IFC -- Campus Videira. O sistema obtém os planos em PDF de uma pasta compartilhada, extrai e segmenta o texto, avalia doze critérios com um LLM aberto executado localmente, combina essa avaliação com regras determinísticas e apresenta o resultado de cada critério em um painel \textit{web}, de modo que a coordenação e o NDE concentrem sua atenção nos planos e nos itens que efetivamente exigem revisão.
+Diante desse cenário, este trabalho propõe desenvolver um sistema semiautomático de apoio à validação dos planos de ensino do curso de Ciência da Computação do IFC -- Campus Videira e avaliá-lo com os planos reais de um semestre letivo. O sistema deverá obter os planos em PDF de uma pasta compartilhada, extrair e segmentar seu texto, avaliar doze critérios com um LLM aberto executado localmente, combinar essa avaliação com regras determinísticas e apresentar o resultado de cada critério em um painel \textit{web}, para que a coordenação e o NDE possam identificar os planos e os itens que exigem revisão. A avaliação busca verificar se essa abordagem é tecnicamente viável em um equipamento local e em que medida seus apontamentos concordam com verificações de referência.
 
 \section{Problema de pesquisa}
 
-De que forma um sistema baseado em modelos de linguagem pode apoiar a validação de planos de ensino, reduzindo o esforço de conferência manual e preservando a aderência às normas do IFC e o controle humano sobre a decisão final?
+De que forma um sistema baseado em modelos de linguagem pode apoiar a verificação da conformidade dos planos de ensino às normas do IFC, indicando de forma confiável os itens que exigem revisão e preservando o controle humano sobre a decisão final?
 
 \section{Objetivos}
+
+Para responder ao problema de pesquisa, foram definidos um objetivo geral e quatro objetivos específicos, apresentados a seguir.
 
 \subsection{Objetivo Geral}
 
@@ -23,12 +25,12 @@ Desenvolver e avaliar um sistema semiautomático baseado em IA para apoiar a val
 
 \subsection{Objetivos Específicos}
 
-\begin{enumerate}
+\begin{itemize}
     \item Identificar os elementos obrigatórios dos planos de ensino a partir da Organização Didática do IFC e das orientações da coordenação do curso, convertendo-os em critérios de avaliação verificáveis.
     \item Projetar e implementar um \textit{pipeline} de automação que extraia e segmente o texto dos planos, avalie cada critério com um LLM executado localmente e registre os resultados de forma rastreável.
     \item Disponibilizar um painel \textit{web} que permita acompanhar os planos processados e consultar o resultado e a justificativa de cada critério.
-    \item Avaliar o sistema com os planos de ensino reais do semestre 2024/1 quanto à robustez técnica, ao desempenho computacional e à concordância com verificações de referência, analisando seus erros e propondo aprimoramentos.
-\end{enumerate}
+    \item Avaliar o sistema com os 29 planos de ensino reais do semestre 2024/1, medindo a proporção de planos com falha técnica em cada iteração (robustez técnica), o tempo de inferência por plano e de processamento do lote (desempenho computacional) e a concordância dos resultados com um oráculo estrutural e com a conferência manual dos apontamentos no texto dos planos, e analisar os erros encontrados para propor aprimoramentos.
+\end{itemize}
 
 \section{Justificativa}
 
