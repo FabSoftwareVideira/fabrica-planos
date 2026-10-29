@@ -47,7 +47,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const rows = $input.all().map(i => i.json);\n\nconst total = rows.length;\nconst ok = rows.filter(r => r['Status Geral'] === 'OK').length;\nconst pendente = rows.filter(r => r['Status Geral'] === 'PENDENTE').length;\nconst problema = total - ok - pendente; // REPROVADO + ERRO\n\nconst campos = ['Identificação','Ementa','Objetivos Geral','Objetivos Específicos','Conteúdo Programático','Metodologia','Proc. Avaliação','Cronograma','Avaliações','Horário Atendimento','Referências','Coerência'];\n\nconst cor = (s) => {\n  if (s === 'OK') return '#22c55e';\n  if (s === 'INCOMPLETO' || s === 'PENDENTE') return '#eab308';\n  return '#ef4444'; // AUSENTE, REPROVADO, ERRO\n};\n\nconst esc = (v) => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\n\nconst badge = (s) => `<span style=\"background:${cor(s)};color:#fff;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;white-space:nowrap\">${esc(s) || '-'}</span>`;\n\nconst cards = rows.map(r => {\n  const topicos = campos.map(c => {\n    const obs = r[c + ' Obs'];\n    return `<div style=\"border:1px solid #e5e7eb;border-left:4px solid ${cor(r[c])};border-radius:8px;padding:10px 12px;background:#fafafa\">\n      <div style=\"display:flex;justify-content:space-between;align-items:center;gap:8px\">\n        <span style=\"font-size:13px;font-weight:600\">${esc(c)}</span>\n        ${badge(r[c])}\n      </div>\n      ${obs ? `<div style=\"font-size:12px;color:#6b7280;margin-top:6px\">${esc(obs)}</div>` : ''}\n    </div>`;\n  }).join('');\n\n  const nome = String(r['Arquivo'] || '').replace('2024-1 - ', '').replace('.pdf', '');\n\n  return `<details style=\"background:#fff;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.1);margin-bottom:12px\">\n    <summary style=\"display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer;list-style:none\">\n      <span style=\"font-weight:600;flex:1\">${esc(nome)}</span>\n      ${badge(r['Status Geral'])}\n      <span style=\"color:#9ca3af;font-size:12px\">▼ detalhes</span>\n    </summary>\n    <div style=\"padding:0 16px 16px\">\n      ${r['Observação Geral'] ? `<p style=\"margin:0 0 12px;font-size:13px;color:#6b7280\">${esc(r['Observação Geral'])}</p>` : ''}\n      <div style=\"display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px\">${topicos}</div>\n    </div>\n  </details>`;\n}).join('');\n\nconst pct = (n) => total ? Math.round(n / total * 100) : 0;\n\nconst html = `<!DOCTYPE html>\n<html lang=\"pt-BR\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>Validação de Planos de Ensino</title>\n<style>details summary::-webkit-details-marker{display:none}</style>\n</head>\n<body style=\"margin:0;font-family:system-ui,-apple-system,sans-serif;background:#f3f4f6;color:#111827\">\n<div style=\"max-width:1100px;margin:0 auto;padding:32px 16px\">\n  <h1 style=\"margin:0 0 4px\">📋 Validação de Planos de Ensino</h1>\n  <p style=\"margin:0 0 24px;color:#6b7280\">Planos de Ensino 2024-1 · atualizado em ${new Date().toLocaleString('pt-BR')}</p>\n\n  <div style=\"display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:24px\">\n    <div style=\"background:#fff;border-radius:12px;padding:20px;box-shadow:0 1px 3px rgba(0,0,0,.1)\">\n      <div style=\"font-size:13px;color:#6b7280\">Total de planos</div>\n      <div style=\"font-size:32px;font-weight:700\">${total}</div>\n    </div>\n    <div style=\"background:#fff;border-radius:12px;padding:20px;box-shadow:0 1px 3px rgba(0,0,0,.1);border-left:4px solid #22c55e\">\n      <div style=\"font-size:13px;color:#6b7280\">Aprovados</div>\n      <div style=\"font-size:32px;font-weight:700;color:#22c55e\">${ok} <span style=\"font-size:14px;color:#9ca3af\">(${pct(ok)}%)</span></div>\n    </div>\n    <div style=\"background:#fff;border-radius:12px;padding:20px;box-shadow:0 1px 3px rgba(0,0,0,.1);border-left:4px solid #eab308\">\n      <div style=\"font-size:13px;color:#6b7280\">Pendentes</div>\n      <div style=\"font-size:32px;font-weight:700;color:#eab308\">${pendente} <span style=\"font-size:14px;color:#9ca3af\">(${pct(pendente)}%)</span></div>\n    </div>\n    <div style=\"background:#fff;border-radius:12px;padding:20px;box-shadow:0 1px 3px rgba(0,0,0,.1);border-left:4px solid #ef4444\">\n      <div style=\"font-size:13px;color:#6b7280\">Com problemas</div>\n      <div style=\"font-size:32px;font-weight:700;color:#ef4444\">${problema} <span style=\"font-size:14px;color:#9ca3af\">(${pct(problema)}%)</span></div>\n    </div>\n  </div>\n\n  ${cards}\n\n  <p style=\"color:#9ca3af;font-size:12px;margin-top:16px\">🟢 OK · 🟡 Incompleto/Pendente · 🔴 Ausente/Reprovado/Erro — clique em um plano para ver o detalhe de cada tópico</p>\n</div>\n</body>\n</html>`;\n\nreturn [{ json: { html } }];\n"
+        "jsCode": "const rows = $input.all().map(i => i.json);\n\nconst total = rows.length;\nconst ok = rows.filter(r => r['Status Geral'] === 'OK').length;\nconst pendente = rows.filter(r => r['Status Geral'] === 'PENDENTE').length;\nconst problema = total - ok - pendente; // REPROVADO + ERRO\n\nconst campos = ['Identificação','Ementa','Objetivos Geral','Objetivos Específicos','Conteúdo Programático','Metodologia','Proc. Avaliação','Cronograma','Avaliações','Horário Atendimento','Referências','Coerência'];\n\nconst cor = (s) => {\n  if (s === 'OK') return '#22c55e';\n  if (s === 'INCOMPLETO' || s === 'PENDENTE') return '#eab308';\n  return '#ef4444'; // AUSENTE, REPROVADO, ERRO\n};\n\nconst esc = (v) => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\n\nconst badge = (s) => `<span style=\"background:${cor(s)};color:#fff;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;white-space:nowrap\">${esc(s) || '-'}</span>`;\n\nconst cards = rows.map(r => {\n  const topicos = campos.map(c => {\n    const obs = r[c + ' Obs'];\n    return `<div style=\"border:1px solid #e5e7eb;border-left:4px solid ${cor(r[c])};border-radius:8px;padding:10px 12px;background:#fafafa\">\n      <div style=\"display:flex;justify-content:space-between;align-items:center;gap:8px\">\n        <span style=\"font-size:13px;font-weight:600\">${esc(c)}</span>\n        ${badge(r[c])}\n      </div>\n      ${obs ? `<div style=\"font-size:12px;color:#6b7280;margin-top:6px\">${esc(obs)}</div>` : ''}\n    </div>`;\n  }).join('');\n\n  const nome = String(r['Arquivo'] || '').replace('2024-1 - ', '').replace('.pdf', '');\n\n  const linkPdf = `<a href=\"/webhook/pdf?arquivo=${encodeURIComponent(String(r['Arquivo'] || ''))}\" target=\"_blank\" rel=\"noopener\" style=\"font-size:13px;color:#2563eb;text-decoration:none;font-weight:600;white-space:nowrap\" onclick=\"event.stopPropagation()\">📄 Abrir PDF</a>`;\n  return `<details style=\"background:#fff;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.1);margin-bottom:12px\">\n    <summary style=\"display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer;list-style:none\">\n      <span style=\"font-weight:600;flex:1\">${esc(nome)}</span>\n      ${badge(r['Status Geral'])}\n      ${linkPdf}\n      <span style=\"color:#9ca3af;font-size:12px\">▼ detalhes</span>\n    </summary>\n    <div style=\"padding:0 16px 16px\">\n      ${r['Observação Geral'] ? `<p style=\"margin:0 0 12px;font-size:13px;color:#6b7280\">${esc(r['Observação Geral'])}</p>` : ''}\n      <div style=\"display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px\">${topicos}</div>\n    </div>\n  </details>`;\n}).join('');\n\nconst pct = (n) => total ? Math.round(n / total * 100) : 0;\n\nconst html = `<!DOCTYPE html>\n<html lang=\"pt-BR\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>Validação de Planos de Ensino</title>\n<style>details summary::-webkit-details-marker{display:none}</style>\n</head>\n<body style=\"margin:0;font-family:system-ui,-apple-system,sans-serif;background:#f3f4f6;color:#111827\">\n<div style=\"max-width:1100px;margin:0 auto;padding:32px 16px\">\n  <h1 style=\"margin:0 0 4px\">📋 Validação de Planos de Ensino</h1>\n  <p style=\"margin:0 0 24px;color:#6b7280\">Planos de Ensino 2024-1 · atualizado em ${new Date().toLocaleString('pt-BR')}</p>\n\n  <div style=\"display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:24px\">\n    <div style=\"background:#fff;border-radius:12px;padding:20px;box-shadow:0 1px 3px rgba(0,0,0,.1)\">\n      <div style=\"font-size:13px;color:#6b7280\">Total de planos</div>\n      <div style=\"font-size:32px;font-weight:700\">${total}</div>\n    </div>\n    <div style=\"background:#fff;border-radius:12px;padding:20px;box-shadow:0 1px 3px rgba(0,0,0,.1);border-left:4px solid #22c55e\">\n      <div style=\"font-size:13px;color:#6b7280\">Aprovados</div>\n      <div style=\"font-size:32px;font-weight:700;color:#22c55e\">${ok} <span style=\"font-size:14px;color:#9ca3af\">(${pct(ok)}%)</span></div>\n    </div>\n    <div style=\"background:#fff;border-radius:12px;padding:20px;box-shadow:0 1px 3px rgba(0,0,0,.1);border-left:4px solid #eab308\">\n      <div style=\"font-size:13px;color:#6b7280\">Pendentes</div>\n      <div style=\"font-size:32px;font-weight:700;color:#eab308\">${pendente} <span style=\"font-size:14px;color:#9ca3af\">(${pct(pendente)}%)</span></div>\n    </div>\n    <div style=\"background:#fff;border-radius:12px;padding:20px;box-shadow:0 1px 3px rgba(0,0,0,.1);border-left:4px solid #ef4444\">\n      <div style=\"font-size:13px;color:#6b7280\">Com problemas</div>\n      <div style=\"font-size:32px;font-weight:700;color:#ef4444\">${problema} <span style=\"font-size:14px;color:#9ca3af\">(${pct(problema)}%)</span></div>\n    </div>\n  </div>\n\n  ${cards}\n\n  <p style=\"color:#9ca3af;font-size:12px;margin-top:16px\">🟢 OK · 🟡 Incompleto/Pendente · 🔴 Ausente/Reprovado/Erro — clique em um plano para ver o detalhe de cada tópico</p>\n</div>\n</body>\n</html>`;\n\nreturn [{ json: { html } }];\n"
       },
       "id": "code-html-001",
       "name": "Gerar HTML",
@@ -80,6 +80,79 @@
       "position": [
         660,
         0
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "pdf",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-pdf-001",
+      "name": "Webhook PDF",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Aceita só o nome de um PDF dentro da pasta de planos (sem caminhos, sem \"..\"), evitando leitura fora dela.\nconst nome = String($input.first().json.query?.arquivo || '');\nconst barra = String.fromCharCode(92);\nconst invalido = nome === '' || !nome.toLowerCase().endsWith('.pdf') || nome.includes('/') || nome.includes(barra) || nome.includes('..');\nif (invalido) throw new Error('Arquivo inválido: ' + nome);\nreturn [{ json: { caminho: '/data/planos/' + nome } }];\n"
+      },
+      "id": "validar-pdf-001",
+      "name": "Validar Arquivo PDF",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "fileSelector": "={{ $json.caminho }}",
+        "options": {}
+      },
+      "id": "ler-pdf-001",
+      "name": "Ler PDF",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [
+        440,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "binary",
+        "responseDataSource": "set",
+        "inputFieldName": "data",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/pdf"
+              },
+              {
+                "name": "Content-Disposition",
+                "value": "inline"
+              }
+            ]
+          }
+        }
+      },
+      "id": "responder-pdf-001",
+      "name": "Responder PDF",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        660,
+        300
       ]
     }
   ],
@@ -122,6 +195,39 @@
         [
           {
             "node": "Gerar HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook PDF": {
+      "main": [
+        [
+          {
+            "node": "Validar Arquivo PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar Arquivo PDF": {
+      "main": [
+        [
+          {
+            "node": "Ler PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ler PDF": {
+      "main": [
+        [
+          {
+            "node": "Responder PDF",
             "type": "main",
             "index": 0
           }
