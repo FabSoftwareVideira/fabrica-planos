@@ -11,6 +11,7 @@ services:
       - NODE_ENV=production
       - WEBHOOK_URL=${WEBHOOK_URL}
       - GENERIC_TIMEZONE=${GENERIC_TIMEZONE}
+      - N8N_SECURE_COOKIE=${N8N_SECURE_COOKIE}
       - TZ=${TZ}
       # Code node com retentativas ao Ollama pode passar de 300s por bloco
       - N8N_RUNNERS_TASK_TIMEOUT=1800
