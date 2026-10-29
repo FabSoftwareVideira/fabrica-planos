@@ -3,21 +3,42 @@ services:
     image: docker.n8n.io/n8nio/n8n
     restart: "no"
     ports:
-      - "5678:5678"
+      - "${N8N_PORT}:${N8N_PORT}"
     environment:
-      - N8N_HOST=localhost
-      - N8N_PORT=5678
-      - N8N_PROTOCOL=http
+      - N8N_HOST=${N8N_HOST}
+      - N8N_PORT=${N8N_PORT}
+      - N8N_PROTOCOL=${N8N_PROTOCOL}
       - NODE_ENV=production
-      - WEBHOOK_URL=http://localhost:5678/
-      - GENERIC_TIMEZONE=America/Sao_Paulo
-      - TZ=America/Sao_Paulo
+      - WEBHOOK_URL=${WEBHOOK_URL}
+      - GENERIC_TIMEZONE=${GENERIC_TIMEZONE}
+      - TZ=${TZ}
       # Code node com retentativas ao Ollama pode passar de 300s por bloco
       - N8N_RUNNERS_TASK_TIMEOUT=1800
+      # Libera os nós Read/Write Files a ler e gravar em /data (planos e resultados)
+      - N8N_RESTRICT_FILE_ACCESS_TO=/data
     volumes:
       - n8n_data:/home/node/.n8n
+      # PDFs de entrada (leitura) e CSV de saída, pastas locais do Windows
+      - "./planos:/data/planos:ro"
+      - "./resultados:/data/resultados"
     depends_on:
-      - ollama
+      n8n-import:
+        condition: service_completed_successfully
+      ollama:
+        condition: service_started
+    networks:
+      - tc-network
+
+  # Importa (ou atualiza, pelo id fixo) o workflow e o ativa antes do n8n subir
+  n8n-import:
+    image: docker.n8n.io/n8nio/n8n
+    restart: "no"
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - "n8n import:workflow --input=/workflows/validacao-planos.json && n8n update:workflow --id=ValidacaoPlanos1 --active=true"
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - "./workflows/validacao-planos.json:/workflows/validacao-planos.json:ro"
     networks:
       - tc-network
 
@@ -25,7 +46,8 @@ services:
     image: ollama/ollama
     restart: "no"
     ports:
-      - "11434:11434"
+      # Porta do host (OLLAMA_PORT) -> porta interna 11434, que os workflows usam em http://ollama:11434
+      - "${OLLAMA_PORT}:11434"
     volumes:
       - ollama_data:/root/.ollama
     environment:

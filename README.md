@@ -28,8 +28,10 @@ Identificação (instituição, componente, docente) · Ementa · Objetivos gera
 
 | Arquivo | O que é |
 |---------|---------|
-| `3go4m2xSKi3p5P0g-My_workflow.json` | Workflow principal de validação (roda todo dia às 5h ou manualmente) |
-| `dashboard-planos.json` | Workflow do dashboard HTML via webhook |
+| `workflows/validacao-planos.json` | Workflow principal de validação (roda todo dia às 5h ou manualmente) |
+| `workflows/dashboard-planos.json` | Workflow do dashboard HTML via webhook |
+| `planos/` | PDFs dos planos de ensino a validar (somente leitura para o n8n) |
+| `resultados/` | CSV gerado pela validação (`validacao_planos.csv`) |
 | `docker-compose.yml` | Stack n8n + Ollama (com GPU NVIDIA) |
 
 ## Requisitos
@@ -49,8 +51,9 @@ docker exec vslongo-workflows-ollama-1 ollama pull qwen2.5:7b
 
 > O modelo padrão agora é o **qwen2.5:7b** (melhor que o llama3.2 em português e em saída JSON). Para trocar, edite a constante `OLLAMA_MODEL` no nó **Preparar Prompt**.
 
-- n8n: http://localhost:5678 (criar conta local no primeiro acesso)
-- Ollama: acessível pelos workflows em `http://ollama:11434`
+- n8n: http://200.135.55.29:9090 (criar conta local no primeiro acesso)
+- Ollama: acessível pelos workflows em `http://ollama:11434` e, do host, em `http://200.135.55.29:11435`
+- Essas portas e o IP ficam no arquivo `.env` (modelo em `.env.example`)
 
 ### 2. Google Cloud Console
 
@@ -70,7 +73,7 @@ docker exec vslongo-workflows-ollama-1 ollama pull qwen2.5:7b
 ### 4. Usar
 
 - **Validar**: abrir o workflow principal → **Test workflow** (ou esperar o agendamento das 5h)
-- **Dashboard**: ativar o workflow do dashboard (toggle) e abrir http://localhost:5678/webhook/dashboard
+- **Dashboard**: ativar o workflow do dashboard (toggle) e abrir http://200.135.55.29:9090/webhook/dashboard
   - Cada plano é um card expansível: clique para ver o status e a observação de **cada tópico separadamente**, e use **📄 Abrir PDF** para abrir o arquivo original no Drive
 
 ### Usar o Gemini (em vez do Ollama)
