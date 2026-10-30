@@ -33,6 +33,7 @@ Identificação (instituição, componente, docente) · Ementa · Objetivos gera
 | `planos/` | PDFs dos planos de ensino a validar (somente leitura para o n8n) |
 | `resultados/` | CSV gerado pela validação (`validacao_planos.csv`) |
 | `docker-compose.yml` | Stack n8n + Ollama (com GPU NVIDIA) |
+| `validador-planos/` | Validador em Python (Flask + Docker) que substitui o workflow do n8n; ver o README da pasta |
 
 ## Requisitos
 

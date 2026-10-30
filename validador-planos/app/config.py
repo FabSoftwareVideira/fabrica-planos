@@ -1,0 +1,33 @@
+import os
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class Config:
+    planos_dir: str
+    resultados_dir: str
+    ollama_url: str
+    modelo: str
+    num_ctx: int
+    hora_agendada: int
+    agendar: bool
+
+    @property
+    def lock_path(self):
+        return os.path.join(self.resultados_dir, 'validacao.lock')
+
+    @property
+    def csv_path(self):
+        return os.path.join(self.resultados_dir, 'validacao_planos.csv')
+
+
+def carregar():
+    return Config(
+        planos_dir=os.environ.get('PLANOS_DIR', '/data/planos'),
+        resultados_dir=os.environ.get('RESULTADOS_DIR', '/data/resultados'),
+        ollama_url=os.environ.get('OLLAMA_URL', 'http://ollama:11434').rstrip('/'),
+        modelo=os.environ.get('OLLAMA_MODEL', 'qwen2.5:7b'),
+        num_ctx=int(os.environ.get('OLLAMA_NUM_CTX', '8192')),
+        hora_agendada=int(os.environ.get('AGENDAMENTO_HORA', '5')),
+        agendar=os.environ.get('AGENDAR', '1') == '1',
+    )
