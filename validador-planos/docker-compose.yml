@@ -7,45 +7,17 @@ services:
     environment:
       - PLANOS_DIR=/data/planos
       - RESULTADOS_DIR=/data/resultados
-      - OLLAMA_URL=http://ollama:11434
+      # Ollama externo (outro container ou serviço), alcançado pela porta publicada no host
+      - OLLAMA_URL=${OLLAMA_URL}
       - OLLAMA_MODEL=${OLLAMA_MODEL}
       - OLLAMA_NUM_CTX=${OLLAMA_NUM_CTX}
       - AGENDAMENTO_HORA=${AGENDAMENTO_HORA}
       - AGENDAR=1
       - TZ=${TZ}
+    extra_hosts:
+      # Em Linux, host.docker.internal só existe com esse mapeamento
+      - "host.docker.internal:host-gateway"
     volumes:
       # PDFs de entrada (somente leitura) ficam fora do container, na pasta indicada em PLANOS_HOST_DIR
       - "${PLANOS_HOST_DIR}:/data/planos:ro"
       - "./resultados:/data/resultados"
-    depends_on:
-      - ollama
-    networks:
-      - validador-net
-
-  ollama:
-    image: ollama/ollama:0.40.12
-    restart: unless-stopped
-    ports:
-      - "${OLLAMA_PORT}:11434"
-    volumes:
-      - ollama_data:/root/.ollama
-    environment:
-      - OLLAMA_KEEP_ALIVE=30m
-      - OLLAMA_FLASH_ATTENTION=1
-      - OLLAMA_KV_CACHE_TYPE=q8_0
-    networks:
-      - validador-net
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
-
-volumes:
-  ollama_data:
-
-networks:
-  validador-net:
-    driver: bridge

@@ -21,17 +21,26 @@ def montar_payload(modelo, prompt, num_ctx):
     }
 
 
+class OllamaErro(Exception):
+    pass
+
+
 def chamar_ollama(ollama_url, payload, timeout=180):
     ultimo_erro = None
     for tentativa in range(TENTATIVAS):
         try:
             resp = requests.post(ollama_url + '/api/generate', json=payload, timeout=timeout)
-            resp.raise_for_status()
-            return resp.json().get('response', '')
         except requests.RequestException as erro:
-            ultimo_erro = erro
-            if tentativa < TENTATIVAS - 1:
-                time.sleep(ESPERA_SEGUNDOS)
+            ultimo_erro = OllamaErro(f'Ollama inacessível: {erro}')
+        else:
+            if resp.ok:
+                return resp.json().get('response', '')
+            # O corpo traz a causa real, ex.: {"error":"model 'qwen2.5:7b' not found"}
+            ultimo_erro = OllamaErro(f'Ollama respondeu {resp.status_code}: {resp.text.strip()[:300]}')
+            if resp.status_code < 500:
+                raise ultimo_erro  # erro do pedido (ex.: modelo não baixado): repetir não adianta
+        if tentativa < TENTATIVAS - 1:
+            time.sleep(ESPERA_SEGUNDOS)
     raise ultimo_erro
 
 

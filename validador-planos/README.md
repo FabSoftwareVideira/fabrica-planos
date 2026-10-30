@@ -42,10 +42,10 @@ cp .env.example .env
 docker compose up -d --build
 ```
 
-3. Baixe o modelo no Ollama (uma vez):
+3. Baixe o modelo no Ollama existente (uma vez; `ollama` é o nome do container):
 
 ```bash
-docker compose exec ollama ollama pull qwen2.5:7b
+docker exec ollama ollama pull qwen2.5:7b
 ```
 
 4. Teste:
@@ -65,6 +65,6 @@ pytest
 
 ## Observações
 
-- O n8n e este validador usam portas diferentes. Se os dois estiverem rodando, o Ollama de cada stack precisa de porta própria (`OLLAMA_PORT`).
+- O validador não sobe um Ollama próprio: usa o que já roda no servidor, em `OLLAMA_URL` (padrão `http://host.docker.internal:11434`, a porta publicada no host). Se o firewall do host bloquear o tráfego dos containers para essa porta, libere-a para a rede do Docker.
 - A extração usa `pdfplumber`, que lê só a camada de texto. PDFs escaneados continuam precisando de OCR antes de entrar na pasta.
 - Para trocar o modelo, altere `OLLAMA_MODEL` no `.env` e reinicie o serviço `app`.
