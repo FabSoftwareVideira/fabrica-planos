@@ -7,7 +7,7 @@ services:
     environment:
       - PLANOS_DIR=/data/planos
       - RESULTADOS_DIR=/data/resultados
-      # Ollama externo, alcançado pelo nome do container na rede compartilhada
+      # Ollama do serviço abaixo, alcançado pelo nome do serviço na rede do compose
       - OLLAMA_URL=${OLLAMA_URL}
       - OLLAMA_MODEL=${OLLAMA_MODEL}
       - OLLAMA_NUM_CTX=${OLLAMA_NUM_CTX}
@@ -18,12 +18,31 @@ services:
       # PDFs de entrada (somente leitura) ficam fora do container, na pasta indicada em PLANOS_HOST_DIR
       - "${PLANOS_HOST_DIR}:/data/planos:ro"
       - "./resultados:/data/resultados"
-    networks:
-      - default
-      - ollama
+    depends_on:
+      ollama:
+        condition: service_healthy
 
-networks:
-  # Rede criada fora do compose, à qual o container do Ollama também está conectado (ver README)
   ollama:
-    external: true
-    name: ${OLLAMA_NETWORK}
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    environment:
+      - TZ=${TZ}
+    volumes:
+      # Modelos baixados persistem entre recriações do container
+      - ollama-data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+volumes:
+  ollama-data:

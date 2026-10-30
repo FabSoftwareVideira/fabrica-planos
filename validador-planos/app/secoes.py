@@ -22,7 +22,10 @@ SECTION_DEFS = [
     ('referencias', r'^Refer[êe]ncias(\s+B[áa]sicas|\s+Bibliogr[áa]ficas)?\s*:?'),
 ]
 
-HORARIO_CABECALHO = re.compile(r'Hor[^ ]*rio[ ]+de[ ]+Atend', re.IGNORECASE)
+# No SIGAA o docente vem depois da ementa, fora dos primeiros 500 caracteres.
+DOCENTES = re.compile(r'^Matr[íi]cula\s+Docente\(s\)[ \t]*\n(?:[ \t]*\d+[ \t]+\S.*(?:\n|$))+', re.IGNORECASE | re.MULTILINE)
+
+HORARIO_CABECALHO =re.compile(r'Hor[^ ]*rio[ ]+de[ ]+Atend', re.IGNORECASE)
 HORARIO_DIA_OU_HORA = re.compile(
     r'(segunda|ter[çc]a|quarta|quinta|sexta|s[áa]bado|domingo|[0-9]{1,2}[:h][0-9]{0,2})',
     re.IGNORECASE,
@@ -77,7 +80,11 @@ def analisar_texto(text):
             encontradas.append({'key': chave, 'start': m.start(), 'position': m.end()})
     encontradas.sort(key=lambda s: s['position'])
 
-    result = {'identificacao': text[:500].strip()}
+    identificacao = text[:500].strip()
+    docentes = DOCENTES.search(text)
+    if docentes and docentes.start() >= 500:
+        identificacao += '\n' + docentes.group(0).strip()
+    result = {'identificacao': identificacao}
     for i, atual in enumerate(encontradas):
         proxima = encontradas[i + 1] if i + 1 < len(encontradas) else None
         fim = proxima['start'] if proxima else len(text)

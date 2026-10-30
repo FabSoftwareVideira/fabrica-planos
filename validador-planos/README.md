@@ -36,35 +36,33 @@ Ao iniciar, a validação grava a hora atual em `resultados/validacao.lock` e re
 cp .env.example .env
 ```
 
-2. Conecte o validador ao Ollama existente por uma rede Docker compartilhada (uma vez). Crie a rede e ligue o container `ollama` a ela; isso não reinicia o Ollama:
-
-```bash
-docker network create ollama-net
-```
-
-```bash
-docker network connect ollama-net ollama
-```
-
-3. Suba o validador:
+2. Suba o validador e o Ollama:
 
 ```bash
 docker compose up -d --build
 ```
 
-4. Baixe o modelo no Ollama existente (uma vez; `ollama` é o nome do container):
+3. Baixe o modelo no Ollama (uma vez; fica no volume `ollama-data`):
 
 ```bash
-docker exec ollama ollama pull qwen2.5:7b
+docker compose exec ollama ollama pull qwen2.5:7b
 ```
 
-5. Teste:
+4. Teste:
 
 ```bash
 curl -i -X POST http://localhost:8080/validar
 ```
 
 Depois abra `http://IP_DO_SERVIDOR:8080/dashboard`.
+
+## Conferir a extração de um plano
+
+Mostra o texto extraído do PDF e como ele foi separado em seções (com `--prompt`, também o prompt enviado ao Ollama), sem chamar a IA:
+
+```bash
+docker compose exec app python -m app.depurar "2026-2 - Banco Dados II - Leila.pdf" --prompt
+```
 
 ## Testes
 
@@ -75,6 +73,6 @@ pytest
 
 ## Observações
 
-- O validador não sobe um Ollama próprio: usa o container `ollama` que já roda no servidor, pelo nome, na rede `OLLAMA_NETWORK` (padrão `ollama-net`). Se o container do Ollama for recriado, conecte-o de novo à rede com `docker network connect ollama-net ollama`.
+- O Ollama roda como serviço `ollama` do próprio compose, sem porta publicada no host; o validador o alcança em `http://ollama:11434`. Os modelos ficam no volume `ollama-data` e sobrevivem a `docker compose down` (só `down -v` os apaga). Para usar GPU NVIDIA, descomente o bloco `deploy` do serviço no `docker-compose.yml`.
 - A extração usa `pdfplumber`, que lê só a camada de texto. PDFs escaneados continuam precisando de OCR antes de entrar na pasta.
-- Para trocar o modelo, altere `OLLAMA_MODEL` (e, se quiser, `OLLAMA_NUM_CTX`) no `.env`, baixe o modelo com `docker exec ollama ollama pull <modelo>` e rode `docker compose up -d`. Um `docker compose restart` não recarrega o `.env`.
+- Para trocar o modelo, altere `OLLAMA_MODEL` (e, se quiser, `OLLAMA_NUM_CTX`) no `.env`, baixe o modelo com `docker compose exec ollama ollama pull <modelo>` e rode `docker compose up -d`. Um `docker compose restart` não recarrega o `.env`.
