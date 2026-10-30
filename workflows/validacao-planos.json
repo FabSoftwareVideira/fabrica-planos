@@ -412,6 +412,10 @@
               {
                 "name": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
               }
             ]
           }
@@ -501,6 +505,10 @@
               {
                 "name": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
               }
             ]
           }
@@ -571,6 +579,82 @@
       "position": [
         -2700,
         2400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Último bloco? O Processar em Blocos envia 10 planos por bloco.\nconst total = $('Preparar Prompt').all().length;\nconst blocos = Math.ceil(total / 10);\nreturn [{ json: { fim: $runIndex + 1 >= blocos } }];\n"
+      },
+      "id": "verificar-fim-001",
+      "name": "Verificar Fim",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2660,
+        2000
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "fim-cond-001",
+              "leftValue": "={{ $json.fim }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "fim-if-001",
+      "name": "Fim do Processamento?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -2440,
+        2000
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Arquivo de lock vazio: sem data válida, o Verificar Lock considera que não há validação em andamento.\nconst arquivo = await this.helpers.prepareBinaryData(Buffer.from('', 'utf8'), 'validacao.lock', 'text/plain');\nreturn [{ json: { liberado: true }, binary: { data: arquivo } }];\n"
+      },
+      "id": "preparar-liberacao-001",
+      "name": "Preparar Liberação",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2220,
+        1840
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "/data/resultados/validacao.lock",
+        "dataPropertyName": "data",
+        "options": {}
+      },
+      "id": "liberar-lock-001",
+      "name": "Liberar Lock",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [
+        -2000,
+        1840
       ]
     }
   ],
@@ -693,7 +777,7 @@
       "main": [
         [
           {
-            "node": "Preparar Heartbeat",
+            "node": "Verificar Fim",
             "type": "main",
             "index": 0
           }
@@ -800,6 +884,46 @@
         [
           {
             "node": "Processar em Blocos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verificar Fim": {
+      "main": [
+        [
+          {
+            "node": "Fim do Processamento?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fim do Processamento?": {
+      "main": [
+        [
+          {
+            "node": "Preparar Liberação",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Preparar Heartbeat",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar Liberação": {
+      "main": [
+        [
+          {
+            "node": "Liberar Lock",
             "type": "main",
             "index": 0
           }

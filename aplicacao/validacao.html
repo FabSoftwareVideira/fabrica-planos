@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Validação de Planos</title>
+<style>
+  :root {
+    --bg: #f3f4f6;
+    --card: #ffffff;
+    --text: #111827;
+    --muted: #6b7280;
+    --accent: #2563eb;
+    --ok: #16a34a;
+    --warn: #ca8a04;
+    --err: #dc2626;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  main { max-width: 560px; margin: 0 auto; padding: 32px 16px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 24px; font-size: 14px; }
+  .card {
+    background: var(--card);
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .1);
+    margin-bottom: 16px;
+  }
+  label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+  input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 14px;
+  }
+  button, .botao {
+    display: block;
+    width: 100%;
+    padding: 12px 18px;
+    border: 0;
+    border-radius: 8px;
+    background: var(--accent);
+    color: #fff;
+    font-size: 15px;
+    font-weight: 600;
+    text-align: center;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  button:disabled { opacity: .6; cursor: default; }
+  .botao.secundario { background: #e5e7eb; color: var(--text); margin-top: 10px; }
+  .status {
+    border-left: 4px solid var(--muted);
+    background: #fafafa;
+    padding: 12px 14px;
+    border-radius: 8px;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  .status.ok { border-color: var(--ok); }
+  .status.warn { border-color: var(--warn); }
+  .status.err { border-color: var(--err); }
+  .status strong { display: block; margin-bottom: 4px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Validação de Planos de Ensino</h1>
+  <p class="sub">Inicia a validação dos PDFs da pasta de planos no servidor.</p>
+
+  <div class="card">
+    <label for="base">Endereço do servidor n8n</label>
+    <input id="base" type="url" value="http://200.135.55.29:9090">
+  </div>
+
+  <div class="card">
+    <button id="iniciar" type="button">Iniciar validação</button>
+    <a id="dashboard" class="botao secundario" target="_blank" rel="noopener">Abrir dashboard</a>
+  </div>
+
+  <div class="card">
+    <div id="status" class="status" role="status">
+      <strong>Pronto</strong>
+      <div>Nenhuma validação iniciada nesta sessão.</div>
+    </div>
+  </div>
+</main>
+
+<script>
+  const PADRAO = 'http://200.135.55.29:9090';
+  const baseInput = document.getElementById('base');
+  const botao = document.getElementById('iniciar');
+  const dashboard = document.getElementById('dashboard');
+  const status = document.getElementById('status');
+
+  function base() {
+    return baseInput.value.trim().replace(/\/+$/, '');
+  }
+
+  function atualizaLinks() {
+    dashboard.href = base() + '/webhook/dashboard';
+  }
+
+  function mostra(tipo, titulo, detalhe) {
+    status.className = 'status ' + tipo;
+    status.textContent = '';
+    const t = document.createElement('strong');
+    t.textContent = titulo;
+    const d = document.createElement('div');
+    d.textContent = detalhe;
+    status.append(t, d);
+  }
+
+  try {
+    baseInput.value = localStorage.getItem('baseN8n') || PADRAO;
+  } catch (e) {
+    baseInput.value = PADRAO;
+  }
+  atualizaLinks();
+
+  baseInput.addEventListener('input', () => {
+    atualizaLinks();
+    try { localStorage.setItem('baseN8n', base()); } catch (e) { /* sem armazenamento local */ }
+  });
+
+  botao.addEventListener('click', async () => {
+    botao.disabled = true;
+    mostra('', 'Enviando pedido…', 'Aguarde a resposta do servidor.');
+    try {
+      const resp = await fetch(base() + '/webhook/validar', { method: 'POST' });
+      if (resp.status === 409) {
+        mostra('warn', 'Validação já em andamento', 'Espere ela terminar antes de iniciar outra. Acompanhe pelo dashboard.');
+      } else if (resp.ok) {
+        mostra('ok', 'Validação iniciada', 'Ela roda em segundo plano. Os resultados aparecem no dashboard quando terminarem.');
+      } else if (resp.status === 404) {
+        mostra('err', 'Workflow não encontrado', 'Confirme que o workflow de validação está publicado no n8n.');
+      } else {
+        mostra('err', 'Erro do servidor (' + resp.status + ')', 'Veja as execuções do workflow no n8n para mais detalhes.');
+      }
+    } catch (e) {
+      mostra('err', 'Não foi possível conectar', 'Confira o endereço do servidor e se a porta está acessível.');
+    } finally {
+      botao.disabled = false;
+    }
+  });
+</script>
+</body>
+</html>
