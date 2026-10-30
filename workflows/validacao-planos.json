@@ -656,6 +656,99 @@
         -2000,
         1840
       ]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "fileSelector": "/data/planos/*.pdf",
+        "options": {}
+      },
+      "id": "checar-pdfs-001",
+      "name": "Checar PDFs",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [
+        -4228,
+        2200
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Há pelo menos um PDF na pasta? O nó de leitura sempre gera um item; sem arquivos ele não tem binário.\nconst temPdf = $input.all().some(i => i.binary && Object.keys(i.binary).length > 0);\nreturn [{ json: { temPdf } }];\n"
+      },
+      "id": "verificar-pdfs-001",
+      "name": "Verificar PDFs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -4008,
+        2200
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "pdfs-cond-001",
+              "leftValue": "={{ $json.temPdf }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "ha-pdfs-if-001",
+      "name": "Há PDFs?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -3788,
+        2200
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "{\"status\":\"sem_planos\",\"mensagem\":\"Nenhum PDF encontrado na pasta de planos\"}",
+        "options": {
+          "responseCode": 422,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "responder-sem-planos-001",
+      "name": "Responder Sem Planos",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -3568,
+        2360
+      ]
     }
   ],
   "connections": {
@@ -839,7 +932,7 @@
         ],
         [
           {
-            "node": "Preparar Lock",
+            "node": "Checar PDFs",
             "type": "main",
             "index": 0
           }
@@ -924,6 +1017,46 @@
         [
           {
             "node": "Liberar Lock",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Checar PDFs": {
+      "main": [
+        [
+          {
+            "node": "Verificar PDFs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verificar PDFs": {
+      "main": [
+        [
+          {
+            "node": "Há PDFs?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Há PDFs?": {
+      "main": [
+        [
+          {
+            "node": "Preparar Lock",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder Sem Planos",
             "type": "main",
             "index": 0
           }

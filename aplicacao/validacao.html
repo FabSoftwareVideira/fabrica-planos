@@ -139,6 +139,8 @@
         mostra('warn', 'Validação já em andamento', 'Espere ela terminar antes de iniciar outra. Acompanhe pelo dashboard.');
       } else if (resp.ok) {
         mostra('ok', 'Validação iniciada', 'Ela roda em segundo plano. Os resultados aparecem no dashboard quando terminarem.');
+      } else if (resp.status === 422) {
+        mostra('warn', 'Nenhum plano encontrado', 'A pasta de planos não tem PDFs. Adicione os arquivos e tente de novo.');
       } else if (resp.status === 404) {
         mostra('err', 'Workflow não encontrado', 'Confirme que o workflow de validação está publicado no n8n.');
       } else {
