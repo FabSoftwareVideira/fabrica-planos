@@ -3,7 +3,7 @@ import os
 import time
 from datetime import datetime
 
-from . import csvsaida, detalhes
+from . import csvsaida, detalhes, historico
 from .extrator import PdfIlegivel, extrair_texto
 from .ollama import chamar_ollama, extrair_json, montar_payload
 from .prompt import build_prompt
@@ -28,7 +28,7 @@ def nome_valido(nome):
     return '/' not in nome and '\\' not in nome and '..' not in nome
 
 
-def validar_plano(cfg, nome):
+def validar_plano(cfg, nome, detalhes_dir):
     caminho = os.path.join(cfg.planos_dir, nome)
     det = {'arquivo': nome, 'modelo': cfg.modelo, 'validado_em': datetime.now().isoformat(timespec='seconds')}
     try:
@@ -53,7 +53,7 @@ def validar_plano(cfg, nome):
         det['erro'] = str(erro)
         validacao = {'status_geral': 'ERRO', 'obs_geral': 'Falha ao processar resposta da IA: ' + str(erro)}
     try:
-        detalhes.salvar(cfg.detalhes_dir, nome, det)
+        detalhes.salvar(detalhes_dir, nome, det)
     except OSError:
         log.exception('Falha ao gravar os detalhes de %s', nome)
     return csvsaida.linha_resultado(nome, caminho, validacao)
@@ -62,23 +62,46 @@ def validar_plano(cfg, nome):
 def executar(cfg, andamento, nomes):
     """Valida os PDFs em `nomes`. O chamador já marcou o início em `andamento` (ver Andamento.iniciar)."""
     erro = ''
+    linhas = []
+    iniciado_em = datetime.now()
+    execucao = None
     try:
-        log.info('Validação iniciada: %d plano(s), modelo %s em %s', len(nomes), cfg.modelo, cfg.ollama_url)
-        linhas = []
+        execucao = historico.criar(cfg.historico_dir, iniciado_em)
+        log.info('Validação %s iniciada: %d plano(s), modelo %s em %s',
+                 execucao.id, len(nomes), cfg.modelo, cfg.ollama_url)
         for i, nome in enumerate(nomes, start=1):
             log.info('[%d/%d] Validando %s', i, len(nomes), nome)
             andamento.validando(nome)
             inicio = time.monotonic()
-            linha = validar_plano(cfg, nome)
+            historico.guardar_pdf(execucao, os.path.join(cfg.planos_dir, nome))
+            linha = validar_plano(cfg, nome, execucao.detalhes_dir)
             log.info('[%d/%d] %s: %s (%.0f s)', i, len(nomes), nome, linha['Status Geral'], time.monotonic() - inicio)
             linhas.append(linha)
             andamento.plano_concluido()
+        csvsaida.escrever_csv(execucao.csv_path, linhas)
         csvsaida.escrever_csv(cfg.csv_path, linhas)
-        detalhes.manter_somente(cfg.detalhes_dir, nomes)
         log.info('Validação concluída: %d plano(s)', len(linhas))
     except Exception as e:
         log.exception('Validação interrompida por erro inesperado')
         erro = str(e) or e.__class__.__name__
         raise
     finally:
+        if execucao is not None:
+            _registrar(cfg, execucao, linhas, nomes, iniciado_em, erro)
         andamento.finalizar(erro)
+
+
+def _registrar(cfg, execucao, linhas, nomes, iniciado_em, erro):
+    """Fecha a execução no histórico (mesmo interrompida, com o que foi validado) e poda as antigas."""
+    try:
+        if erro and not os.path.exists(execucao.csv_path):
+            csvsaida.escrever_csv(execucao.csv_path, linhas)
+        historico.gravar_meta(execucao, {
+            'iniciado_em': iniciado_em.isoformat(timespec='seconds'),
+            'finalizado_em': datetime.now().isoformat(timespec='seconds'),
+            'modelo': cfg.modelo, 'total': len(nomes), 'processados': len(linhas), 'erro': erro,
+            **historico.contar(linhas),
+        })
+        historico.podar(cfg.historico_dir, cfg.historico_max)
+    except Exception:
+        log.exception('Falha ao registrar a validação %s no histórico', execucao.id)

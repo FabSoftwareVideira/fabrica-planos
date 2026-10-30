@@ -1,13 +1,15 @@
 import logging
 import os
+import tempfile
 import threading
 import time
 import unicodedata
+import zipfile
 from datetime import datetime, timedelta
 
-from flask import Flask, Response, jsonify, redirect, request, send_from_directory
+from flask import Flask, Response, jsonify, redirect, request, send_file, send_from_directory
 
-from . import csvsaida, dashboard, detalhes, pipeline, relatorio
+from . import csvsaida, dashboard, detalhes, historico, pipeline, relatorio
 from .andamento import Andamento
 from .config import carregar
 from .extrator import PdfIlegivel, extrair_texto
@@ -69,26 +71,94 @@ def status():
     return _json(andamento.resumo())
 
 
+def _texto(mensagem, status):
+    return Response(mensagem, status, mimetype='text/plain; charset=utf-8')
+
+
+def _execucao_pedida(execucoes):
+    """A execução do parâmetro ?validacao= (padrão: a mais recente). None se o id não existir."""
+    id_ = request.args.get('validacao')
+    if not id_:
+        return execucoes[0] if execucoes else None
+    return next((e for e in execucoes if e.id == id_), None)
+
+
 @app.get('/dashboard')
 @app.get('/webhook/dashboard')
 def pagina_dashboard():
-    linhas = csvsaida.ler_csv(cfg.csv_path)
-    atualizado = ''
-    if os.path.exists(cfg.csv_path):
-        atualizado = datetime.fromtimestamp(os.path.getmtime(cfg.csv_path)).strftime('%d/%m/%Y %H:%M')
-    return Response(dashboard.gerar_html(linhas, atualizado, cfg.pdf_max_mb), mimetype='text/html; charset=utf-8')
+    execucoes = historico.listar(cfg.historico_dir)
+    execucao = _execucao_pedida(execucoes)
+    if request.args.get('validacao') and execucao is None:
+        return redirect('/dashboard')  # validação que saiu do histórico
+    linhas = csvsaida.ler_csv(execucao.csv_path) if execucao else []
+    html = dashboard.gerar_html(linhas, cfg.pdf_max_mb, execucoes, execucao)
+    return Response(html, mimetype='text/html; charset=utf-8')
 
 
 @app.get('/relatorio')
 def pagina_relatorio():
     nome = request.args.get('arquivo', '')
-    linhas = csvsaida.ler_csv(cfg.csv_path)
+    execucoes = historico.listar(cfg.historico_dir)
+    execucao = _execucao_pedida(execucoes)
+    if execucao is None:
+        return _texto('Validação não encontrada no histórico.', 404)
+    linhas = csvsaida.ler_csv(execucao.csv_path)
     indice = next((i for i, l in enumerate(linhas) if l.get('Arquivo') == nome), None)
     if not pipeline.nome_valido(nome) or indice is None:
-        return Response('Plano não encontrado no resultado da última validação.', 404,
-                        mimetype='text/plain; charset=utf-8')
-    det = detalhes.ler(cfg.detalhes_dir, nome)
-    return Response(relatorio.gerar_html(linhas, indice, det), mimetype='text/html; charset=utf-8')
+        return _texto('Plano não encontrado nessa validação.', 404)
+    det = detalhes.ler(execucao.detalhes_dir, nome)
+    html = relatorio.gerar_html(linhas, indice, det, execucao, eh_ultima=execucao.id == execucoes[0].id)
+    return Response(html, mimetype='text/html; charset=utf-8')
+
+
+@app.get('/validacoes')
+def listar_validacoes():
+    return _json({'validacoes': [{**e.meta(), 'pdfs': len(e.pdfs())} for e in historico.listar(cfg.historico_dir)]})
+
+
+def _execucao_ou_404(id_):
+    execucao = historico.obter(cfg.historico_dir, id_)
+    if execucao is None:
+        return None, _texto('Validação não encontrada no histórico.', 404)
+    return execucao, None
+
+
+@app.get('/validacoes/<id_>/csv')
+def baixar_csv(id_):
+    execucao, erro = _execucao_ou_404(id_)
+    if erro:
+        return erro
+    return send_file(execucao.csv_path, mimetype='text/csv', as_attachment=True,
+                     download_name=f'validacao-{execucao.id}.csv')
+
+
+@app.get('/validacoes/<id_>/pdf')
+def pdf_da_validacao(id_):
+    execucao, erro = _execucao_ou_404(id_)
+    if erro:
+        return erro
+    nome = request.args.get('arquivo', '')
+    if not pipeline.nome_valido(nome) or nome not in execucao.pdfs():
+        return _texto('O PDF dessa validação não está guardado (só a última guarda os PDFs).', 404)
+    return send_from_directory(execucao.pdfs_dir, nome, mimetype='application/pdf')
+
+
+@app.get('/validacoes/<id_>/pdfs.zip')
+def baixar_zip(id_):
+    execucao, erro = _execucao_ou_404(id_)
+    if erro:
+        return erro
+    nomes = execucao.pdfs()
+    if not nomes:
+        return _texto('Os PDFs são guardados só da última validação.', 404)
+    # PDFs já são comprimidos: ZIP_STORED evita gastar CPU à toa.
+    arquivo = tempfile.SpooledTemporaryFile(max_size=50 * 1024 * 1024)
+    with zipfile.ZipFile(arquivo, 'w', zipfile.ZIP_STORED) as zip_:
+        for nome in nomes:
+            zip_.write(os.path.join(execucao.pdfs_dir, nome), nome)
+    arquivo.seek(0)
+    return send_file(arquivo, mimetype='application/zip', as_attachment=True,
+                     download_name=f'planos-validacao-{execucao.id}.zip')
 
 
 @app.get('/pdf')
@@ -186,6 +256,19 @@ def excluir_plano():
     return _json({'excluido': nome})
 
 
+@app.delete('/planos/todos')
+def excluir_todos():
+    """Esvazia a pasta de planos. O histórico (e os PDFs da última validação, para o zip) continuam."""
+    with _operacao:
+        if andamento.rodando:
+            return _ocupado()
+        nomes = pipeline.listar_pdfs(cfg.planos_dir)
+        for nome in nomes:
+            os.remove(os.path.join(cfg.planos_dir, nome))
+    logging.getLogger(__name__).info('Todos os planos excluídos: %d arquivo(s)', len(nomes))
+    return _json({'excluidos': len(nomes)})
+
+
 @app.errorhandler(413)
 def grande_demais(_erro):
     limite = app.config['MAX_CONTENT_LENGTH'] // (1024 * 1024)
@@ -209,6 +292,21 @@ def _agendador():
         if motivo:
             logging.getLogger(__name__).info('Validação agendada não iniciada: %s', motivo)
 
+
+def _preparar_historico():
+    # Ao subir não há validação rodando: dá para migrar o resultado da versão anterior e limpar sobras.
+    try:
+        historico.migrar_legado(cfg.historico_dir, cfg.csv_path, os.path.join(cfg.resultados_dir, 'detalhes'),
+                                csvsaida.ler_csv)
+        historico.podar(cfg.historico_dir, cfg.historico_max)
+        lock_antigo = os.path.join(cfg.resultados_dir, 'validacao.lock')  # da versão com lock em arquivo
+        if os.path.exists(lock_antigo):
+            os.remove(lock_antigo)
+    except OSError:
+        logging.getLogger(__name__).exception('Falha ao preparar o histórico de validações')
+
+
+_preparar_historico()
 
 if cfg.agendar:
     threading.Thread(target=_agendador, daemon=True).start()

@@ -3,7 +3,7 @@ from html import escape
 from urllib.parse import quote
 
 from .csvsaida import CAMPOS_COLUNA
-from .dashboard import _badge, _cor
+from .dashboard import _badge, _cor, data_br
 from .prompt import LIMITE_PADRAO, LIMITES
 
 # Relatório de um plano: avaliação de cada campo ao lado do texto que foi extraído para ele.
@@ -83,21 +83,26 @@ def _resposta(raw):
         return raw
 
 
-def _link_plano(linhas, indice, texto, tecla):
+def _link_plano(linhas, indice, validacao, texto, tecla):
     if not 0 <= indice < len(linhas):
         return '<span class="off">' + texto + '</span>'
     nome = linhas[indice].get('Arquivo', '')
-    return ('<a href="/relatorio?arquivo=' + quote(nome) + '" title="' + escape(nome, quote=True)
-            + '" data-tecla="' + tecla + '">' + texto + '</a>')
+    return ('<a href="/relatorio?validacao=' + validacao + '&arquivo=' + quote(nome) + '" title="'
+            + escape(nome, quote=True) + '" data-tecla="' + tecla + '">' + texto + '</a>')
 
 
-def _navegacao(linhas, indice):
+def _navegacao(linhas, indice, validacao, eh_ultima, data):
+    # Para a última validação o dashboard dispensa o ?validacao=, como no link do menu.
+    dashboard = '/dashboard' + ('' if eh_ultima else '?validacao=' + validacao)
+    rotulo = 'Plano ' + str(indice + 1) + ' de ' + str(len(linhas))
+    if not eh_ultima:
+        rotulo += ' · validação anterior de ' + escape(data)
     return (
         '<nav class="nav"><div>'
-        '<a class="voltar" href="/dashboard#plano-' + str(indice) + '" data-tecla="Escape">← Voltar ao dashboard</a>'
-        + _link_plano(linhas, indice - 1, '‹ Anterior', 'ArrowLeft')
-        + _link_plano(linhas, indice + 1, 'Próximo ›', 'ArrowRight')
-        + '<span class="pos">Plano ' + str(indice + 1) + ' de ' + str(len(linhas)) + '</span>'
+        '<a class="voltar" href="' + dashboard + '#plano-' + str(indice) + '" data-tecla="Escape">← Voltar ao dashboard</a>'
+        + _link_plano(linhas, indice - 1, validacao, '‹ Anterior', 'ArrowLeft')
+        + _link_plano(linhas, indice + 1, validacao, 'Próximo ›', 'ArrowRight')
+        + '<span class="pos">' + rotulo + '</span>'
         '</div></nav>'
     )
 
@@ -109,28 +114,34 @@ ATALHOS = (
 )
 
 
-def gerar_html(linhas, indice, det):
+def gerar_html(linhas, indice, det, execucao, eh_ultima=True):
     linha = linhas[indice]
     nome = linha.get('Arquivo', '')
     sec = (det or {}).get('secoes')
     aviso = ''
     if det is None:
         aviso = ('<div class="aviso">O texto extraído não está disponível: este plano foi validado antes de o '
-                 'relatório existir. Rode a validação de novo para vê-lo.</div>')
+                 'relatório existir.</div>')
     elif det.get('erro'):
         aviso = '<div class="aviso">Falha ao validar: ' + escape(det['erro']) + '</div>'
 
     meta = [_badge(linha.get('Status Geral', '')), 'Validado em ' + escape(linha.get('Data Validação', ''))]
     if det and det.get('modelo'):
         meta.append('Modelo ' + escape(det['modelo']))
-    meta.append('<a href="/pdf?arquivo=' + quote(nome) + '" target="_blank" rel="noopener">📄 Abrir PDF</a>')
+    if nome in execucao.pdfs():
+        meta.append('<a href="/validacoes/' + execucao.id + '/pdf?arquivo=' + quote(nome)
+                    + '" target="_blank" rel="noopener">📄 Abrir PDF</a>')
+    else:
+        meta.append('PDF não guardado (só a última validação guarda os PDFs)')
 
     observacao = linha.get('Observação Geral', '')
+    data = data_br((execucao.meta() or {}).get('finalizado_em'))
     return (
         '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width, initial-scale=1">'
         '<title>Relatório: ' + escape(nome) + '</title><style>' + ESTILO + '</style></head>'
-        '<body>' + _navegacao(linhas, indice) + '<div class="pagina"><h1>' + escape(nome.removesuffix('.pdf')) + '</h1>'
+        '<body>' + _navegacao(linhas, indice, execucao.id, eh_ultima, data)
+        + '<div class="pagina"><h1>' + escape(nome.removesuffix('.pdf')) + '</h1>'
         '<div class="meta">' + ''.join('<span>' + m + '</span>' for m in meta) + '</div>'
         + aviso
         + ('<div class="caixa"><strong>Observação geral:</strong> ' + escape(observacao) + '</div>' if observacao else '')

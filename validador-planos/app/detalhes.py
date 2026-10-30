@@ -1,8 +1,8 @@
 import json
 import os
 
-# Detalhes de cada plano validado (texto extraído, seções, prompt e resposta da IA), gravados em
-# resultados/detalhes/<arquivo>.json para o relatório mostrar exatamente o que foi avaliado.
+# Detalhes de cada plano validado (texto extraído, seções, prompt e resposta da IA), gravados na
+# pasta detalhes/ da execução (ver historico.py) para o relatório mostrar exatamente o que foi avaliado.
 
 
 def _caminho(pasta, nome):
@@ -24,12 +24,3 @@ def ler(pasta, nome):
     except (FileNotFoundError, ValueError):
         return None
 
-
-def manter_somente(pasta, nomes):
-    """Apaga os detalhes de planos que não fazem mais parte do resultado."""
-    if not os.path.isdir(pasta):
-        return
-    manter = {nome + '.json' for nome in nomes}
-    for arquivo in os.listdir(pasta):
-        if arquivo.endswith('.json') and arquivo not in manter:
-            os.remove(os.path.join(pasta, arquivo))

@@ -1,5 +1,6 @@
 import io
 import os
+from pathlib import Path
 
 os.environ.setdefault('AGENDAR', '0')  # antes de importar app.web, para não subir o agendador
 
@@ -99,18 +100,28 @@ def test_dashboard_tem_controles(cliente):
     assert 'id="validar"' in html and 'id="soltar"' in html
 
 
-def _resultado(planos_dir, cfg):
-    from app import csvsaida
-    validacao = {'status_geral': 'PENDENTE', 'obs_geral': 'falta algo',
-                 'ementa': {'status': 'OK', 'obs': 'ementa boa'}}
-    csvsaida.escrever_csv(cfg.csv_path, [csvsaida.linha_resultado('Plano Á.pdf', str(planos_dir), validacao)])
+def _execucao(nomes, quando, validacao=None, pdfs=()):
+    """Cria no histórico uma validação concluída com esses planos."""
+    from datetime import datetime
+
+    from app import csvsaida, historico
+    validacao = validacao or {'status_geral': 'OK'}
+    execucao = historico.criar(web.cfg.historico_dir, datetime(2026, 10, 30, quando))
+    linhas = [csvsaida.linha_resultado(n, '/x', validacao) for n in nomes]
+    csvsaida.escrever_csv(execucao.csv_path, linhas)
+    for nome in pdfs:
+        (Path(execucao.pdfs_dir) / nome).write_bytes(PDF)
+    historico.gravar_meta(execucao, {'finalizado_em': f'2026-10-30T{quando:02d}:30:00', 'total': len(linhas),
+                                     'processados': len(linhas), 'erro': '', 'modelo': 'm', **historico.contar(linhas)})
+    return execucao
 
 
 def test_relatorio_mostra_avaliacao_e_texto_extraido(cliente):
     from app import detalhes
-    c, planos = cliente
-    _resultado(planos, web.cfg)
-    detalhes.salvar(web.cfg.detalhes_dir, 'Plano Á.pdf', {
+    c, _ = cliente
+    validacao = {'status_geral': 'PENDENTE', 'obs_geral': 'falta algo', 'ementa': {'status': 'OK', 'obs': 'ementa boa'}}
+    execucao = _execucao(['Plano Á.pdf'], 10, validacao)
+    detalhes.salvar(execucao.detalhes_dir, 'Plano Á.pdf', {
         'arquivo': 'Plano Á.pdf', 'modelo': 'qwen', 'texto': 'TEXTO <BRUTO>',
         'secoes': {'ementa': 'Estudo de <matrizes>', 'ref_basicas': 2, 'ref_complementares': 5},
         'prompt': 'PROMPT', 'resposta_ia': '{"ementa": {"status": "OK"}}',
@@ -124,21 +135,20 @@ def test_relatorio_mostra_avaliacao_e_texto_extraido(cliente):
 
 
 def test_relatorio_sem_detalhes_avisa(cliente):
-    c, planos = cliente
-    _resultado(planos, web.cfg)
+    c, _ = cliente
+    _execucao(['Plano Á.pdf'], 10)
     r = c.get('/relatorio?arquivo=Plano%20%C3%81.pdf')
     assert r.status_code == 200
-    assert 'Rode a validação de novo' in r.get_data(as_text=True)
+    assert 'texto extraído não está disponível' in r.get_data(as_text=True)
 
 
 def test_relatorio_navega_entre_planos_e_volta_ao_card(cliente):
-    from app import csvsaida
-    c, planos = cliente
-    linhas = [csvsaida.linha_resultado(n, str(planos), {'status_geral': 'OK'}) for n in ('a.pdf', 'b.pdf', 'c.pdf')]
-    csvsaida.escrever_csv(web.cfg.csv_path, linhas)
+    c, _ = cliente
+    execucao = _execucao(['a.pdf', 'b.pdf', 'c.pdf'], 10)
     html = c.get('/relatorio?arquivo=b.pdf').get_data(as_text=True)
     assert 'href="/dashboard#plano-1"' in html
-    assert 'href="/relatorio?arquivo=a.pdf"' in html and 'href="/relatorio?arquivo=c.pdf"' in html
+    v = 'validacao=' + execucao.id
+    assert f'href="/relatorio?{v}&arquivo=a.pdf"' in html and f'href="/relatorio?{v}&arquivo=c.pdf"' in html
     assert 'Plano 2 de 3' in html
     primeiro = c.get('/relatorio?arquivo=a.pdf').get_data(as_text=True)
     assert '<span class="off">‹ Anterior</span>' in primeiro
@@ -150,4 +160,60 @@ def test_relatorio_navega_entre_planos_e_volta_ao_card(cliente):
 def test_relatorio_de_plano_desconhecido(cliente):
     c, _ = cliente
     assert c.get('/relatorio?arquivo=x.pdf').status_code == 404
+    _execucao(['a.pdf'], 10)
+    assert c.get('/relatorio?arquivo=x.pdf').status_code == 404
     assert c.get('/relatorio?arquivo=../x.pdf').status_code == 404
+    assert c.get('/relatorio?validacao=20200101-000000&arquivo=a.pdf').status_code == 404
+
+
+def test_dashboard_mostra_historico_e_validacao_anterior(cliente):
+    c, _ = cliente
+    antiga = _execucao(['velho.pdf'], 9)
+    nova = _execucao(['novo.pdf'], 11, pdfs=['novo.pdf'])
+    html = c.get('/dashboard').get_data(as_text=True)
+    assert 'novo' in html and 'velho' not in html.split('id="historico"')[1].split('</select>')[1]
+    assert f'/validacoes/{nova.id}/pdfs.zip' in html and f'/validacoes/{nova.id}/csv' in html
+    assert '(última)' in html
+
+    html = c.get('/dashboard?validacao=' + antiga.id).get_data(as_text=True)
+    assert 'Você está vendo uma validação anterior' in html
+    assert 'pdfs.zip' not in html  # PDFs antigos não são guardados
+    assert '>📄 Abrir PDF<' not in html
+    relatorio = c.get(f'/relatorio?validacao={antiga.id}&arquivo=velho.pdf').get_data(as_text=True)
+    assert f'href="/dashboard?validacao={antiga.id}#plano-0"' in relatorio
+
+    assert c.get('/dashboard?validacao=20200101-000000').status_code == 302
+
+
+def test_zip_csv_e_pdf_da_ultima_validacao(cliente):
+    import io
+    import zipfile
+    c, _ = cliente
+    antiga = _execucao(['a.pdf'], 9)
+    nova = _execucao(['a.pdf', 'b.pdf'], 10, pdfs=['a.pdf', 'b.pdf'])
+
+    r = c.get(f'/validacoes/{nova.id}/pdfs.zip')
+    assert r.status_code == 200 and r.mimetype == 'application/zip'
+    assert f'planos-validacao-{nova.id}.zip' in r.headers['Content-Disposition']
+    with zipfile.ZipFile(io.BytesIO(r.data)) as z:
+        assert sorted(z.namelist()) == ['a.pdf', 'b.pdf']
+        assert z.read('a.pdf') == PDF
+
+    assert c.get(f'/validacoes/{antiga.id}/pdfs.zip').status_code == 404
+    assert c.get(f'/validacoes/{antiga.id}/csv').data.startswith('﻿'.encode())  # BOM do CSV
+    assert c.get(f'/validacoes/{nova.id}/pdf?arquivo=b.pdf').data == PDF
+    assert c.get(f'/validacoes/{antiga.id}/pdf?arquivo=a.pdf').status_code == 404
+    assert c.get('/validacoes/..%2Fx/csv').status_code == 404
+    assert [v['id'] for v in c.get('/validacoes').json['validacoes']] == [nova.id, antiga.id]
+
+
+def test_excluir_todos(cliente):
+    c, planos = cliente
+    for nome in ('a.pdf', 'b.pdf'):
+        (planos / nome).write_bytes(PDF)
+    web.andamento.iniciar(1)
+    assert c.delete('/planos/todos').status_code == 409
+    web.andamento.finalizar()
+    r = c.delete('/planos/todos')
+    assert r.json == {'excluidos': 2}
+    assert list(planos.iterdir()) == []

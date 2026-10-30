@@ -1,3 +1,4 @@
+from datetime import datetime
 from html import escape
 from urllib.parse import quote
 
@@ -21,7 +22,7 @@ def _badge(status):
     )
 
 
-def _card(indice, linha):
+def _card(indice, linha, validacao, pdfs_guardados):
     nome = (linha.get('Arquivo') or '').replace('2024-1 - ', '').replace('.pdf', '')
     topicos = []
     for rotulo, _ in CAMPOS_COLUNA:
@@ -41,10 +42,10 @@ def _card(indice, linha):
         'onclick="event.stopPropagation()"'
     )
     # O relatório abre na mesma aba e volta para este card (âncora #plano-N).
-    link = (
-        '<a href="/relatorio?arquivo=' + arquivo + '" ' + estilo_link + '>📝 Relatório</a>'
-        '<a href="/pdf?arquivo=' + arquivo + '" target="_blank" rel="noopener" ' + estilo_link + '>📄 Abrir PDF</a>'
-    )
+    link = '<a href="/relatorio?validacao=' + validacao + '&arquivo=' + arquivo + '" ' + estilo_link + '>📝 Relatório</a>'
+    if linha.get('Arquivo') in pdfs_guardados:
+        link += ('<a href="/validacoes/' + validacao + '/pdf?arquivo=' + arquivo + '" target="_blank" rel="noopener" '
+                 + estilo_link + '>📄 Abrir PDF</a>')
     observacao = linha.get('Observação Geral', '')
     return (
         '<details id="plano-' + str(indice) + '" class="plano" '
@@ -82,6 +83,15 @@ ESTILO = (
     '.excluir{border:0;background:none;color:#dc2626;cursor:pointer;font:inherit;font-size:13px;padding:4px 6px}'
     '.excluir:disabled{color:#d1d5db;cursor:not-allowed}'
     '.dica{font-size:12px;color:#9ca3af;margin:8px 0 0}'
+    '.cab-resultados{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:32px 0 4px}'
+    '.cab-resultados h2{margin:0 auto 0 0;font-size:20px}'
+    '.cab-resultados select{font:inherit;font-size:14px;padding:7px 10px;border:1px solid #cbd5e1;border-radius:8px;'
+    'background:#fff;max-width:100%}'
+    'a.botao{text-decoration:none;display:inline-block;font-size:14px}'
+    '.antiga{background:#fef3c7;color:#92400e;border-radius:8px;padding:10px 14px;margin:12px 0;font-size:14px}'
+    '.antiga a{color:#92400e;font-weight:600}'
+    '.cab-planos{display:flex;align-items:center;gap:8px;margin-bottom:12px}'
+    '.cab-planos h2{margin:0 auto 0 0}'
     '.plano{scroll-margin-top:16px;transition:box-shadow .3s}'
     '.plano.destaque{box-shadow:0 0 0 3px #93c5fd !important}'
 )
@@ -91,7 +101,8 @@ PAINEIS = (
     '<button class="botao" id="validar">▶ Validar agora</button>'
     '<p class="msg" id="status-msg">Carregando…</p></div>'
     '<div class="barra" id="barra" hidden><div></div></div></section>'
-    '<section class="painel"><h2>Planos (PDFs) <span class="msg" id="qtd-planos"></span></h2>'
+    '<section class="painel"><div class="cab-planos"><h2>Planos (PDFs) <span class="msg" id="qtd-planos"></span></h2>'
+    '<button class="excluir" id="excluir-todos" type="button">Excluir todos</button></div>'
     '<div class="soltar" id="soltar">Arraste PDFs para cá ou '
     '<button class="botao leve" id="escolher" type="button">escolha arquivos</button>'
     '<input type="file" id="arquivo" accept="application/pdf,.pdf" multiple hidden>'
@@ -115,6 +126,8 @@ function bloquear() {
   document.querySelectorAll('.excluir').forEach(b => b.disabled = rodando);
 }
 
+function trocarValidacao(id) { location.href = '/dashboard' + (id ? '?validacao=' + encodeURIComponent(id) : ''); }
+
 async function atualizarStatus() {
   clearTimeout(timer);
   let s;
@@ -133,8 +146,8 @@ async function atualizarStatus() {
     else if (s.finalizado_em) msg($('status-msg'), `Validação concluída em ${hora(s.finalizado_em)}`, 'ok');
     else msg($('status-msg'), 'Nenhuma validação em andamento');
   }
-  // Ao terminar um lote, recarrega a página para mostrar os resultados novos.
-  if (estavaRodando && !rodando) { location.reload(); return; }
+  // Ao terminar um lote, abre a validação nova (a mais recente do histórico).
+  if (estavaRodando && !rodando) { location.href = '/dashboard'; return; }
   estavaRodando = rodando;
   timer = setTimeout(atualizarStatus, rodando ? 2000 : 10000);
 }
@@ -157,6 +170,16 @@ async function carregarPlanos() {
   });
   if (!itens.length) { const li = document.createElement('li'); li.innerHTML = '<span>Nenhum PDF na pasta.</span>'; itens.push(li); }
   $('lista').replaceChildren(...itens);
+  $('excluir-todos').hidden = !planos.length;
+}
+
+async function excluirTodos() {
+  const n = document.querySelectorAll('#lista a').length;
+  if (!confirm(`Excluir todos os ${n} PDF(s) da pasta? Os resultados do histórico não são apagados.`)) return;
+  const r = await fetch('/planos/todos', { method: 'DELETE' });
+  const d = await corpo(r);
+  msg($('envio-msg'), r.ok ? `${d.excluidos} PDF(s) excluído(s).` : (d.erro || d.mensagem || 'Falha ao excluir'), r.ok ? 'ok' : 'erro');
+  carregarPlanos();
 }
 
 async function excluir(nome) {
@@ -208,11 +231,14 @@ function focarPlano() {
 
 $('validar').onclick = async () => {
   $('validar').disabled = true;
-  const r = await fetch('/validar', { method: 'POST' });
-  const d = await corpo(r);
+  let r, d;
+  try { r = await fetch('/validar', { method: 'POST' }); d = await corpo(r); }
+  catch { msg($('status-msg'), 'Sem conexão com o servidor; tente de novo', 'erro'); $('validar').disabled = false; return; }
   if (r.ok || d.status === 'ocupado') { estavaRodando = true; atualizarStatus(); }
   else { msg($('status-msg'), d.mensagem || 'Não foi possível iniciar', 'erro'); $('validar').disabled = false; }
 };
+$('excluir-todos').onclick = excluirTodos;
+if ($('historico')) $('historico').onchange = e => trocarValidacao(e.target.value);
 $('escolher').onclick = () => $('arquivo').click();
 $('arquivo').onchange = e => { enviar([...e.target.files]); e.target.value = ''; };
 const zona = $('soltar');
@@ -226,7 +252,53 @@ focarPlano();
 """
 
 
-def gerar_html(linhas, atualizado_em, max_mb=10):
+def data_br(iso):
+    try:
+        return datetime.fromisoformat(iso).strftime('%d/%m/%Y %H:%M')
+    except (TypeError, ValueError):
+        return '—'
+
+
+def _rotulo_execucao(meta, ultima):
+    partes = [data_br(meta.get('finalizado_em')), f"{meta.get('total', 0)} plano(s)",
+              f"{meta.get('ok', 0)} OK", f"{meta.get('pendentes', 0)} pendente(s)",
+              f"{meta.get('problemas', 0)} com problemas"]
+    if meta.get('erro'):
+        partes.append('interrompida')
+    return ' · '.join(partes) + (' (última)' if ultima else '')
+
+
+def _cabecalho_resultados(execucoes, execucao):
+    if execucao is None:
+        return '<div class="cab-resultados"><h2>Resultados</h2></div>'
+    opcoes = ''.join(
+        '<option value="' + escape(e.id, quote=True) + '"' + (' selected' if e.id == execucao.id else '') + '>'
+        + escape(_rotulo_execucao(e.meta(), i == 0)) + '</option>'
+        for i, e in enumerate(execucoes)
+    )
+    botoes = ''
+    if execucao.pdfs():
+        botoes += '<a class="botao leve" href="/validacoes/' + execucao.id + '/pdfs.zip">⬇ PDFs (zip)</a>'
+    botoes += '<a class="botao leve" href="/validacoes/' + execucao.id + '/csv">⬇ CSV</a>'
+    meta = execucao.meta()
+    linha_meta = 'Concluída em ' + data_br(meta.get('finalizado_em'))
+    if meta.get('modelo'):
+        linha_meta += ' · modelo ' + escape(meta['modelo'])
+    if meta.get('erro'):
+        linha_meta += (' · <span style="color:#dc2626">interrompida após ' + str(meta.get('processados', 0)) + ' de '
+                       + str(meta.get('total', 0)) + ' plano(s): ' + escape(meta['erro']) + '</span>')
+    aviso = ''
+    if execucao.id != execucoes[0].id:
+        aviso = ('<div class="antiga">Você está vendo uma validação anterior. Os PDFs dela não são guardados, só o '
+                 'resultado. <a href="/dashboard">Ver a última validação</a></div>')
+    return (
+        '<div class="cab-resultados"><h2>Resultados</h2>'
+        '<select id="historico" aria-label="Validação exibida">' + opcoes + '</select>' + botoes + '</div>'
+        '<p style="margin:0 0 16px;color:#6b7280;font-size:14px">' + linha_meta + '</p>' + aviso
+    )
+
+
+def gerar_html(linhas, max_mb=10, execucoes=(), execucao=None):
     total = len(linhas)
     ok = sum(1 for l in linhas if l.get('Status Geral') == 'OK')
     pendente = sum(1 for l in linhas if l.get('Status Geral') == 'PENDENTE')
@@ -249,9 +321,11 @@ def gerar_html(linhas, atualizado_em, max_mb=10):
             + ' <span style="font-size:14px;color:#9ca3af">(' + str(pct(valor)) + '%)</span></div></div>'
         )
 
-    corpo = ''.join(_card(i, l) for i, l in enumerate(linhas)) if linhas else (
-        '<p style="color:#6b7280">Nenhuma validação concluída ainda.</p>'
-    )
+    if execucao is not None and linhas:
+        pdfs = set(execucao.pdfs())
+        corpo = ''.join(_card(i, l, execucao.id, pdfs) for i, l in enumerate(linhas))
+    else:
+        corpo = '<p style="color:#6b7280">Nenhuma validação concluída ainda.</p>'
     return (
         '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width, initial-scale=1">'
@@ -260,9 +334,8 @@ def gerar_html(linhas, atualizado_em, max_mb=10):
         '<body style="margin:0;font-family:system-ui,-apple-system,sans-serif;background:#f3f4f6;color:#111827">'
         '<div style="max-width:1100px;margin:0 auto;padding:32px 16px">'
         '<h1 style="margin:0 0 24px">📋 Validação de Planos de Ensino</h1>'
-        + PAINEIS.replace('{MAX_MB}', str(max_mb)) +
-        '<h2 style="margin:32px 0 4px;font-size:20px">Resultados</h2>'
-        '<p style="margin:0 0 16px;color:#6b7280">Última validação: ' + escape(atualizado_em or '—') + '</p>'
+        + PAINEIS.replace('{MAX_MB}', str(max_mb))
+        + _cabecalho_resultados(list(execucoes), execucao) +
         '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:24px">'
         + cartoes + '</div>' + corpo +
         '</div><script>const MAX_MB = ' + str(int(max_mb)) + ';' + SCRIPT + '</script></body></html>'

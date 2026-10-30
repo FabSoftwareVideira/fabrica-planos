@@ -13,6 +13,7 @@ services:
       - OLLAMA_NUM_CTX=${OLLAMA_NUM_CTX}
       - AGENDAMENTO_HORA=${AGENDAMENTO_HORA}
       - PDF_MAX_MB=${PDF_MAX_MB:-10}
+      - HISTORICO_MAX=${HISTORICO_MAX:-3}
       - AGENDAR=1
       - TZ=${TZ}
     volumes:
