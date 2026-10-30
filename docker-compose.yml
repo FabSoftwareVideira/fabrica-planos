@@ -1,6 +1,6 @@
 services:
   n8n:
-    image: docker.n8n.io/n8nio/n8n:2.45.5
+    image: docker.n8n.io/n8nio/n8n
     restart: "no"
     ports:
       - "${N8N_PORT}:${N8N_PORT}"
@@ -32,7 +32,7 @@ services:
 
   # Importa (ou atualiza, pelo id fixo) o workflow e o ativa antes do n8n subir
   n8n-import:
-    image: docker.n8n.io/n8nio/n8n:2.45.5
+    image: docker.n8n.io/n8nio/n8n
     restart: "no"
     entrypoint: ["/bin/sh", "-c"]
     command:
@@ -44,7 +44,7 @@ services:
       - tc-network
 
   ollama:
-    image: ollama/ollama:0.40.12
+    image: ollama/ollama
     restart: "no"
     ports:
       # Porta do host (OLLAMA_PORT) -> porta interna 11434, que os workflows usam em http://ollama:11434
