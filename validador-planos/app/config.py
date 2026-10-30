@@ -13,6 +13,10 @@ class Config:
     agendar: bool
 
     @property
+    def detalhes_dir(self):
+        return os.path.join(self.resultados_dir, 'detalhes')
+
+    @property
     def csv_path(self):
         return os.path.join(self.resultados_dir, 'validacao_planos.csv')
 

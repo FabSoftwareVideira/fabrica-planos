@@ -7,7 +7,7 @@ Aplicação em Python (Flask + gunicorn) que valida os PDFs de planos de ensino 
 ```
 app/            código da aplicação
 tests/          testes unitários (regras, seções, extração, rotas, CSV)
-resultados/     CSV gerado (criado automaticamente)
+resultados/     CSV gerado e detalhes/ (texto extraído, prompt e resposta da IA por plano), criados automaticamente
 docker-compose.yml, Dockerfile, .env.example
 ```
 
@@ -18,7 +18,8 @@ Os PDFs ficam na pasta indicada por `PLANOS_HOST_DIR`, montada no container com 
 Em `/dashboard` é possível:
 
 - iniciar a validação (botão **Validar agora**) e acompanhar o progresso (plano atual, barra de andamento); ao terminar, a página recarrega com os resultados;
-- enviar PDFs (arrastando ou escolhendo arquivos; um PDF com o mesmo nome é substituído), abrir e excluir os da pasta.
+- enviar PDFs (arrastando ou escolhendo arquivos; um PDF com o mesmo nome é substituído), abrir e excluir os da pasta;
+- abrir o **Relatório** de cada plano avaliado (nova aba): a avaliação de cada campo ao lado do texto extraído para ele, o texto completo do PDF, o prompt enviado e a resposta da IA. Planos validados antes desta versão só mostram o texto depois de uma nova validação.
 
 Enquanto uma validação roda, envio e exclusão ficam bloqueados. Não há autenticação: qualquer um que alcance a porta `APP_PORT` pode enviar e excluir PDFs.
 
@@ -32,6 +33,7 @@ Enquanto uma validação roda, envio e exclusão ficam bloqueados. Não há aute
 | GET | `/planos` | Lista dos PDFs da pasta (`nome`, `tamanho`, `modificado`) |
 | POST | `/planos` | Upload (multipart, campo `arquivos`, vários por vez, até 100 MB no total); `409` durante a validação |
 | DELETE | `/planos?arquivo=nome.pdf` | Exclui o PDF; `409` durante a validação |
+| GET | `/relatorio?arquivo=nome.pdf` | Relatório HTML do plano na última validação; `404` se ele não estiver no resultado |
 | GET | `/pdf?arquivo=nome.pdf` | O PDF, só para nomes da pasta de planos |
 | GET | `/health` | `{"status":"ok"}` |
 

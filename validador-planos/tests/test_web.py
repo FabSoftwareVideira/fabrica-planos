@@ -82,3 +82,41 @@ def test_dashboard_tem_controles(cliente):
     c, _ = cliente
     html = c.get('/dashboard').get_data(as_text=True)
     assert 'id="validar"' in html and 'id="soltar"' in html
+
+
+def _resultado(planos_dir, cfg):
+    from app import csvsaida
+    validacao = {'status_geral': 'PENDENTE', 'obs_geral': 'falta algo',
+                 'ementa': {'status': 'OK', 'obs': 'ementa boa'}}
+    csvsaida.escrever_csv(cfg.csv_path, [csvsaida.linha_resultado('Plano Á.pdf', str(planos_dir), validacao)])
+
+
+def test_relatorio_mostra_avaliacao_e_texto_extraido(cliente):
+    from app import detalhes
+    c, planos = cliente
+    _resultado(planos, web.cfg)
+    detalhes.salvar(web.cfg.detalhes_dir, 'Plano Á.pdf', {
+        'arquivo': 'Plano Á.pdf', 'modelo': 'qwen', 'texto': 'TEXTO <BRUTO>',
+        'secoes': {'ementa': 'Estudo de <matrizes>', 'ref_basicas': 2, 'ref_complementares': 5},
+        'prompt': 'PROMPT', 'resposta_ia': '{"ementa": {"status": "OK"}}',
+    })
+    html = c.get('/relatorio?arquivo=Plano%20%C3%81.pdf').get_data(as_text=True)
+    assert 'ementa boa' in html
+    assert 'Estudo de &lt;matrizes&gt;' in html  # texto escapado
+    assert 'TEXTO &lt;BRUTO&gt;' in html and 'PROMPT' in html
+    assert '<strong>2</strong> básica(s)' in html
+    assert 'Nada foi extraído' in html  # campos sem texto
+
+
+def test_relatorio_sem_detalhes_avisa(cliente):
+    c, planos = cliente
+    _resultado(planos, web.cfg)
+    r = c.get('/relatorio?arquivo=Plano%20%C3%81.pdf')
+    assert r.status_code == 200
+    assert 'Rode a validação de novo' in r.get_data(as_text=True)
+
+
+def test_relatorio_de_plano_desconhecido(cliente):
+    c, _ = cliente
+    assert c.get('/relatorio?arquivo=x.pdf').status_code == 404
+    assert c.get('/relatorio?arquivo=../x.pdf').status_code == 404

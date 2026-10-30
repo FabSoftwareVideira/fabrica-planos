@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 
 from flask import Flask, Response, jsonify, redirect, request, send_from_directory
 
-from . import csvsaida, dashboard, pipeline
+from . import csvsaida, dashboard, detalhes, pipeline, relatorio
 from .andamento import Andamento
 from .config import carregar
 
@@ -76,6 +76,17 @@ def pagina_dashboard():
     if os.path.exists(cfg.csv_path):
         atualizado = datetime.fromtimestamp(os.path.getmtime(cfg.csv_path)).strftime('%d/%m/%Y %H:%M')
     return Response(dashboard.gerar_html(linhas, atualizado), mimetype='text/html; charset=utf-8')
+
+
+@app.get('/relatorio')
+def pagina_relatorio():
+    nome = request.args.get('arquivo', '')
+    linha = next((l for l in csvsaida.ler_csv(cfg.csv_path) if l.get('Arquivo') == nome), None)
+    if not pipeline.nome_valido(nome) or linha is None:
+        return Response('Plano não encontrado no resultado da última validação.', 404,
+                        mimetype='text/plain; charset=utf-8')
+    det = detalhes.ler(cfg.detalhes_dir, nome)
+    return Response(relatorio.gerar_html(linha, det), mimetype='text/html; charset=utf-8')
 
 
 @app.get('/pdf')

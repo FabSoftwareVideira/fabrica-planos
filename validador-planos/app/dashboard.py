@@ -1,4 +1,5 @@
 from html import escape
+from urllib.parse import quote
 
 from .csvsaida import CAMPOS_COLUNA
 
@@ -34,10 +35,14 @@ def _card(linha):
             + ('<div style="font-size:12px;color:#6b7280;margin-top:6px">' + escape(obs) + '</div>' if obs else '')
             + '</div>'
         )
-    link = (
-        '<a href="/pdf?arquivo=' + escape(linha.get('Arquivo', ''), quote=True) + '" target="_blank" rel="noopener" '
+    arquivo = quote(linha.get('Arquivo', ''))
+    estilo_link = (
         'style="font-size:13px;color:#2563eb;text-decoration:none;font-weight:600;white-space:nowrap" '
-        'onclick="event.stopPropagation()">📄 Abrir PDF</a>'
+        'target="_blank" rel="noopener" onclick="event.stopPropagation()"'
+    )
+    link = (
+        '<a href="/relatorio?arquivo=' + arquivo + '" ' + estilo_link + '>📝 Relatório</a>'
+        '<a href="/pdf?arquivo=' + arquivo + '" ' + estilo_link + '>📄 Abrir PDF</a>'
     )
     observacao = linha.get('Observação Geral', '')
     return (

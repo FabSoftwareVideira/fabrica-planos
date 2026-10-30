@@ -78,7 +78,14 @@ DADOS DO PLANO DE ENSINO:
 """
 
 
-def _trunc(texto, maximo=1500):
+# Caracteres de cada seção enviados à IA; o excedente é cortado.
+LIMITE_PADRAO = 1500
+LIMITES = {'identificacao': 800, 'conteudo_programatico': 2500, 'cronograma': 2500, 'horario_atendimento': 500}
+
+
+def _trunc(sec, chave):
+    texto = sec.get(chave, '')
+    maximo = LIMITES.get(chave, LIMITE_PADRAO)
     if not texto:
         return '(não preenchido)'
     return texto[:maximo] + ('...' if len(texto) > maximo else '')
@@ -86,16 +93,16 @@ def _trunc(texto, maximo=1500):
 
 def build_prompt(sec):
     dados = (
-        'IDENTIFICAÇÃO (início do documento):\n' + _trunc(sec.get('identificacao', ''), 800) + '\n\n'
-        'EMENTA:\n' + _trunc(sec.get('ementa', '')) + '\n\n'
-        'METODOLOGIA:\n' + _trunc(sec.get('metodologia', '')) + '\n\n'
-        'PROCEDIMENTOS DE AVALIAÇÃO:\n' + _trunc(sec.get('procedimentos_avaliacao', '')) + '\n\n'
-        'OBJETIVOS GERAL:\n' + _trunc(sec.get('objetivos_geral', '')) + '\n\n'
-        'OBJETIVOS ESPECÍFICOS:\n' + _trunc(sec.get('objetivos_especificos', '')) + '\n\n'
-        'CONTEÚDO PROGRAMÁTICO:\n' + _trunc(sec.get('conteudo_programatico', ''), 2500) + '\n\n'
-        'CRONOGRAMA:\n' + _trunc(sec.get('cronograma', ''), 2500) + '\n\n'
-        'AVALIAÇÕES:\n' + _trunc(sec.get('avaliacoes', '')) + '\n\n'
-        'HORÁRIO DE ATENDIMENTO:\n' + _trunc(sec.get('horario_atendimento', ''), 500) + '\n\n'
+        'IDENTIFICAÇÃO (início do documento):\n' + _trunc(sec, 'identificacao') + '\n\n'
+        'EMENTA:\n' + _trunc(sec, 'ementa') + '\n\n'
+        'METODOLOGIA:\n' + _trunc(sec, 'metodologia') + '\n\n'
+        'PROCEDIMENTOS DE AVALIAÇÃO:\n' + _trunc(sec, 'procedimentos_avaliacao') + '\n\n'
+        'OBJETIVOS GERAL:\n' + _trunc(sec, 'objetivos_geral') + '\n\n'
+        'OBJETIVOS ESPECÍFICOS:\n' + _trunc(sec, 'objetivos_especificos') + '\n\n'
+        'CONTEÚDO PROGRAMÁTICO:\n' + _trunc(sec, 'conteudo_programatico') + '\n\n'
+        'CRONOGRAMA:\n' + _trunc(sec, 'cronograma') + '\n\n'
+        'AVALIAÇÕES:\n' + _trunc(sec, 'avaliacoes') + '\n\n'
+        'HORÁRIO DE ATENDIMENTO:\n' + _trunc(sec, 'horario_atendimento') + '\n\n'
         'REFERÊNCIAS (CONTAGEM VERIFICADA — use exatamente estes números):\n'
         + str(sec.get('ref_basicas', 0)) + ' referência(s) básica(s) e '
         + str(sec.get('ref_complementares', 0)) + ' complementar(es).'

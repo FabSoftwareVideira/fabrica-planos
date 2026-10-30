@@ -1,7 +1,7 @@
 import json
 import logging
 
-from app import csvsaida, pipeline
+from app import csvsaida, detalhes, pipeline
 from app.andamento import Andamento
 from app.config import Config
 
@@ -23,6 +23,7 @@ def test_lote_grava_csv_registra_andamento_e_libera(tmp_path, monkeypatch, caplo
     monkeypatch.setattr(pipeline, 'extrair_texto', lambda caminho: 'Ementa: algo\n')
     resposta = json.dumps({'status_geral': 'OK', 'obs_geral': 'ok'})
     monkeypatch.setattr(pipeline, 'chamar_ollama', lambda url, payload: resposta)
+    detalhes.salvar(cfg.detalhes_dir, 'removido.pdf', {'arquivo': 'removido.pdf'})
     andamento = Andamento()
     nomes = pipeline.listar_pdfs(cfg.planos_dir)
     assert andamento.iniciar(len(nomes))
@@ -37,6 +38,12 @@ def test_lote_grava_csv_registra_andamento_e_libera(tmp_path, monkeypatch, caplo
     assert not resumo['rodando']
     assert resumo['processados'] == resumo['total'] == 2
     assert resumo['finalizado_em'] and not resumo['erro']
+    det = detalhes.ler(cfg.detalhes_dir, 'a.pdf')
+    assert det['texto'] == 'Ementa: algo\n'
+    assert det['secoes']['ementa'] == 'algo'
+    assert 'EMENTA:\nalgo' in det['prompt']
+    assert det['resposta_ia'] == resposta
+    assert detalhes.ler(cfg.detalhes_dir, 'removido.pdf') is None
     mensagens = caplog.text
     assert 'Validação iniciada: 2 plano(s), modelo qwen2.5:14b' in mensagens
     assert '[1/2] Validando a.pdf' in mensagens
@@ -57,6 +64,8 @@ def test_falha_no_ollama_vira_erro_no_csv(tmp_path, monkeypatch):
     linhas = csvsaida.ler_csv(cfg.csv_path)
     assert all(l['Status Geral'] == 'ERRO' for l in linhas)
     assert 'Ollama inacessível' in linhas[0]['Observação Geral']
+    det = detalhes.ler(cfg.detalhes_dir, 'a.pdf')
+    assert det['texto'] == 'texto' and det['erro'] == 'Ollama inacessível'
 
 
 def test_erro_inesperado_libera_e_registra(tmp_path, monkeypatch):
