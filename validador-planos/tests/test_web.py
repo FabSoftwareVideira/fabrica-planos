@@ -217,3 +217,34 @@ def test_excluir_todos(cliente):
     r = c.delete('/planos/todos')
     assert r.json == {'excluidos': 2}
     assert list(planos.iterdir()) == []
+
+
+def test_revalidar_pela_rota(cliente, monkeypatch):
+    from app import pipeline
+    c, planos = cliente
+    chamadas = []
+    monkeypatch.setattr(pipeline, 'revalidar', lambda cfg, andamento, nome: chamadas.append(nome))
+    assert c.post('/validar?arquivo=sumiu.pdf').status_code == 404
+    assert c.post('/validar?arquivo=../x.pdf').status_code == 400
+    (planos / 'a.pdf').write_bytes(PDF)
+    r = c.post('/validar?arquivo=a.pdf')
+    assert r.json == {'status': 'iniciado', 'arquivo': 'a.pdf'}
+    web.andamento.finalizar()
+    assert chamadas == ['a.pdf']
+    assert web.andamento.resumo()['unico'] == 'a.pdf'
+
+
+def test_dashboard_tem_filtros_e_revalidar_so_na_ultima(cliente):
+    c, planos = cliente
+    validacao = {'status_geral': 'PENDENTE', 'horario_atendimento': {'status': 'INCOMPLETO', 'obs': ''}}
+    antiga = _execucao(['a.pdf'], 9)
+    _execucao(['a.pdf', 'b.pdf'], 10, validacao)
+    html = c.get('/dashboard').get_data(as_text=True)
+    assert 'id="busca"' in html and 'data-status="PENDENTE"' in html
+    assert 'Pendentes (2)' in html and '<option value="Horário Atendimento">' in html
+    assert 'class="revalidar" data-arquivo="a.pdf"' in html
+    assert 'class="revalidar"' not in c.get('/dashboard?validacao=' + antiga.id).get_data(as_text=True)
+
+    (planos / 'a.pdf').write_bytes(PDF)
+    assert 'id="revalidar"' in c.get('/relatorio?arquivo=a.pdf').get_data(as_text=True)
+    assert 'id="revalidar"' not in c.get('/relatorio?arquivo=b.pdf').get_data(as_text=True)  # não está na pasta

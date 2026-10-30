@@ -58,6 +58,7 @@ def criar(raiz, agora=None):
 
 
 def guardar_pdf(execucao, origem):
+    os.makedirs(execucao.pdfs_dir, exist_ok=True)  # a migrada da versão antiga não tem pdfs/
     shutil.copy2(origem, os.path.join(execucao.pdfs_dir, os.path.basename(origem)))
 
 

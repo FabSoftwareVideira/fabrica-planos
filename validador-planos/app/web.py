@@ -55,9 +55,28 @@ def raiz():
     return redirect('/dashboard')
 
 
+def _revalidar_se_livre(nome):
+    with _operacao:
+        if not os.path.isfile(os.path.join(cfg.planos_dir, nome)):
+            return 'sem_arquivo'
+        if not andamento.iniciar(1, unico=nome):
+            return 'ocupado'
+        threading.Thread(target=pipeline.revalidar, args=(cfg, andamento, nome), daemon=True).start()
+        return None
+
+
 @app.post('/validar')
 @app.post('/webhook/validar')
 def validar():
+    nome = request.args.get('arquivo')
+    if nome is not None:  # revalidar só este plano, atualizando a última validação
+        if not pipeline.nome_valido(nome):
+            return _json({'erro': 'Arquivo inválido'}, 400)
+        motivo = _revalidar_se_livre(nome)
+        if motivo == 'sem_arquivo':
+            return _json({'status': 'sem_arquivo',
+                          'mensagem': 'Esse PDF não está mais na pasta de planos; envie-o de novo para revalidar'}, 404)
+        return _ocupado() if motivo else _json({'status': 'iniciado', 'arquivo': nome})
     motivo = _iniciar_se_livre()
     if motivo == 'ocupado':
         return _ocupado()
@@ -107,7 +126,9 @@ def pagina_relatorio():
     if not pipeline.nome_valido(nome) or indice is None:
         return _texto('Plano não encontrado nessa validação.', 404)
     det = detalhes.ler(execucao.detalhes_dir, nome)
-    html = relatorio.gerar_html(linhas, indice, det, execucao, eh_ultima=execucao.id == execucoes[0].id)
+    eh_ultima = execucao.id == execucoes[0].id
+    pode_revalidar = eh_ultima and os.path.isfile(os.path.join(cfg.planos_dir, nome))
+    html = relatorio.gerar_html(linhas, indice, det, execucao, eh_ultima, pode_revalidar)
     return Response(html, mimetype='text/html; charset=utf-8')
 
 

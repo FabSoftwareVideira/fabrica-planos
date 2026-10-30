@@ -22,8 +22,9 @@ def _badge(status):
     )
 
 
-def _card(indice, linha, validacao, pdfs_guardados):
+def _card(indice, linha, validacao, pdfs_guardados, ultima):
     nome = (linha.get('Arquivo') or '').replace('2024-1 - ', '').replace('.pdf', '')
+    problemas = [rotulo for rotulo, _ in CAMPOS_COLUNA if linha.get(rotulo) != 'OK']
     topicos = []
     for rotulo, _ in CAMPOS_COLUNA:
         status = linha.get(rotulo, '')
@@ -46,9 +47,14 @@ def _card(indice, linha, validacao, pdfs_guardados):
     if linha.get('Arquivo') in pdfs_guardados:
         link += ('<a href="/validacoes/' + validacao + '/pdf?arquivo=' + arquivo + '" target="_blank" rel="noopener" '
                  + estilo_link + '>📄 Abrir PDF</a>')
+    if ultima:  # revalidar atualiza a última validação; as anteriores ficam como estão
+        link += ('<button type="button" class="revalidar" data-arquivo="' + escape(linha.get('Arquivo', ''), quote=True)
+                 + '" title="Valida de novo só este plano, com o PDF atual da pasta">↻ Revalidar</button>')
     observacao = linha.get('Observação Geral', '')
     return (
-        '<details id="plano-' + str(indice) + '" class="plano" '
+        '<details id="plano-' + str(indice) + '" class="plano" data-arquivo="'
+        + escape(linha.get('Arquivo', ''), quote=True) + '" data-status="' + escape(linha.get('Status Geral', ''))
+        + '" data-problemas="' + escape('|'.join(problemas), quote=True) + '" '
         'style="background:#fff;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.1);margin-bottom:12px">'
         '<summary style="display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer;list-style:none">'
         '<span style="font-weight:600;flex:1">' + escape(nome) + '</span>' + _badge(linha.get('Status Geral', ''))
@@ -92,6 +98,22 @@ ESTILO = (
     '.antiga a{color:#92400e;font-weight:600}'
     '.cab-planos{display:flex;align-items:center;gap:8px;margin-bottom:12px}'
     '.cab-planos h2{margin:0 auto 0 0}'
+    '.revalidar{border:0;background:none;color:#2563eb;font:inherit;font-size:13px;font-weight:600;cursor:pointer;'
+    'padding:0;white-space:nowrap}'
+    '.revalidar:disabled{color:#d1d5db;cursor:not-allowed}'
+    '.arquivos .revalidar{font-weight:400;padding:4px 6px}'
+    '.filtros{background:#fff;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.1);padding:14px 16px;'
+    'margin-bottom:16px;display:flex;flex-wrap:wrap;gap:10px;align-items:center}'
+    '.filtros input,.filtros select{font:inherit;font-size:14px;padding:7px 10px;border:1px solid #cbd5e1;'
+    'border-radius:8px;background:#fff}'
+    '.filtros input{flex:1 1 220px;min-width:0}'
+    '.chips{display:flex;gap:6px;flex-wrap:wrap}'
+    '.chip{border:1px solid #cbd5e1;background:#fff;border-radius:999px;padding:5px 12px;font:inherit;font-size:13px;'
+    'cursor:pointer;color:#374151}'
+    '.chip[aria-pressed="true"]{background:#1f2937;border-color:#1f2937;color:#fff}'
+    '.contagem{font-size:13px;color:#6b7280;margin-left:auto}'
+    '.limpar{border:0;background:none;color:#2563eb;font:inherit;font-size:13px;cursor:pointer}'
+    '.plano[hidden]{display:none}'
     '.plano{scroll-margin-top:16px;transition:box-shadow .3s}'
     '.plano.destaque{box-shadow:0 0 0 3px #93c5fd !important}'
 )
@@ -123,7 +145,7 @@ async function corpo(resp) { try { return await resp.json(); } catch { return {}
 function bloquear() {
   $('validar').disabled = rodando;
   $('escolher').disabled = rodando;
-  document.querySelectorAll('.excluir').forEach(b => b.disabled = rodando);
+  document.querySelectorAll('.excluir, .revalidar').forEach(b => b.disabled = rodando);
 }
 
 function trocarValidacao(id) { location.href = '/dashboard' + (id ? '?validacao=' + encodeURIComponent(id) : ''); }
@@ -146,8 +168,12 @@ async function atualizarStatus() {
     else if (s.finalizado_em) msg($('status-msg'), `Validação concluída em ${hora(s.finalizado_em)}`, 'ok');
     else msg($('status-msg'), 'Nenhuma validação em andamento');
   }
-  // Ao terminar um lote, abre a validação nova (a mais recente do histórico).
-  if (estavaRodando && !rodando) { location.href = '/dashboard'; return; }
+  // Ao terminar, abre a validação mais recente; numa revalidação, já no card do plano.
+  if (estavaRodando && !rodando) {
+    history.replaceState(null, '', '/dashboard' + (s.unico ? '#arquivo=' + encodeURIComponent(s.unico) : ''));
+    location.reload();
+    return;
+  }
   estavaRodando = rodando;
   timer = setTimeout(atualizarStatus, rodando ? 2000 : 10000);
 }
@@ -162,10 +188,13 @@ async function carregarPlanos() {
     a.textContent = '📄 ' + p.nome;
     const info = document.createElement('span');
     info.textContent = kb(p.tamanho) + ' · ' + hora(p.modificado);
+    const val = document.createElement('button');
+    val.className = 'revalidar'; val.textContent = '↻ Validar'; val.disabled = rodando; val.dataset.arquivo = p.nome;
+    val.title = 'Valida só este PDF e atualiza a última validação';
     const del = document.createElement('button');
     del.className = 'excluir'; del.textContent = 'Excluir'; del.disabled = rodando;
     del.onclick = () => excluir(p.nome);
-    li.append(a, info, del);
+    li.append(a, info, val, del);
     return li;
   });
   if (!itens.length) { const li = document.createElement('li'); li.innerHTML = '<span>Nenhum PDF na pasta.</span>'; itens.push(li); }
@@ -219,10 +248,72 @@ async function enviar(arquivos) {
   if (salvos.length) carregarPlanos();
 }
 
-// Ao voltar do relatório (#plano-N), abre e destaca o plano de onde o usuário saiu.
+async function revalidar(nome) {
+  if (rodando) return;
+  let r, d;
+  try { r = await fetch('/validar?arquivo=' + encodeURIComponent(nome), { method: 'POST' }); d = await corpo(r); }
+  catch { msg($('status-msg'), 'Sem conexão com o servidor; tente de novo', 'erro'); return; }
+  if (r.ok || d.status === 'ocupado') { estavaRodando = true; atualizarStatus(); $('status-msg').scrollIntoView({ block: 'center' }); }
+  else msg($('status-msg'), d.mensagem || d.erro || 'Não foi possível revalidar', 'erro');
+}
+
+// Botões ↻ dos cards e da lista de PDFs (o do card fica dentro do <summary>: não abre/fecha o card).
+document.addEventListener('click', e => {
+  const b = e.target.closest('.revalidar');
+  if (!b) return;
+  e.preventDefault(); e.stopPropagation();
+  revalidar(b.dataset.arquivo);
+});
+
+// Filtros dos resultados: busca (sem acento/caixa), status e campo com problema. Ficam salvos na aba.
+const semAcento = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+let filtro = { busca: '', status: '', campo: '' };
+
+function aplicarFiltros() {
+  if (!$('filtros')) return;
+  const termos = semAcento(filtro.busca).split(/\s+/).filter(Boolean);
+  const cards = [...document.querySelectorAll('.plano')];
+  let visiveis = 0;
+  for (const c of cards) {
+    const nome = semAcento(c.dataset.arquivo);
+    const ok = termos.every(t => nome.includes(t))
+      && (!filtro.status || c.dataset.status === filtro.status)
+      && (!filtro.campo || c.dataset.problemas.split('|').includes(filtro.campo));
+    c.hidden = !ok;
+    if (ok) visiveis++;
+  }
+  document.querySelectorAll('.chip').forEach(ch => ch.setAttribute('aria-pressed', String(ch.dataset.status === filtro.status)));
+  $('busca').value = filtro.busca;
+  $('campo').value = filtro.campo;
+  const ativo = filtro.busca || filtro.status || filtro.campo;
+  $('contagem').textContent = ativo ? `${visiveis} de ${cards.length} plano(s)` : `${cards.length} plano(s)`;
+  $('limpar-filtros').hidden = !ativo;
+  $('sem-resultado').hidden = visiveis > 0;
+  try { sessionStorage.setItem('filtros', JSON.stringify(filtro)); } catch {}
+}
+
+function iniciarFiltros() {
+  if (!$('filtros')) return;
+  try { Object.assign(filtro, JSON.parse(sessionStorage.getItem('filtros') || '{}')); } catch {}
+  if (filtro.status && !document.querySelector(`.chip[data-status="${filtro.status}"]`)) filtro.status = '';
+  if (filtro.campo && ![...$('campo').options].some(o => o.value === filtro.campo)) filtro.campo = '';
+  $('busca').oninput = e => { filtro.busca = e.target.value; aplicarFiltros(); };
+  $('campo').onchange = e => { filtro.campo = e.target.value; aplicarFiltros(); };
+  document.querySelectorAll('.chip').forEach(ch => ch.onclick = () => { filtro.status = ch.dataset.status; aplicarFiltros(); });
+  $('limpar-filtros').onclick = () => { filtro = { busca: '', status: '', campo: '' }; aplicarFiltros(); };
+  aplicarFiltros();
+}
+
+// Ao voltar do relatório (#plano-N) ou depois de revalidar (#arquivo=nome), abre e destaca o plano.
 function focarPlano() {
-  const alvo = location.hash.startsWith('#plano-') && document.querySelector(location.hash);
+  let alvo = null;
+  if (location.hash.startsWith('#plano-')) alvo = document.querySelector(location.hash);
+  if (location.hash.startsWith('#arquivo=')) {
+    const nome = decodeURIComponent(location.hash.slice(9));
+    alvo = [...document.querySelectorAll('.plano')].find(c => c.dataset.arquivo === nome);
+  }
   if (!alvo) return;
+  if (alvo.hidden) { filtro = { busca: '', status: '', campo: '' }; aplicarFiltros(); }  // não esconder o plano pedido
   alvo.open = true;
   alvo.scrollIntoView({ block: 'start' });
   alvo.classList.add('destaque');
@@ -248,8 +339,36 @@ zona.addEventListener('drop', e => enviar([...e.dataTransfer.files]));
 
 atualizarStatus();
 carregarPlanos();
+iniciarFiltros();
 focarPlano();
 """
+
+
+STATUS_FILTRO = [('OK', 'Aprovados'), ('PENDENTE', 'Pendentes'), ('REPROVADO', 'Reprovados'), ('ERRO', 'Com erro')]
+
+
+def _filtros(linhas):
+    """Barra de filtros dos cards (busca, status e campo com problema); a filtragem é feita no navegador."""
+    chips = '<button type="button" class="chip" data-status="" aria-pressed="true">Todos (' + str(len(linhas)) + ')</button>'
+    for status, rotulo in STATUS_FILTRO:
+        n = sum(1 for l in linhas if l.get('Status Geral') == status)
+        if n:
+            chips += ('<button type="button" class="chip" data-status="' + status + '" aria-pressed="false">'
+                      + rotulo + ' (' + str(n) + ')</button>')
+    campos = ''.join(
+        '<option value="' + escape(rotulo, quote=True) + '">' + escape(rotulo) + '</option>'
+        for rotulo, _ in CAMPOS_COLUNA
+        if any(l.get(rotulo) != 'OK' for l in linhas)
+    )
+    return (
+        '<div class="filtros" id="filtros">'
+        '<input type="search" id="busca" placeholder="Buscar por disciplina ou docente" aria-label="Buscar planos">'
+        '<div class="chips" role="group" aria-label="Filtrar por status">' + chips + '</div>'
+        '<select id="campo" aria-label="Campo com problema"><option value="">Qualquer campo</option>' + campos + '</select>'
+        '<span class="contagem" id="contagem"></span>'
+        '<button type="button" class="limpar" id="limpar-filtros" hidden>Limpar filtros</button>'
+        '</div>'
+    )
 
 
 def data_br(iso):
@@ -323,7 +442,9 @@ def gerar_html(linhas, max_mb=10, execucoes=(), execucao=None):
 
     if execucao is not None and linhas:
         pdfs = set(execucao.pdfs())
-        corpo = ''.join(_card(i, l, execucao.id, pdfs) for i, l in enumerate(linhas))
+        ultima = execucao.id == execucoes[0].id
+        corpo = _filtros(linhas) + ''.join(_card(i, l, execucao.id, pdfs, ultima) for i, l in enumerate(linhas))
+        corpo += '<p class="msg" id="sem-resultado" hidden>Nenhum plano corresponde aos filtros.</p>'
     else:
         corpo = '<p style="color:#6b7280">Nenhuma validação concluída ainda.</p>'
     return (

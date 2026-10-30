@@ -46,7 +46,7 @@ Regras por campo:
 - procedimentos_avaliacao: OK se descrever os instrumentos de avaliação. NÃO exija menção a interdisciplinaridade.
 - cronograma: OK se apresentar datas, semanas ou qualquer distribuição temporal dos conteúdos.
 - avaliacoes: OK se indicar as avaliações previstas (instrumentos, datas ou pesos).
-- horario_atendimento: OK se informar dia(s) e/ou horário(s) de atendimento ao aluno.
+- horario_atendimento: OK se informar dia(s) e/ou horário(s) de atendimento ao aluno. Se apenas indicar onde consultar o horário (quadro de horários, sistema Planus, PTD, site) sem informar dias ou horários, INCOMPLETO. Vazio: AUSENTE.
 - referencias: NÃO conte nada. Use a CONTAGEM VERIFICADA informada nos dados abaixo. OK somente se houver no mínimo 3 básicas E 5 complementares; caso contrário INCOMPLETO, informando na obs quantas há de cada tipo.
 - coerencia: OK se os objetivos, a metodologia e os procedimentos de avaliação forem compatíveis entre si; aponte na obs qualquer contradição encontrada.
 

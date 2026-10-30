@@ -20,6 +20,8 @@ Em `/dashboard` é possível:
 - iniciar a validação (botão **Validar agora**) e acompanhar o progresso (plano atual, barra de andamento); ao terminar, a página abre os resultados novos;
 - enviar PDFs (arrastando ou escolhendo arquivos; um PDF com o mesmo nome é substituído), abrir e excluir os da pasta, um a um ou todos de uma vez (**Excluir todos**, que não apaga o histórico). Só entram arquivos `.pdf` de até `PDF_MAX_MB` MB (padrão 10) que abram e tenham texto selecionável; digitalizados (só imagem) são recusados com o aviso de que precisam de OCR;
 - abrir o **Relatório** de cada plano avaliado: a avaliação de cada campo ao lado do texto extraído para ele, o texto completo do PDF, o prompt enviado e a resposta da IA. A barra do topo volta ao dashboard já no card do plano (ou `Esc`) e passa para o plano anterior/próximo (ou `←`/`→`). Planos validados antes desta versão só mostram o texto depois de uma nova validação;
+- **revalidar um plano só** (botão ↻ no card, no relatório ou na lista de PDFs, útil depois que o docente corrige o PDF): a linha dele na última validação é substituída (ou acrescentada, se for um PDF novo), sem rodar o lote;
+- filtrar os resultados por texto (disciplina ou docente, sem diferenciar acentos), status e campo com problema; os filtros ficam guardados enquanto a aba estiver aberta;
 - consultar as últimas validações (seletor ao lado de **Resultados**) e baixar o CSV de cada uma e o **zip com os PDFs** da última.
 
 Enquanto uma validação roda, envio e exclusão ficam bloqueados. Não há autenticação: qualquer um que alcance a porta `APP_PORT` pode enviar e excluir PDFs.
@@ -29,7 +31,8 @@ Enquanto uma validação roda, envio e exclusão ficam bloqueados. Não há aute
 | Método | Rota | Resposta |
 |---|---|---|
 | POST | `/validar` | `200 {"status":"iniciado"}`, `409` se já houver validação em andamento, `422` se a pasta não tiver PDFs |
-| GET | `/status` | Andamento: `rodando`, `total`, `processados`, `atual`, `iniciado_em`, `finalizado_em`, `erro` |
+| POST | `/validar?arquivo=nome.pdf` | Revalida só esse plano e atualiza a última validação; `404` se o PDF não estiver na pasta, `409` se houver validação em andamento |
+| GET | `/status` | Andamento: `rodando`, `total`, `processados`, `atual`, `iniciado_em`, `finalizado_em`, `erro` e `unico` (plano, numa revalidação) |
 | GET | `/dashboard?validacao=ID` | Página HTML com os controles e os resultados; sem `validacao`, a última |
 | GET | `/planos` | Lista dos PDFs da pasta (`nome`, `tamanho`, `modificado`) |
 | POST | `/planos` | Upload (multipart, campo `arquivos`, vários por vez, até `PDF_MAX_MB` por arquivo e 100 MB no total). Responde `salvos` e `recusados` (com o motivo); `409` durante a validação |
@@ -95,5 +98,7 @@ pytest
 ## Observações
 
 - O Ollama roda como serviço `ollama` do próprio compose; o validador o alcança pela rede interna em `http://ollama:11434`. No host, ele fica em `OLLAMA_PORT` (padrão 11434), aceitando só conexões locais; para liberar na rede, use `OLLAMA_BIND=0.0.0.0` (o Ollama não tem autenticação). Não altere `OLLAMA_URL` ao trocar a porta. Os modelos ficam no volume `ollama-data` e sobrevivem a `docker compose down` (só `down -v` os apaga). Para usar GPU NVIDIA, descomente o bloco `deploy` do serviço no `docker-compose.yml`.
+- O texto extraído é limpo antes da separação em seções: saem o rodapé do SIGAA ("Este documento foi emitido…", endereço, telefone), o cabeçalho institucional repetido a partir da 2ª página, títulos de bloco e cabeçalhos de tabela, e o bloco "Matrícula Docente(s)" de dentro da ementa (ele vai para a identificação).
+- Horário de atendimento é decidido por regra, sem a IA: OK se a seção informa dia ou hora; INCOMPLETO se só indica onde consultar (quadro de horários, Planus, PTD, site); AUSENTE se vazia.
 - A extração usa `pdfplumber`, que lê só a camada de texto. PDFs escaneados precisam de OCR antes de entrar na pasta: o upload os recusa e, se um deles for copiado direto para a pasta, a validação o marca como `ERRO` ("precisa passar por OCR") sem chamar a IA.
 - Para trocar o modelo, altere `OLLAMA_MODEL` (e, se quiser, `OLLAMA_NUM_CTX`) no `.env`, baixe o modelo com `docker compose exec ollama ollama pull <modelo>` e rode `docker compose up -d`. Um `docker compose restart` não recarrega o `.env`.

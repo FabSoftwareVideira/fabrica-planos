@@ -62,7 +62,21 @@ def test_interdisciplinaridade_nao_reprova():
 def test_horario_detectado_sobrescreve_ia():
     entrada = _validacao_ok()
     entrada['horario_atendimento'] = {'status': 'INCOMPLETO', 'obs': 'sem dia'}
-    v = aplicar_regras(entrada, {**BASE, 'temHorarioAtendimento': True})
+    v = aplicar_regras(entrada, {**BASE, 'temHorarioAtendimento': True, 'textoHorario': 'Terça 10:00'})
     assert v['horario_atendimento']['status'] == 'OK'
-    sem = aplicar_regras(_validacao_ok(), {**BASE, 'temHorarioAtendimento': False})
-    assert sem['horario_atendimento']['status'] == 'OK'
+
+
+def test_horario_que_so_indica_onde_consultar_e_incompleto():
+    v = aplicar_regras(_validacao_ok(), {
+        **BASE, 'temHorarioAtendimento': False,
+        'textoHorario': 'Disponível no quadro de horários do docente em:\nhttps://planus.sou.ifc.edu.br/',
+    })
+    assert v['horario_atendimento']['status'] == 'INCOMPLETO'
+    assert 'https://planus.sou.ifc.edu.br/' in v['horario_atendimento']['obs']
+    assert v['status_geral'] == 'PENDENTE'
+
+
+def test_horario_vazio_e_ausente_mesmo_que_a_ia_diga_ok():
+    v = aplicar_regras(_validacao_ok(), {**BASE, 'temHorarioAtendimento': False, 'textoHorario': '  '})
+    assert v['horario_atendimento']['status'] == 'AUSENTE'
+    assert v['status_geral'] == 'REPROVADO'

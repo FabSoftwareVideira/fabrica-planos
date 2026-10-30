@@ -43,6 +43,7 @@ def validar_plano(cfg, nome, detalhes_dir):
             'temObjGeral': bool((sec.get('objetivos_geral') or '').strip()),
             'temObjEspecificos': bool((sec.get('objetivos_especificos') or '').strip()),
             'temHorarioAtendimento': sec['temHorarioAtendimento'],
+            'textoHorario': sec.get('horario_atendimento', ''),
         })
     except PdfIlegivel as erro:  # não adianta chamar a IA sem texto
         log.warning('%s: %s', nome, erro)
@@ -88,6 +89,38 @@ def executar(cfg, andamento, nomes):
     finally:
         if execucao is not None:
             _registrar(cfg, execucao, linhas, nomes, iniciado_em, erro)
+        andamento.finalizar(erro)
+
+
+def revalidar(cfg, andamento, nome):
+    """Valida de novo um plano e atualiza a última validação do histórico (substitui a linha dele ou a
+    acrescenta, se for novo). Sem histórico, cria uma validação só com ele. O chamador já chamou
+    andamento.iniciar(1, unico=nome)."""
+    erro = ''
+    try:
+        execucoes = historico.listar(cfg.historico_dir)
+        execucao = execucoes[0] if execucoes else historico.criar(cfg.historico_dir)
+        meta = (execucao.meta() or {'iniciado_em': datetime.now().isoformat(timespec='seconds'), 'erro': ''})
+        log.info('Revalidando %s na validação %s', nome, execucao.id)
+        andamento.validando(nome)
+        historico.guardar_pdf(execucao, os.path.join(cfg.planos_dir, nome))
+        linha = validar_plano(cfg, nome, execucao.detalhes_dir)
+        linhas = [l for l in csvsaida.ler_csv(execucao.csv_path) if l.get('Arquivo') != nome] + [linha]
+        linhas.sort(key=lambda l: l.get('Arquivo', ''))  # mesma ordem de listar_pdfs
+        csvsaida.escrever_csv(execucao.csv_path, linhas)
+        csvsaida.escrever_csv(cfg.csv_path, linhas)
+        agora = datetime.now().isoformat(timespec='seconds')
+        meta.update(total=len(linhas), processados=len(linhas), modelo=cfg.modelo, revalidado_em=agora,
+                    **historico.contar(linhas))
+        meta.setdefault('finalizado_em', agora)
+        historico.gravar_meta(execucao, meta)
+        andamento.plano_concluido()
+        log.info('%s revalidado: %s', nome, linha['Status Geral'])
+    except Exception as e:
+        log.exception('Revalidação de %s interrompida por erro inesperado', nome)
+        erro = str(e) or e.__class__.__name__
+        raise
+    finally:
         andamento.finalizar(erro)
 
 

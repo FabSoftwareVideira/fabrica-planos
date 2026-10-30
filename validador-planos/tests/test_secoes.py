@@ -58,3 +58,19 @@ def test_horario_sem_dia_nem_hora_e_negativo():
 
 def test_sem_secao_de_horario():
     assert not tem_horario_atendimento('texto qualquer sem seção')
+
+
+def test_bloco_de_docentes_sai_da_ementa_e_vai_para_a_identificacao():
+    texto = ('Plano de Ensino\n' + 'x' * 500 + '\nEmenta: Estudo de matrizes e determinantes.\n'
+             'Matrícula Docente(s)\n1773245 FULANA DE TAL - 60h\nMetodologia: aulas.\n')
+    sec = analisar_texto(texto)
+    assert sec['ementa'] == 'Estudo de matrizes e determinantes.'
+    assert 'FULANA DE TAL' in sec['identificacao']
+
+
+def test_horario_usa_so_o_texto_da_secao():
+    # Antes, a janela de 300 caracteres achava "12:00" na seção seguinte e marcava como informado.
+    texto = 'Horário de Atendimento: https://planus.sou.ifc.edu.br\nPrograma\nObjetivos: aulas às 12:00\n'
+    sec = analisar_texto(texto)
+    assert sec['horario_atendimento'] == 'https://planus.sou.ifc.edu.br'
+    assert sec['temHorarioAtendimento'] is False

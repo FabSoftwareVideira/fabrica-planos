@@ -17,16 +17,17 @@ class Andamento:
             'iniciado_em': None,
             'finalizado_em': None,
             'erro': '',
+            'unico': '',  # nome do plano quando é a revalidação de um só
         }
 
-    def iniciar(self, total):
+    def iniciar(self, total, unico=''):
         """Marca a validação como iniciada. Devolve False se já houver uma em andamento."""
         with self._trava:
             if self._estado['rodando']:
                 return False
             self._estado.update(
                 rodando=True, total=total, processados=0, atual='',
-                iniciado_em=_agora(), finalizado_em=None, erro='',
+                iniciado_em=_agora(), finalizado_em=None, erro='', unico=unico,
             )
             return True
 

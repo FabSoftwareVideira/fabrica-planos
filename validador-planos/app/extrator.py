@@ -119,6 +119,37 @@ def _texto_pagina(pagina):
 
 MIN_CARACTERES = 200  # abaixo disso o PDF é tratado como digitalizado (só imagem)
 
+# Texto do modelo do SIGAA que não ajuda a validar o plano.
+RODAPE = re.compile(
+    r'^(Este documento foi emitido pelo Sistema Integrado de Gest|para verificar a autenticidade informando|'
+    r'Rua das Miss[õo]es, n|Endere[çc]o Eletr[ôo]nico:|Telefone: \(\d)',
+    re.IGNORECASE,
+)
+CABECALHO = re.compile(
+    r'^(Minist[ée]rio da Educa[çc][ãa]o|Secretaria de Educa[çc][ãa]o Profissional e Tecnol[óo]gica|'
+    r'Instituto Federal Catarinense)$',
+    re.IGNORECASE,
+)
+TITULOS = re.compile(
+    r'^(Metodologia de Ensino e Avalia[çc][ãa]o|Tipo de Material Descri[çc][ãa]o|In[íi]cio Fim Descri[çc][ãa]o|'
+    r'Data Hora Descri[çc][ãa]o)$',
+    re.IGNORECASE,
+)
+
+
+def _limpar(paginas):
+    """Tira rodapé, títulos de bloco e cabeçalhos de tabela de todas as páginas, e o cabeçalho
+    institucional repetido a partir da 2ª página (o da 1ª fica: a identificação usa o nome da instituição)."""
+    limpas = []
+    for numero, pagina in enumerate(paginas):
+        linhas = [
+            linha for linha in pagina.splitlines()
+            if not RODAPE.match(linha.strip()) and not TITULOS.match(linha.strip())
+            and not (numero > 0 and CABECALHO.match(linha.strip()))
+        ]
+        limpas.append('\n'.join(linhas))
+    return limpas
+
 
 class PdfIlegivel(Exception):
     """O PDF não abre ou não tem camada de texto (digitalizado, precisa de OCR)."""
@@ -127,7 +158,7 @@ class PdfIlegivel(Exception):
 def extrair_texto(caminho):
     try:
         with pdfplumber.open(caminho) as pdf:
-            texto = '\n'.join(_texto_pagina(pagina) for pagina in pdf.pages)
+            texto = '\n'.join(_limpar([_texto_pagina(pagina) for pagina in pdf.pages]))
     except Exception as erro:
         raise PdfIlegivel(f'O PDF não pôde ser aberto (corrompido ou protegido por senha): {erro}') from erro
     if len(''.join(texto.split())) < MIN_CARACTERES:

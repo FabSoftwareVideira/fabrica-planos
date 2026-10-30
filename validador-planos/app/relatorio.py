@@ -24,6 +24,9 @@ ESTILO = (
     '.nav a:hover{background:#e0e7ff}.nav span.off{color:#d1d5db}'
     '.nav .voltar{background:#2563eb;color:#fff}.nav .voltar:hover{background:#1d4ed8}'
     '.nav .pos{margin-left:auto;font-size:13px;color:#6b7280}'
+    '.nav .revalidar{border:1px solid #2563eb;background:#fff;color:#2563eb;border-radius:8px;padding:6px 10px;'
+    'font:inherit;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap}'
+    '.nav .revalidar:disabled{border-color:#d1d5db;color:#9ca3af;cursor:wait}'
     'h1{margin:0 0 8px;font-size:24px;overflow-wrap:anywhere}'
     '.meta{color:#6b7280;font-size:14px;margin:0 0 16px;display:flex;gap:16px;flex-wrap:wrap;align-items:center}'
     '.meta a{color:#2563eb;font-weight:600;text-decoration:none}'
@@ -91,7 +94,7 @@ def _link_plano(linhas, indice, validacao, texto, tecla):
             + escape(nome, quote=True) + '" data-tecla="' + tecla + '">' + texto + '</a>')
 
 
-def _navegacao(linhas, indice, validacao, eh_ultima, data):
+def _navegacao(linhas, indice, validacao, eh_ultima, data, pode_revalidar):
     # Para a última validação o dashboard dispensa o ?validacao=, como no link do menu.
     dashboard = '/dashboard' + ('' if eh_ultima else '?validacao=' + validacao)
     rotulo = 'Plano ' + str(indice + 1) + ' de ' + str(len(linhas))
@@ -103,18 +106,39 @@ def _navegacao(linhas, indice, validacao, eh_ultima, data):
         + _link_plano(linhas, indice - 1, validacao, '‹ Anterior', 'ArrowLeft')
         + _link_plano(linhas, indice + 1, validacao, 'Próximo ›', 'ArrowRight')
         + '<span class="pos">' + rotulo + '</span>'
-        '</div></nav>'
+        + ('<button type="button" class="revalidar" id="revalidar" data-arquivo="'
+           + escape(linhas[indice].get('Arquivo', ''), quote=True) + '">↻ Revalidar este plano</button>'
+           if pode_revalidar else '')
+        + '</div></nav>'
     )
 
 
 # Atalhos: Esc volta ao dashboard, ← e → passam para o plano anterior/próximo.
 ATALHOS = (
     "document.addEventListener('keydown',e=>{if(e.ctrlKey||e.metaKey||e.altKey)return;"
+    "if(e.target.closest('input,textarea,select'))return;"
     "const a=document.querySelector('.nav a[data-tecla=\"'+e.key+'\"]');if(a)location.href=a.href;});"
 )
 
+# Revalida o plano (atualiza a última validação), acompanha /status e recarrega o relatório ao terminar.
+REVALIDAR = r"""
+const botao = document.getElementById('revalidar');
+if (botao) botao.onclick = async () => {
+  botao.disabled = true; botao.textContent = 'Revalidando…';
+  let r, d = {};
+  try { r = await fetch('/validar?arquivo=' + encodeURIComponent(botao.dataset.arquivo), { method: 'POST' }); d = await r.json(); }
+  catch { r = { ok: false }; d = { mensagem: 'Sem conexão com o servidor' }; }
+  if (!r.ok) { alert(d.mensagem || d.erro || 'Não foi possível revalidar'); botao.disabled = false; botao.textContent = '↻ Revalidar este plano'; return; }
+  const esperar = async () => {
+    try { const s = await (await fetch('/status')).json(); if (!s.rodando) { location.reload(); return; } } catch {}
+    setTimeout(esperar, 2000);
+  };
+  esperar();
+};
+"""
 
-def gerar_html(linhas, indice, det, execucao, eh_ultima=True):
+
+def gerar_html(linhas, indice, det, execucao, eh_ultima=True, pode_revalidar=False):
     linha = linhas[indice]
     nome = linha.get('Arquivo', '')
     sec = (det or {}).get('secoes')
@@ -140,7 +164,7 @@ def gerar_html(linhas, indice, det, execucao, eh_ultima=True):
         '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width, initial-scale=1">'
         '<title>Relatório: ' + escape(nome) + '</title><style>' + ESTILO + '</style></head>'
-        '<body>' + _navegacao(linhas, indice, execucao.id, eh_ultima, data)
+        '<body>' + _navegacao(linhas, indice, execucao.id, eh_ultima, data, pode_revalidar)
         + '<div class="pagina"><h1>' + escape(nome.removesuffix('.pdf')) + '</h1>'
         '<div class="meta">' + ''.join('<span>' + m + '</span>' for m in meta) + '</div>'
         + aviso
@@ -149,5 +173,5 @@ def gerar_html(linhas, indice, det, execucao, eh_ultima=True):
         + _bruto('Texto completo extraído do PDF', (det or {}).get('texto'))
         + _bruto('Prompt enviado à IA', (det or {}).get('prompt'))
         + _bruto('Resposta da IA (antes das regras automáticas)', _resposta((det or {}).get('resposta_ia')))
-        + '</div><script>' + ATALHOS + '</script></body></html>'
+        + '</div><script>' + ATALHOS + REVALIDAR + '</script></body></html>'
     )

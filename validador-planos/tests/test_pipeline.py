@@ -155,3 +155,36 @@ def test_migra_resultado_da_versao_sem_historico(tmp_path):
     assert execucao.meta()['ok'] == 1
     assert detalhes.ler(execucao.detalhes_dir, 'a.pdf') == {'texto': 'antigo'}
     assert execucao.pdfs() == []
+
+
+def test_revalidar_um_plano_atualiza_a_ultima_validacao(tmp_path, monkeypatch):
+    cfg = _cfg(tmp_path)
+    monkeypatch.setattr(pipeline, 'extrair_texto', lambda caminho: 'Ementa: algo\n')
+    monkeypatch.setattr(pipeline, 'chamar_ollama', lambda url, payload: '{"status_geral": "OK", "obs_geral": "v1"}')
+    _executar(cfg)
+    (tmp_path / 'planos' / 'c.pdf').write_bytes(b'%PDF novo')
+    monkeypatch.setattr(pipeline, 'chamar_ollama', lambda url, payload: '{"status_geral": "OK", "obs_geral": "v2"}')
+
+    for nome in ('a.pdf', 'c.pdf'):  # um que já estava e um novo
+        andamento = Andamento()
+        andamento.iniciar(1, unico=nome)
+        pipeline.revalidar(cfg, andamento, nome)
+        assert andamento.resumo()['unico'] == nome and not andamento.resumo()['rodando']
+
+    [execucao] = historico.listar(cfg.historico_dir)
+    linhas = csvsaida.ler_csv(execucao.csv_path)
+    assert [(l['Arquivo'], l['Observação Geral']) for l in linhas] == [('a.pdf', 'v2'), ('b.PDF', 'v1'), ('c.pdf', 'v2')]
+    assert csvsaida.ler_csv(cfg.csv_path) == linhas
+    assert execucao.meta()['total'] == 3 and execucao.meta()['revalidado_em']
+    assert 'c.pdf' in execucao.pdfs()
+
+
+def test_revalidar_sem_historico_cria_validacao(tmp_path, monkeypatch):
+    cfg = _cfg(tmp_path)
+    monkeypatch.setattr(pipeline, 'extrair_texto', lambda caminho: 'Ementa: algo\n')
+    monkeypatch.setattr(pipeline, 'chamar_ollama', lambda url, payload: '{"status_geral": "OK"}')
+    andamento = Andamento()
+    andamento.iniciar(1, unico='a.pdf')
+    pipeline.revalidar(cfg, andamento, 'a.pdf')
+    [execucao] = historico.listar(cfg.historico_dir)
+    assert [l['Arquivo'] for l in csvsaida.ler_csv(execucao.csv_path)] == ['a.pdf']

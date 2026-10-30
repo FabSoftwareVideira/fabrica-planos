@@ -103,3 +103,22 @@ def test_extrair_texto_de_pdf_real_e_recusa_digitalizado(tmp_path):
     scan.write_bytes(PDF_SEM_TEXTO)
     with pytest.raises(PdfIlegivel, match='OCR'):
         extrair_texto(str(scan))
+
+
+def test_limpa_rodape_titulos_e_cabecalho_repetido():
+    from app.extrator import _limpar
+    pagina1 = '\n'.join([
+        'Ministério da Educação', 'Instituto Federal Catarinense', 'Plano de Ensino', 'Ementa: Estudo de bancos.',
+        'Este documento foi emitido pelo Sistema Integrado de Gestão de Atividades Acadêmicas. Acesse https://x',
+        'para verificar a autenticidade informando o código de verificação: abc',
+        'Rua das Missões, nº 100 - Ponta Aguda', 'Endereço Eletrônico: https://ifc.edu.br/', 'Telefone: (47) 3331-7800',
+    ])
+    pagina2 = '\n'.join([
+        'Ministério da Educação', 'Secretaria de Educação Profissional e Tecnológica', 'Instituto Federal Catarinense',
+        'Metodologia de Ensino e Avaliação', 'Metodologia: aulas expositivas.', 'Tipo de Material Descrição',
+        'Livro AUTOR. Título.', 'Telefone: (47) 3331-7800',
+    ])
+    assert _limpar([pagina1, pagina2]) == [
+        'Ministério da Educação\nInstituto Federal Catarinense\nPlano de Ensino\nEmenta: Estudo de bancos.',
+        'Metodologia: aulas expositivas.\nLivro AUTOR. Título.',
+    ]

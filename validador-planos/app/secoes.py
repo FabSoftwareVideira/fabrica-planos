@@ -17,7 +17,7 @@ SECTION_DEFS = [
     ('programa', r'^Programa[ \t]*$'),
     ('objetivos', r'^Objetivos?(\s+Gerais?)?\s*:'),
     ('conteudo_programatico', r'^Conte[úu]do\s+Program[áa]tico\s*:?'),
-    ('cronograma', r'^Cronograma'),
+    ('cronograma', r'^Cronograma(\s+de\s+Aulas)?'),
     ('avaliacoes', r'^Avalia[çc][õo]es\s*:?[ \t]*$'),
     ('referencias', r'^Refer[êe]ncias(\s+B[áa]sicas|\s+Bibliogr[áa]ficas)?\s*:?'),
 ]
@@ -88,7 +88,8 @@ def analisar_texto(text):
     for i, atual in enumerate(encontradas):
         proxima = encontradas[i + 1] if i + 1 < len(encontradas) else None
         fim = proxima['start'] if proxima else len(text)
-        content = text[atual['position']:fim].strip()
+        # O bloco de docentes cai no meio da ementa; ele já vai para a identificação.
+        content = DOCENTES.sub('', text[atual['position']:fim]).strip()
         if atual['key'] == 'objetivos':
             result.update(_objetivos(content))
         else:
@@ -97,5 +98,9 @@ def analisar_texto(text):
     n_basicas, n_complementares = contar_referencias(text)
     result['ref_basicas'] = n_basicas
     result['ref_complementares'] = n_complementares
-    result['temHorarioAtendimento'] = tem_horario_atendimento(text)
+    # Com a seção separada, olha só o texto dela; a janela de 300 caracteres pegava dígitos das seções seguintes.
+    if 'horario_atendimento' in result:
+        result['temHorarioAtendimento'] = bool(HORARIO_DIA_OU_HORA.search(result['horario_atendimento']))
+    else:
+        result['temHorarioAtendimento'] = tem_horario_atendimento(text)
     return result
