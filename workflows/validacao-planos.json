@@ -425,6 +425,152 @@
         -4896,
         2200
       ]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "fileSelector": "/data/resultados/validacao.lock",
+        "options": {}
+      },
+      "id": "ler-lock-001",
+      "name": "Ler Lock",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [
+        -4896,
+        2400
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Lock de execução: se o arquivo existe e foi atualizado há menos de 15 minutos, a validação está em andamento.\nconst erro = $input.first().json.error;\nlet ocupado = false;\nif (!erro) {\n  const conteudo = (await this.helpers.getBinaryDataBuffer(0, 'data')).toString('utf8').trim();\n  const ultimo = Date.parse(conteudo);\n  ocupado = !isNaN(ultimo) && Date.now() - ultimo < 15 * 60 * 1000;\n}\nreturn [{ json: { ocupado } }];\n"
+      },
+      "id": "verificar-lock-001",
+      "name": "Verificar Lock",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -4672,
+        2400
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "ocupado-cond-001",
+              "leftValue": "={{ $json.ocupado }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "ocupado-if-001",
+      "name": "Ocupado?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -4448,
+        2400
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "{\"status\":\"ocupado\",\"mensagem\":\"Já existe uma validação em andamento\"}",
+        "options": {
+          "responseCode": 409,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          }
+        }
+      },
+      "id": "responder-ocupado-001",
+      "name": "Responder Ocupado",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -4224,
+        2550
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Grava a hora atual no arquivo de lock (usado no início e a cada bloco processado).\nconst agora = new Date().toISOString();\nconst arquivo = await this.helpers.prepareBinaryData(Buffer.from(agora, 'utf8'), 'validacao.lock', 'text/plain');\nreturn [{ json: { atualizado: agora }, binary: { data: arquivo } }];\n"
+      },
+      "id": "preparar-lock-001",
+      "name": "Preparar Lock",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -4224,
+        2250
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "/data/resultados/validacao.lock",
+        "dataPropertyName": "data",
+        "options": {}
+      },
+      "id": "gravar-lock-001",
+      "name": "Gravar Lock",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [
+        -4000,
+        2250
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Grava a hora atual no arquivo de lock (usado no início e a cada bloco processado).\nconst agora = new Date().toISOString();\nconst arquivo = await this.helpers.prepareBinaryData(Buffer.from(agora, 'utf8'), 'validacao.lock', 'text/plain');\nreturn [{ json: { atualizado: agora }, binary: { data: arquivo } }];\n"
+      },
+      "id": "preparar-heartbeat-001",
+      "name": "Preparar Heartbeat",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2900,
+        2400
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "/data/resultados/validacao.lock",
+        "dataPropertyName": "data",
+        "options": {}
+      },
+      "id": "atualizar-lock-001",
+      "name": "Atualizar Lock",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [
+        -2700,
+        2400
+      ]
     }
   ],
   "connections": {
@@ -546,7 +692,7 @@
       "main": [
         [
           {
-            "node": "Processar em Blocos",
+            "node": "Preparar Heartbeat",
             "type": "main",
             "index": 0
           }
@@ -557,7 +703,7 @@
       "main": [
         [
           {
-            "node": "Responder Início",
+            "node": "Ler Lock",
             "type": "main",
             "index": 0
           }
@@ -569,6 +715,90 @@
         [
           {
             "node": "Ler PDFs da Pasta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ler Lock": {
+      "main": [
+        [
+          {
+            "node": "Verificar Lock",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verificar Lock": {
+      "main": [
+        [
+          {
+            "node": "Ocupado?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ocupado?": {
+      "main": [
+        [
+          {
+            "node": "Responder Ocupado",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Preparar Lock",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar Lock": {
+      "main": [
+        [
+          {
+            "node": "Gravar Lock",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gravar Lock": {
+      "main": [
+        [
+          {
+            "node": "Responder Início",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar Heartbeat": {
+      "main": [
+        [
+          {
+            "node": "Atualizar Lock",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Atualizar Lock": {
+      "main": [
+        [
+          {
+            "node": "Processar em Blocos",
             "type": "main",
             "index": 0
           }
