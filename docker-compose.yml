@@ -1,6 +1,6 @@
 services:
   n8n:
-    image: docker.n8n.io/n8nio/n8n
+    image: docker.n8n.io/n8nio/n8n:2.45.5
     restart: "no"
     ports:
       - "${N8N_PORT}:${N8N_PORT}"
@@ -32,7 +32,7 @@ services:
 
   # Importa (ou atualiza, pelo id fixo) o workflow e o ativa antes do n8n subir
   n8n-import:
-    image: docker.n8n.io/n8nio/n8n
+    image: docker.n8n.io/n8nio/n8n:2.45.5
     restart: "no"
     entrypoint: ["/bin/sh", "-c"]
     command:
