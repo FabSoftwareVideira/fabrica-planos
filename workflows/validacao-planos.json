@@ -385,6 +385,46 @@
       ],
       "id": "8d3e0fa2-4c6b-4a9f-b7d2-3f0a1c8e4b03",
       "name": "Gravar CSV"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "validar",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-validar-001",
+      "name": "Webhook Validar",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -5120,
+        2200
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "{\"status\":\"iniciado\"}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          }
+        }
+      },
+      "id": "responder-validar-001",
+      "name": "Responder Início",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -4896,
+        2200
+      ]
     }
   ],
   "connections": {
@@ -507,6 +547,28 @@
         [
           {
             "node": "Processar em Blocos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook Validar": {
+      "main": [
+        [
+          {
+            "node": "Responder Início",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Responder Início": {
+      "main": [
+        [
+          {
+            "node": "Ler PDFs da Pasta",
             "type": "main",
             "index": 0
           }
