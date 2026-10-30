@@ -44,7 +44,7 @@ services:
       - tc-network
 
   ollama:
-    image: ollama/ollama
+    image: ollama/ollama:0.40.12
     restart: "no"
     ports:
       # Porta do host (OLLAMA_PORT) -> porta interna 11434, que os workflows usam em http://ollama:11434
