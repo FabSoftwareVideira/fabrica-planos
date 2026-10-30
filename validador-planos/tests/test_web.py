@@ -8,8 +8,9 @@ import pytest
 from app import web
 from app.andamento import Andamento
 from app.config import Config
+from conftest import PDF_COM_TEXTO, PDF_SEM_TEXTO
 
-PDF = b'%PDF-1.4 conteudo'
+PDF = PDF_COM_TEXTO
 
 
 @pytest.fixture
@@ -18,7 +19,7 @@ def cliente(tmp_path, monkeypatch):
     planos.mkdir()
     cfg = Config(
         planos_dir=str(planos), resultados_dir=str(tmp_path / 'res'),
-        ollama_url='http://ollama:11434', modelo='m', num_ctx=1, hora_agendada=5, agendar=False,
+        ollama_url='http://ollama:11434', modelo='m', num_ctx=1, hora_agendada=5, agendar=False, pdf_max_mb=1,
     )
     monkeypatch.setattr(web, 'cfg', cfg)
     monkeypatch.setattr(web, 'andamento', Andamento())
@@ -54,6 +55,20 @@ def test_upload_recusa_nome_e_conteudo_invalidos(cliente):
     assert [s['nome'] for s in r.json['salvos']] == ['fora.pdf']
     assert {x['nome'] for x in r.json['recusados']} == {'x.txt', 'falso.pdf'}
     assert sorted(os.listdir(planos)) == ['fora.pdf']
+
+
+def test_upload_recusa_pdf_grande_digitalizado_ou_corrompido(cliente):
+    c, planos = cliente
+    grande = PDF + b'%' + b'0' * (1024 * 1024)
+    r = c.post('/planos', data=_envio(('grande.pdf', grande), ('scan.pdf', PDF_SEM_TEXTO),
+                                      ('quebrado.pdf', b'%PDF-1.4 lixo'), ('bom.pdf', PDF)),
+               content_type='multipart/form-data')
+    motivos = {x['nome']: x['motivo'] for x in r.json['recusados']}
+    assert 'maior que 1 MB' in motivos['grande.pdf']
+    assert 'OCR' in motivos['scan.pdf']
+    assert 'não pôde ser aberto' in motivos['quebrado.pdf']
+    assert [s['nome'] for s in r.json['salvos']] == ['bom.pdf']
+    assert sorted(os.listdir(planos)) == ['bom.pdf']  # nenhum temporário sobra
 
 
 def test_exclusao_recusa_caminho(cliente):
@@ -114,6 +129,22 @@ def test_relatorio_sem_detalhes_avisa(cliente):
     r = c.get('/relatorio?arquivo=Plano%20%C3%81.pdf')
     assert r.status_code == 200
     assert 'Rode a validação de novo' in r.get_data(as_text=True)
+
+
+def test_relatorio_navega_entre_planos_e_volta_ao_card(cliente):
+    from app import csvsaida
+    c, planos = cliente
+    linhas = [csvsaida.linha_resultado(n, str(planos), {'status_geral': 'OK'}) for n in ('a.pdf', 'b.pdf', 'c.pdf')]
+    csvsaida.escrever_csv(web.cfg.csv_path, linhas)
+    html = c.get('/relatorio?arquivo=b.pdf').get_data(as_text=True)
+    assert 'href="/dashboard#plano-1"' in html
+    assert 'href="/relatorio?arquivo=a.pdf"' in html and 'href="/relatorio?arquivo=c.pdf"' in html
+    assert 'Plano 2 de 3' in html
+    primeiro = c.get('/relatorio?arquivo=a.pdf').get_data(as_text=True)
+    assert '<span class="off">‹ Anterior</span>' in primeiro
+
+    dashboard = c.get('/dashboard').get_data(as_text=True)
+    assert 'id="plano-1"' in dashboard and 'const MAX_MB = 1;' in dashboard
 
 
 def test_relatorio_de_plano_desconhecido(cliente):

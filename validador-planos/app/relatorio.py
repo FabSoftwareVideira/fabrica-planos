@@ -15,7 +15,15 @@ EXPLICACOES = {
 
 ESTILO = (
     'body{margin:0;font-family:system-ui,-apple-system,sans-serif;background:#f3f4f6;color:#111827}'
-    '.pagina{max-width:1100px;margin:0 auto;padding:32px 16px}'
+    '.pagina{max-width:1100px;margin:0 auto;padding:24px 16px 32px}'
+    '.nav{position:sticky;top:0;z-index:1;background:rgba(243,244,246,.95);backdrop-filter:blur(4px);'
+    'border-bottom:1px solid #e5e7eb}'
+    '.nav>div{max-width:1100px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}'
+    '.nav a,.nav span.off{font-size:14px;font-weight:600;text-decoration:none;color:#2563eb;padding:6px 10px;'
+    'border-radius:8px;white-space:nowrap}'
+    '.nav a:hover{background:#e0e7ff}.nav span.off{color:#d1d5db}'
+    '.nav .voltar{background:#2563eb;color:#fff}.nav .voltar:hover{background:#1d4ed8}'
+    '.nav .pos{margin-left:auto;font-size:13px;color:#6b7280}'
     'h1{margin:0 0 8px;font-size:24px;overflow-wrap:anywhere}'
     '.meta{color:#6b7280;font-size:14px;margin:0 0 16px;display:flex;gap:16px;flex-wrap:wrap;align-items:center}'
     '.meta a{color:#2563eb;font-weight:600;text-decoration:none}'
@@ -75,7 +83,34 @@ def _resposta(raw):
         return raw
 
 
-def gerar_html(linha, det):
+def _link_plano(linhas, indice, texto, tecla):
+    if not 0 <= indice < len(linhas):
+        return '<span class="off">' + texto + '</span>'
+    nome = linhas[indice].get('Arquivo', '')
+    return ('<a href="/relatorio?arquivo=' + quote(nome) + '" title="' + escape(nome, quote=True)
+            + '" data-tecla="' + tecla + '">' + texto + '</a>')
+
+
+def _navegacao(linhas, indice):
+    return (
+        '<nav class="nav"><div>'
+        '<a class="voltar" href="/dashboard#plano-' + str(indice) + '" data-tecla="Escape">← Voltar ao dashboard</a>'
+        + _link_plano(linhas, indice - 1, '‹ Anterior', 'ArrowLeft')
+        + _link_plano(linhas, indice + 1, 'Próximo ›', 'ArrowRight')
+        + '<span class="pos">Plano ' + str(indice + 1) + ' de ' + str(len(linhas)) + '</span>'
+        '</div></nav>'
+    )
+
+
+# Atalhos: Esc volta ao dashboard, ← e → passam para o plano anterior/próximo.
+ATALHOS = (
+    "document.addEventListener('keydown',e=>{if(e.ctrlKey||e.metaKey||e.altKey)return;"
+    "const a=document.querySelector('.nav a[data-tecla=\"'+e.key+'\"]');if(a)location.href=a.href;});"
+)
+
+
+def gerar_html(linhas, indice, det):
+    linha = linhas[indice]
     nome = linha.get('Arquivo', '')
     sec = (det or {}).get('secoes')
     aviso = ''
@@ -95,7 +130,7 @@ def gerar_html(linha, det):
         '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width, initial-scale=1">'
         '<title>Relatório: ' + escape(nome) + '</title><style>' + ESTILO + '</style></head>'
-        '<body><div class="pagina"><h1>' + escape(nome.removesuffix('.pdf')) + '</h1>'
+        '<body>' + _navegacao(linhas, indice) + '<div class="pagina"><h1>' + escape(nome.removesuffix('.pdf')) + '</h1>'
         '<div class="meta">' + ''.join('<span>' + m + '</span>' for m in meta) + '</div>'
         + aviso
         + ('<div class="caixa"><strong>Observação geral:</strong> ' + escape(observacao) + '</div>' if observacao else '')
@@ -103,5 +138,5 @@ def gerar_html(linha, det):
         + _bruto('Texto completo extraído do PDF', (det or {}).get('texto'))
         + _bruto('Prompt enviado à IA', (det or {}).get('prompt'))
         + _bruto('Resposta da IA (antes das regras automáticas)', _resposta((det or {}).get('resposta_ia')))
-        + '</div></body></html>'
+        + '</div><script>' + ATALHOS + '</script></body></html>'
     )

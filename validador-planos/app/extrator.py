@@ -117,6 +117,21 @@ def _texto_pagina(pagina):
     return '\n'.join(saida)
 
 
+MIN_CARACTERES = 200  # abaixo disso o PDF é tratado como digitalizado (só imagem)
+
+
+class PdfIlegivel(Exception):
+    """O PDF não abre ou não tem camada de texto (digitalizado, precisa de OCR)."""
+
+
 def extrair_texto(caminho):
-    with pdfplumber.open(caminho) as pdf:
-        return '\n'.join(_texto_pagina(pagina) for pagina in pdf.pages)
+    try:
+        with pdfplumber.open(caminho) as pdf:
+            texto = '\n'.join(_texto_pagina(pagina) for pagina in pdf.pages)
+    except Exception as erro:
+        raise PdfIlegivel(f'O PDF não pôde ser aberto (corrompido ou protegido por senha): {erro}') from erro
+    if len(''.join(texto.split())) < MIN_CARACTERES:
+        raise PdfIlegivel(
+            'O PDF não tem texto selecionável: é uma imagem digitalizada e precisa passar por OCR antes da validação.'
+        )
+    return texto

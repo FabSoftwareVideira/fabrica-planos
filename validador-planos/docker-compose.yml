@@ -12,6 +12,7 @@ services:
       - OLLAMA_MODEL=${OLLAMA_MODEL}
       - OLLAMA_NUM_CTX=${OLLAMA_NUM_CTX}
       - AGENDAMENTO_HORA=${AGENDAMENTO_HORA}
+      - PDF_MAX_MB=${PDF_MAX_MB:-10}
       - AGENDAR=1
       - TZ=${TZ}
     volumes:

@@ -10,6 +10,7 @@ from flask import Flask, Response, jsonify, redirect, request, send_from_directo
 from . import csvsaida, dashboard, detalhes, pipeline, relatorio
 from .andamento import Andamento
 from .config import carregar
+from .extrator import PdfIlegivel, extrair_texto
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(name)s: %(message)s')
 
@@ -75,18 +76,19 @@ def pagina_dashboard():
     atualizado = ''
     if os.path.exists(cfg.csv_path):
         atualizado = datetime.fromtimestamp(os.path.getmtime(cfg.csv_path)).strftime('%d/%m/%Y %H:%M')
-    return Response(dashboard.gerar_html(linhas, atualizado), mimetype='text/html; charset=utf-8')
+    return Response(dashboard.gerar_html(linhas, atualizado, cfg.pdf_max_mb), mimetype='text/html; charset=utf-8')
 
 
 @app.get('/relatorio')
 def pagina_relatorio():
     nome = request.args.get('arquivo', '')
-    linha = next((l for l in csvsaida.ler_csv(cfg.csv_path) if l.get('Arquivo') == nome), None)
-    if not pipeline.nome_valido(nome) or linha is None:
+    linhas = csvsaida.ler_csv(cfg.csv_path)
+    indice = next((i for i, l in enumerate(linhas) if l.get('Arquivo') == nome), None)
+    if not pipeline.nome_valido(nome) or indice is None:
         return Response('Plano não encontrado no resultado da última validação.', 404,
                         mimetype='text/plain; charset=utf-8')
     det = detalhes.ler(cfg.detalhes_dir, nome)
-    return Response(relatorio.gerar_html(linha, det), mimetype='text/html; charset=utf-8')
+    return Response(relatorio.gerar_html(linhas, indice, det), mimetype='text/html; charset=utf-8')
 
 
 @app.get('/pdf')
@@ -117,6 +119,25 @@ def _nome_enviado(arquivo):
     return unicodedata.normalize('NFC', nome)
 
 
+def _tamanho(arquivo):
+    arquivo.stream.seek(0, os.SEEK_END)
+    tamanho = arquivo.stream.tell()
+    arquivo.stream.seek(0)
+    return tamanho
+
+
+def _motivo_recusa(nome, arquivo):
+    """Checagens que não precisam gravar o arquivo; devolve o motivo da recusa ou None."""
+    if not pipeline.nome_valido(nome) or nome.startswith('.'):
+        return 'Apenas arquivos .pdf são aceitos'
+    if _tamanho(arquivo) > cfg.pdf_max_mb * 1024 * 1024:
+        return f'Arquivo maior que {cfg.pdf_max_mb} MB'
+    if arquivo.stream.read(5) != b'%PDF-':
+        return 'O conteúdo não é um PDF'
+    arquivo.stream.seek(0)
+    return None
+
+
 @app.post('/planos')
 def enviar_planos():
     arquivos = request.files.getlist('arquivos')
@@ -128,17 +149,21 @@ def enviar_planos():
         salvos, recusados = [], []
         for arquivo in arquivos:
             nome = _nome_enviado(arquivo)
-            if not pipeline.nome_valido(nome) or nome.startswith('.'):
-                recusados.append({'nome': nome, 'motivo': 'Nome inválido ou não termina em .pdf'})
+            motivo = _motivo_recusa(nome, arquivo)
+            if motivo:
+                recusados.append({'nome': nome, 'motivo': motivo})
                 continue
-            if arquivo.stream.read(5) != b'%PDF-':
-                recusados.append({'nome': nome, 'motivo': 'O conteúdo não é um PDF'})
-                continue
-            arquivo.stream.seek(0)
             destino = os.path.join(cfg.planos_dir, nome)
-            substituido = os.path.exists(destino)
             temporario = destino + '.enviando'
             arquivo.save(temporario)
+            # Só entra na pasta o PDF que abre e tem texto; digitalizados precisam de OCR antes.
+            try:
+                extrair_texto(temporario)
+            except PdfIlegivel as erro:
+                os.remove(temporario)
+                recusados.append({'nome': nome, 'motivo': str(erro)})
+                continue
+            substituido = os.path.exists(destino)
             os.replace(temporario, destino)
             salvos.append({'nome': nome, 'substituido': substituido})
     logging.getLogger(__name__).info('Upload: %d salvo(s), %d recusado(s)', len(salvos), len(recusados))

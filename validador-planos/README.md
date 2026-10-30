@@ -18,8 +18,8 @@ Os PDFs ficam na pasta indicada por `PLANOS_HOST_DIR`, montada no container com 
 Em `/dashboard` é possível:
 
 - iniciar a validação (botão **Validar agora**) e acompanhar o progresso (plano atual, barra de andamento); ao terminar, a página recarrega com os resultados;
-- enviar PDFs (arrastando ou escolhendo arquivos; um PDF com o mesmo nome é substituído), abrir e excluir os da pasta;
-- abrir o **Relatório** de cada plano avaliado (nova aba): a avaliação de cada campo ao lado do texto extraído para ele, o texto completo do PDF, o prompt enviado e a resposta da IA. Planos validados antes desta versão só mostram o texto depois de uma nova validação.
+- enviar PDFs (arrastando ou escolhendo arquivos; um PDF com o mesmo nome é substituído), abrir e excluir os da pasta. Só entram arquivos `.pdf` de até `PDF_MAX_MB` MB (padrão 10) que abram e tenham texto selecionável; digitalizados (só imagem) são recusados com o aviso de que precisam de OCR;
+- abrir o **Relatório** de cada plano avaliado: a avaliação de cada campo ao lado do texto extraído para ele, o texto completo do PDF, o prompt enviado e a resposta da IA. A barra do topo volta ao dashboard já no card do plano (ou `Esc`) e passa para o plano anterior/próximo (ou `←`/`→`). Planos validados antes desta versão só mostram o texto depois de uma nova validação.
 
 Enquanto uma validação roda, envio e exclusão ficam bloqueados. Não há autenticação: qualquer um que alcance a porta `APP_PORT` pode enviar e excluir PDFs.
 
@@ -31,7 +31,7 @@ Enquanto uma validação roda, envio e exclusão ficam bloqueados. Não há aute
 | GET | `/status` | Andamento: `rodando`, `total`, `processados`, `atual`, `iniciado_em`, `finalizado_em`, `erro` |
 | GET | `/dashboard` | Página HTML com os controles e os resultados da última validação |
 | GET | `/planos` | Lista dos PDFs da pasta (`nome`, `tamanho`, `modificado`) |
-| POST | `/planos` | Upload (multipart, campo `arquivos`, vários por vez, até 100 MB no total); `409` durante a validação |
+| POST | `/planos` | Upload (multipart, campo `arquivos`, vários por vez, até `PDF_MAX_MB` por arquivo e 100 MB no total). Responde `salvos` e `recusados` (com o motivo); `409` durante a validação |
 | DELETE | `/planos?arquivo=nome.pdf` | Exclui o PDF; `409` durante a validação |
 | GET | `/relatorio?arquivo=nome.pdf` | Relatório HTML do plano na última validação; `404` se ele não estiver no resultado |
 | GET | `/pdf?arquivo=nome.pdf` | O PDF, só para nomes da pasta de planos |
@@ -83,5 +83,5 @@ pytest
 ## Observações
 
 - O Ollama roda como serviço `ollama` do próprio compose; o validador o alcança pela rede interna em `http://ollama:11434`. No host, ele fica em `OLLAMA_PORT` (padrão 11434), aceitando só conexões locais; para liberar na rede, use `OLLAMA_BIND=0.0.0.0` (o Ollama não tem autenticação). Não altere `OLLAMA_URL` ao trocar a porta. Os modelos ficam no volume `ollama-data` e sobrevivem a `docker compose down` (só `down -v` os apaga). Para usar GPU NVIDIA, descomente o bloco `deploy` do serviço no `docker-compose.yml`.
-- A extração usa `pdfplumber`, que lê só a camada de texto. PDFs escaneados continuam precisando de OCR antes de entrar na pasta.
+- A extração usa `pdfplumber`, que lê só a camada de texto. PDFs escaneados precisam de OCR antes de entrar na pasta: o upload os recusa e, se um deles for copiado direto para a pasta, a validação o marca como `ERRO` ("precisa passar por OCR") sem chamar a IA.
 - Para trocar o modelo, altere `OLLAMA_MODEL` (e, se quiser, `OLLAMA_NUM_CTX`) no `.env`, baixe o modelo com `docker compose exec ollama ollama pull <modelo>` e rode `docker compose up -d`. Um `docker compose restart` não recarrega o `.env`.

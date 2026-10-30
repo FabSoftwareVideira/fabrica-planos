@@ -21,7 +21,7 @@ def _badge(status):
     )
 
 
-def _card(linha):
+def _card(indice, linha):
     nome = (linha.get('Arquivo') or '').replace('2024-1 - ', '').replace('.pdf', '')
     topicos = []
     for rotulo, _ in CAMPOS_COLUNA:
@@ -38,15 +38,17 @@ def _card(linha):
     arquivo = quote(linha.get('Arquivo', ''))
     estilo_link = (
         'style="font-size:13px;color:#2563eb;text-decoration:none;font-weight:600;white-space:nowrap" '
-        'target="_blank" rel="noopener" onclick="event.stopPropagation()"'
+        'onclick="event.stopPropagation()"'
     )
+    # O relatório abre na mesma aba e volta para este card (âncora #plano-N).
     link = (
         '<a href="/relatorio?arquivo=' + arquivo + '" ' + estilo_link + '>📝 Relatório</a>'
-        '<a href="/pdf?arquivo=' + arquivo + '" ' + estilo_link + '>📄 Abrir PDF</a>'
+        '<a href="/pdf?arquivo=' + arquivo + '" target="_blank" rel="noopener" ' + estilo_link + '>📄 Abrir PDF</a>'
     )
     observacao = linha.get('Observação Geral', '')
     return (
-        '<details style="background:#fff;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.1);margin-bottom:12px">'
+        '<details id="plano-' + str(indice) + '" class="plano" '
+        'style="background:#fff;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.1);margin-bottom:12px">'
         '<summary style="display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer;list-style:none">'
         '<span style="font-weight:600;flex:1">' + escape(nome) + '</span>' + _badge(linha.get('Status Geral', ''))
         + link + '<span style="color:#9ca3af;font-size:12px">▼ detalhes</span></summary>'
@@ -79,6 +81,9 @@ ESTILO = (
     '.arquivos li span{color:#9ca3af;font-size:12px;white-space:nowrap}'
     '.excluir{border:0;background:none;color:#dc2626;cursor:pointer;font:inherit;font-size:13px;padding:4px 6px}'
     '.excluir:disabled{color:#d1d5db;cursor:not-allowed}'
+    '.dica{font-size:12px;color:#9ca3af;margin:8px 0 0}'
+    '.plano{scroll-margin-top:16px;transition:box-shadow .3s}'
+    '.plano.destaque{box-shadow:0 0 0 3px #93c5fd !important}'
 )
 
 PAINEIS = (
@@ -89,7 +94,8 @@ PAINEIS = (
     '<section class="painel"><h2>Planos (PDFs) <span class="msg" id="qtd-planos"></span></h2>'
     '<div class="soltar" id="soltar">Arraste PDFs para cá ou '
     '<button class="botao leve" id="escolher" type="button">escolha arquivos</button>'
-    '<input type="file" id="arquivo" accept="application/pdf,.pdf" multiple hidden></div>'
+    '<input type="file" id="arquivo" accept="application/pdf,.pdf" multiple hidden>'
+    '<p class="dica">Somente PDF com texto selecionável (não digitalizado), até {MAX_MB} MB por arquivo.</p></div>'
     '<p class="msg" id="envio-msg" hidden></p>'
     '<ul class="arquivos" id="lista"></ul></section>'
 )
@@ -161,22 +167,43 @@ async function excluir(nome) {
   carregarPlanos();
 }
 
+// Checagem prévia no navegador (o servidor repete todas e ainda confere se o PDF tem texto).
+function motivoLocal(a) {
+  if (!/\.pdf$/i.test(a.name) || (a.type && a.type !== 'application/pdf')) return 'Apenas arquivos .pdf são aceitos';
+  if (a.size > MAX_MB * 1048576) return `Arquivo maior que ${MAX_MB} MB (${kb(a.size)})`;
+  return '';
+}
+
 async function enviar(arquivos) {
   if (!arquivos.length || rodando) return;
-  const form = new FormData();
-  for (const a of arquivos) form.append('arquivos', a);
-  msg($('envio-msg'), `Enviando ${arquivos.length} arquivo(s)…`);
-  let r, d;
-  try { r = await fetch('/planos', { method: 'POST', body: form }); d = await corpo(r); }
-  catch { msg($('envio-msg'), 'Falha de conexão no envio', 'erro'); return; }
-  const salvos = d.salvos || [], recusados = d.recusados || [];
+  const locais = arquivos.filter(motivoLocal).map(a => ({ nome: a.name, motivo: motivoLocal(a) }));
+  const validos = arquivos.filter(a => !motivoLocal(a));
+  let r = { ok: true }, d = {};
+  if (validos.length) {
+    const form = new FormData();
+    for (const a of validos) form.append('arquivos', a);
+    msg($('envio-msg'), `Enviando e conferindo ${validos.length} arquivo(s)…`);
+    try { r = await fetch('/planos', { method: 'POST', body: form }); d = await corpo(r); }
+    catch { msg($('envio-msg'), 'Falha de conexão no envio', 'erro'); return; }
+  }
+  const salvos = d.salvos || [], recusados = locais.concat(d.recusados || []);
   const substituidos = salvos.filter(s => s.substituido).length;
   const partes = [];
   if (salvos.length) partes.push(`${salvos.length} enviado(s)` + (substituidos ? ` (${substituidos} substituído(s))` : ''));
-  for (const x of recusados) partes.push(`${x.nome}: ${x.motivo}`);
+  if (recusados.length) partes.push(`${recusados.length} recusado(s): ` + recusados.map(x => `${x.nome} (${x.motivo})`).join('; '));
   if (!partes.length) partes.push(d.erro || d.mensagem || 'Falha no envio');
   msg($('envio-msg'), partes.join(' · '), r.ok && !recusados.length ? 'ok' : 'erro');
-  carregarPlanos();
+  if (salvos.length) carregarPlanos();
+}
+
+// Ao voltar do relatório (#plano-N), abre e destaca o plano de onde o usuário saiu.
+function focarPlano() {
+  const alvo = location.hash.startsWith('#plano-') && document.querySelector(location.hash);
+  if (!alvo) return;
+  alvo.open = true;
+  alvo.scrollIntoView({ block: 'start' });
+  alvo.classList.add('destaque');
+  setTimeout(() => alvo.classList.remove('destaque'), 2000);
 }
 
 $('validar').onclick = async () => {
@@ -195,10 +222,11 @@ zona.addEventListener('drop', e => enviar([...e.dataTransfer.files]));
 
 atualizarStatus();
 carregarPlanos();
+focarPlano();
 """
 
 
-def gerar_html(linhas, atualizado_em):
+def gerar_html(linhas, atualizado_em, max_mb=10):
     total = len(linhas)
     ok = sum(1 for l in linhas if l.get('Status Geral') == 'OK')
     pendente = sum(1 for l in linhas if l.get('Status Geral') == 'PENDENTE')
@@ -221,7 +249,7 @@ def gerar_html(linhas, atualizado_em):
             + ' <span style="font-size:14px;color:#9ca3af">(' + str(pct(valor)) + '%)</span></div></div>'
         )
 
-    corpo = ''.join(_card(l) for l in linhas) if linhas else (
+    corpo = ''.join(_card(i, l) for i, l in enumerate(linhas)) if linhas else (
         '<p style="color:#6b7280">Nenhuma validação concluída ainda.</p>'
     )
     return (
@@ -232,10 +260,10 @@ def gerar_html(linhas, atualizado_em):
         '<body style="margin:0;font-family:system-ui,-apple-system,sans-serif;background:#f3f4f6;color:#111827">'
         '<div style="max-width:1100px;margin:0 auto;padding:32px 16px">'
         '<h1 style="margin:0 0 24px">📋 Validação de Planos de Ensino</h1>'
-        + PAINEIS +
+        + PAINEIS.replace('{MAX_MB}', str(max_mb)) +
         '<h2 style="margin:32px 0 4px;font-size:20px">Resultados</h2>'
         '<p style="margin:0 0 16px;color:#6b7280">Última validação: ' + escape(atualizado_em or '—') + '</p>'
         '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:24px">'
         + cartoes + '</div>' + corpo +
-        '</div><script>' + SCRIPT + '</script></body></html>'
+        '</div><script>const MAX_MB = ' + str(int(max_mb)) + ';' + SCRIPT + '</script></body></html>'
     )

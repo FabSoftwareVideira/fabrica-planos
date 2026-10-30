@@ -87,3 +87,19 @@ def test_pagina_normal_mantem_tolerancia_padrao():
         palavras_justas=_linha('S p r i n g', 166, 20),
     )
     assert _texto_pagina(normal) == 'INTERDISCIPLINARIDADE: Spring Security'
+
+
+def test_extrair_texto_de_pdf_real_e_recusa_digitalizado(tmp_path):
+    import pytest
+
+    from app.extrator import PdfIlegivel, extrair_texto
+    from conftest import PDF_COM_TEXTO, PDF_SEM_TEXTO
+
+    bom = tmp_path / 'bom.pdf'
+    bom.write_bytes(PDF_COM_TEXTO)
+    assert 'Linha de texto numero 0' in extrair_texto(str(bom))
+
+    scan = tmp_path / 'scan.pdf'
+    scan.write_bytes(PDF_SEM_TEXTO)
+    with pytest.raises(PdfIlegivel, match='OCR'):
+        extrair_texto(str(scan))

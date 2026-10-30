@@ -11,6 +11,7 @@ class Config:
     num_ctx: int
     hora_agendada: int
     agendar: bool
+    pdf_max_mb: int = 10
 
     @property
     def detalhes_dir(self):
@@ -30,4 +31,5 @@ def carregar():
         num_ctx=int(os.environ.get('OLLAMA_NUM_CTX', '8192')),
         hora_agendada=int(os.environ.get('AGENDAMENTO_HORA', '5')),
         agendar=os.environ.get('AGENDAR', '1') == '1',
+        pdf_max_mb=int(os.environ.get('PDF_MAX_MB') or '10'),
     )

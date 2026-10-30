@@ -85,3 +85,18 @@ def test_erro_inesperado_libera_e_registra(tmp_path, monkeypatch):
     resumo = andamento.resumo()
     assert not resumo['rodando']
     assert resumo['erro'] == 'disco cheio'
+
+
+def test_pdf_sem_texto_vira_erro_sem_chamar_a_ia(tmp_path, monkeypatch):
+    from conftest import PDF_SEM_TEXTO
+    cfg = _cfg(tmp_path)
+    (tmp_path / 'planos' / 'a.pdf').write_bytes(PDF_SEM_TEXTO)
+
+    def nao_chamar(url, payload):
+        raise AssertionError('a IA não deveria ser chamada')
+
+    monkeypatch.setattr(pipeline, 'chamar_ollama', nao_chamar)
+    linha = pipeline.validar_plano(cfg, 'a.pdf')
+    assert linha['Status Geral'] == 'ERRO'
+    assert 'OCR' in linha['Observação Geral']
+    assert 'OCR' in detalhes.ler(cfg.detalhes_dir, 'a.pdf')['erro']

@@ -4,7 +4,7 @@ import time
 from datetime import datetime
 
 from . import csvsaida, detalhes
-from .extrator import extrair_texto
+from .extrator import PdfIlegivel, extrair_texto
 from .ollama import chamar_ollama, extrair_json, montar_payload
 from .prompt import build_prompt
 from .regras import aplicar_regras
@@ -44,6 +44,10 @@ def validar_plano(cfg, nome):
             'temObjEspecificos': bool((sec.get('objetivos_especificos') or '').strip()),
             'temHorarioAtendimento': sec['temHorarioAtendimento'],
         })
+    except PdfIlegivel as erro:  # não adianta chamar a IA sem texto
+        log.warning('%s: %s', nome, erro)
+        det['erro'] = str(erro)
+        validacao = {'status_geral': 'ERRO', 'obs_geral': str(erro)}
     except Exception as erro:  # um plano com problema não derruba o lote
         log.exception('Falha ao validar %s', nome)
         det['erro'] = str(erro)
