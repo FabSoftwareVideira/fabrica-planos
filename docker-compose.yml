@@ -53,7 +53,7 @@ services:
       - ollama_data:/root/.ollama
     environment:
       - OLLAMA_KEEP_ALIVE=30m
-      # Cache KV menor: qwen2.5:7b + ctx 8192 cabe na GPU de 6 GB (~30% mais rápido medido)
+      # Cache KV q8_0 reduz o uso de VRAM com contexto grande (qwen2.5:14b, ctx 12288, GPU de 24 GB)
       - OLLAMA_FLASH_ATTENTION=1
       - OLLAMA_KV_CACHE_TYPE=q8_0
     networks:
