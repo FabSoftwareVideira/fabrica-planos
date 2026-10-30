@@ -4,7 +4,7 @@ import threading
 import time
 from datetime import datetime, timedelta
 
-from flask import Flask, Response, jsonify, request, send_from_directory
+from flask import Flask, Response, jsonify, redirect, request, send_from_directory
 
 from . import csvsaida, dashboard, lock, pipeline
 from .config import carregar
@@ -37,7 +37,14 @@ def _iniciar_se_livre():
         return None
 
 
+# Os caminhos /webhook/... mantêm compatíveis a página validacao.html e os links antigos do n8n.
+@app.get('/')
+def raiz():
+    return redirect('/dashboard')
+
+
 @app.post('/validar')
+@app.post('/webhook/validar')
 def validar():
     motivo = _iniciar_se_livre()
     if motivo == 'ocupado':
@@ -48,6 +55,7 @@ def validar():
 
 
 @app.get('/dashboard')
+@app.get('/webhook/dashboard')
 def pagina_dashboard():
     linhas = csvsaida.ler_csv(cfg.csv_path)
     atualizado = ''
@@ -57,6 +65,7 @@ def pagina_dashboard():
 
 
 @app.get('/pdf')
+@app.get('/webhook/pdf')
 def pdf():
     nome = request.args.get('arquivo', '')
     if not pipeline.nome_valido(nome):
