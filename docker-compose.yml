@@ -36,7 +36,7 @@ services:
     restart: "no"
     entrypoint: ["/bin/sh", "-c"]
     command:
-      - "n8n import:workflow --input=/workflows/validacao-planos.json && n8n update:workflow --id=ValidacaoPlanos1 --active=true"
+      - "n8n import:workflow --input=/workflows/validacao-planos.json && n8n publish:workflow --id=ValidacaoPlanos1"
     volumes:
       - n8n_data:/home/node/.n8n
       - "./workflows/validacao-planos.json:/workflows/validacao-planos.json:ro"
