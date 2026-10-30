@@ -10,6 +10,28 @@ import pdfplumber
 COLUNA_VALOR_X = 160  # palavras com x0 a partir daqui estão na coluna de valores
 TOLERANCIA_LINHA = 3  # diferença máxima de "top" (pt) entre palavras da mesma linha
 
+# Distância horizontal (pt) entre letras abaixo da qual elas formam uma só palavra. Alguns PDFs
+# justificam o texto só pela posição, sem caracteres de espaço e com vãos estreitos: com o padrão (3)
+# saem palavras grudadas ("ConteúdoProgramático:"). Nessas páginas usa-se a tolerância menor; nas
+# demais não, porque ela parte palavras de linhas com letras espaçadas ("S p r i n g").
+X_TOLERANCIA = 3
+X_TOLERANCIA_JUSTA = 1.5
+LETRAS_GRUDADAS = re.compile(r'[^\W\d_]{20,}')
+MIN_GRUDADAS = 3  # palavras com 20+ letras seguidas na página para trocar de tolerância
+
+
+def _grudada(texto):
+    trecho = LETRAS_GRUDADAS.search(texto)
+    return bool(trecho) and trecho.group(0).lower() != 'interdisciplinaridade'
+
+
+def _palavras(pagina):
+    palavras = pagina.extract_words(x_tolerance=X_TOLERANCIA)
+    grudadas = sum(1 for p in palavras if _grudada(p['text']))
+    if grudadas >= MIN_GRUDADAS:
+        return pagina.extract_words(x_tolerance=X_TOLERANCIA_JUSTA)
+    return palavras
+
 ROTULO = re.compile(
     r'^(Ementa|Metodologia|Procedimentos\s+de\s+Avalia[çc][ãa]o(\s+da\s+Aprendizagem)?|'
     r'Hor[áa]rio\s+de\s+Atendimento|Objetivos?(\s+Gerais?)?|Conte[úu]do\s+Program[áa]tico)\s*:$',
@@ -59,7 +81,7 @@ def _rotulos(linhas):
 
 
 def _texto_pagina(pagina):
-    linhas = _agrupar_linhas(pagina.extract_words())
+    linhas = _agrupar_linhas(_palavras(pagina))
     faixas = [(r.bbox[1], r.bbox[3]) for t in pagina.find_tables() for r in t.rows]
     for linha in linhas:
         linha['faixa'] = _linha_da_tabela(linha, faixas)

@@ -7,10 +7,13 @@ def _palavra(texto, x0, top):
 
 
 class PaginaFalsa:
-    def __init__(self, palavras):
+    def __init__(self, palavras, palavras_justas=None):
         self.palavras = palavras
+        self.palavras_justas = palavras_justas  # resultado com a tolerância menor, se diferente
 
-    def extract_words(self):
+    def extract_words(self, x_tolerance=3):
+        if x_tolerance < 3 and self.palavras_justas is not None:
+            return self.palavras_justas
         return self.palavras
 
     def find_tables(self):
@@ -63,3 +66,24 @@ def test_rotulo_em_duas_linhas():
     linhas = _texto_pagina(pagina).splitlines()
     assert linhas[1] == 'Procedimentos de Avaliação da Aprendizagem: A média final'
     assert linhas[2:] == ['T1 e T2', 'P1 projeto', 'M média']
+
+
+def test_pagina_com_palavras_grudadas_usa_tolerancia_menor():
+    grudada = PaginaFalsa(
+        _linha('MetodologiadeEnsinoeAvaliação', 52, 20)
+        + _linha('Metodologia: Odesenvolvimentodosconteúdos seráabordadoaosdiscentes', 52, 40),
+        palavras_justas=_linha('Metodologia de Ensino e Avaliação', 52, 20)
+        + _linha('Metodologia:', 52, 40) + _linha('O desenvolvimento dos conteúdos', 166, 40),
+    )
+    assert _texto_pagina(grudada).splitlines() == [
+        'Metodologia de Ensino e Avaliação', 'Metodologia: O desenvolvimento dos conteúdos',
+    ]
+
+
+def test_pagina_normal_mantem_tolerancia_padrao():
+    # Interdisciplinaridade é uma palavra longa legítima e não conta como grudada.
+    normal = PaginaFalsa(
+        _linha('INTERDISCIPLINARIDADE: Spring Security', 166, 20),
+        palavras_justas=_linha('S p r i n g', 166, 20),
+    )
+    assert _texto_pagina(normal) == 'INTERDISCIPLINARIDADE: Spring Security'
