@@ -6,27 +6,40 @@ Aplicação em Python (Flask + gunicorn) que valida os PDFs de planos de ensino 
 
 ```
 app/            código da aplicação
-tests/          testes unitários (regras, seções, lock, CSV)
-resultados/     CSV gerado e arquivo de lock (criado automaticamente)
+tests/          testes unitários (regras, seções, extração, rotas, CSV)
+resultados/     CSV gerado (criado automaticamente)
 docker-compose.yml, Dockerfile, .env.example
 ```
 
-Os PDFs ficam na pasta indicada por `PLANOS_HOST_DIR`, montada somente leitura no container. Eles não entram na imagem nem no git.
+Os PDFs ficam na pasta indicada por `PLANOS_HOST_DIR`, montada no container com escrita (o dashboard envia e exclui PDFs). Eles não entram na imagem nem no git.
+
+## Dashboard
+
+Em `/dashboard` é possível:
+
+- iniciar a validação (botão **Validar agora**) e acompanhar o progresso (plano atual, barra de andamento); ao terminar, a página recarrega com os resultados;
+- enviar PDFs (arrastando ou escolhendo arquivos; um PDF com o mesmo nome é substituído), abrir e excluir os da pasta.
+
+Enquanto uma validação roda, envio e exclusão ficam bloqueados. Não há autenticação: qualquer um que alcance a porta `APP_PORT` pode enviar e excluir PDFs.
 
 ## Rotas
 
 | Método | Rota | Resposta |
 |---|---|---|
 | POST | `/validar` | `200 {"status":"iniciado"}`, `409` se já houver validação em andamento, `422` se a pasta não tiver PDFs |
-| GET | `/dashboard` | Página HTML com os resultados da última validação |
+| GET | `/status` | Andamento: `rodando`, `total`, `processados`, `atual`, `iniciado_em`, `finalizado_em`, `erro` |
+| GET | `/dashboard` | Página HTML com os controles e os resultados da última validação |
+| GET | `/planos` | Lista dos PDFs da pasta (`nome`, `tamanho`, `modificado`) |
+| POST | `/planos` | Upload (multipart, campo `arquivos`, vários por vez, até 100 MB no total); `409` durante a validação |
+| DELETE | `/planos?arquivo=nome.pdf` | Exclui o PDF; `409` durante a validação |
 | GET | `/pdf?arquivo=nome.pdf` | O PDF, só para nomes da pasta de planos |
 | GET | `/health` | `{"status":"ok"}` |
 
 Validação automática todos os dias na hora `AGENDAMENTO_HORA` (padrão 5h, fuso `TZ`).
 
-## Lock
+## Controle de execução
 
-Ao iniciar, a validação grava a hora atual em `resultados/validacao.lock` e renova essa hora a cada plano. Enquanto a última atualização tiver menos de 15 minutos, novas chamadas recebem `409`. Ao terminar (ou falhar), o arquivo é zerado e a próxima chamada é aceita na hora.
+O estado da validação fica em memória no processo do gunicorn (`app/andamento.py`), que roda com um único worker (`-w 1` no `Dockerfile`). Não aumente o número de workers: cada um teria seu próprio estado e duas validações poderiam rodar juntas. Se o container reiniciar no meio de um lote, a validação é perdida e o estado volta a livre; basta iniciar de novo.
 
 ## Subir no servidor
 
@@ -48,13 +61,7 @@ docker compose up -d --build
 docker compose exec ollama ollama pull qwen2.5:7b
 ```
 
-4. Teste:
-
-```bash
-curl -i -X POST http://localhost:8080/validar
-```
-
-Depois abra `http://IP_DO_SERVIDOR:8080/dashboard`.
+4. Abra `http://IP_DO_SERVIDOR:8080/dashboard`, envie os PDFs (se a pasta estiver vazia) e clique em **Validar agora**.
 
 ## Conferir a extração de um plano
 

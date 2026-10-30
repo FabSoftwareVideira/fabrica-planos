@@ -13,10 +13,6 @@ class Config:
     agendar: bool
 
     @property
-    def lock_path(self):
-        return os.path.join(self.resultados_dir, 'validacao.lock')
-
-    @property
     def csv_path(self):
         return os.path.join(self.resultados_dir, 'validacao_planos.csv')
 

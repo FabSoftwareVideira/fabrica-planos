@@ -2,7 +2,7 @@ import logging
 import os
 import time
 
-from . import csvsaida, lock
+from . import csvsaida
 from .extrator import extrair_texto
 from .ollama import chamar_ollama, extrair_json, montar_payload
 from .prompt import build_prompt
@@ -47,23 +47,25 @@ def validar_plano(cfg, nome):
     return csvsaida.linha_resultado(nome, caminho, validacao)
 
 
-def executar(cfg):
-    """Roda a validação de todos os PDFs. Espera que o lock já tenha sido gravado pelo chamador."""
+def executar(cfg, andamento, nomes):
+    """Valida os PDFs em `nomes`. O chamador já marcou o início em `andamento` (ver Andamento.iniciar)."""
+    erro = ''
     try:
-        nomes = listar_pdfs(cfg.planos_dir)
         log.info('Validação iniciada: %d plano(s), modelo %s em %s', len(nomes), cfg.modelo, cfg.ollama_url)
         linhas = []
         for i, nome in enumerate(nomes, start=1):
             log.info('[%d/%d] Validando %s', i, len(nomes), nome)
+            andamento.validando(nome)
             inicio = time.monotonic()
             linha = validar_plano(cfg, nome)
             log.info('[%d/%d] %s: %s (%.0f s)', i, len(nomes), nome, linha['Status Geral'], time.monotonic() - inicio)
             linhas.append(linha)
-            lock.atualizar(cfg.lock_path)
+            andamento.plano_concluido()
         csvsaida.escrever_csv(cfg.csv_path, linhas)
         log.info('Validação concluída: %d plano(s)', len(linhas))
-    except Exception:
+    except Exception as e:
         log.exception('Validação interrompida por erro inesperado')
+        erro = str(e) or e.__class__.__name__
         raise
     finally:
-        lock.liberar(cfg.lock_path)
+        andamento.finalizar(erro)

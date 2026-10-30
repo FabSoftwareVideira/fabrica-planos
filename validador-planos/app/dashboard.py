@@ -52,6 +52,147 @@ def _card(linha):
     )
 
 
+# Painéis de controle: validação (com progresso) e gestão dos PDFs, atualizados por /status e /planos.
+ESTILO = (
+    '.painel{background:#fff;border-radius:12px;padding:20px;box-shadow:0 1px 3px rgba(0,0,0,.1);margin-bottom:16px}'
+    '.painel h2{margin:0 0 12px;font-size:18px}'
+    '.linha{display:flex;align-items:center;gap:12px;flex-wrap:wrap}'
+    '.botao{border:0;border-radius:8px;padding:10px 18px;font:inherit;font-weight:600;cursor:pointer;'
+    'background:#2563eb;color:#fff}'
+    '.botao:disabled{background:#9ca3af;cursor:not-allowed}'
+    '.botao.leve{background:#eef2ff;color:#2563eb;padding:6px 12px}'
+    '.botao.leve:disabled{background:#f3f4f6;color:#9ca3af}'
+    '.barra{height:10px;background:#e5e7eb;border-radius:5px;overflow:hidden;margin-top:12px}'
+    '.barra>div{height:100%;width:0;background:#2563eb;transition:width .4s}'
+    '.msg{font-size:14px;color:#6b7280;margin:0}.msg.erro{color:#dc2626}.msg.ok{color:#16a34a}'
+    '.soltar{border:2px dashed #cbd5e1;border-radius:10px;padding:18px;text-align:center;color:#6b7280;'
+    'font-size:14px;margin-bottom:12px}'
+    '.soltar.ativo{border-color:#2563eb;background:#eff6ff;color:#2563eb}'
+    '.arquivos{list-style:none;margin:12px 0 0;padding:0;max-height:320px;overflow:auto}'
+    '.arquivos li{display:flex;align-items:center;gap:10px;padding:8px 4px;border-top:1px solid #f1f5f9;font-size:14px}'
+    '.arquivos li a{flex:1;color:#111827;text-decoration:none;overflow-wrap:anywhere}'
+    '.arquivos li span{color:#9ca3af;font-size:12px;white-space:nowrap}'
+    '.excluir{border:0;background:none;color:#dc2626;cursor:pointer;font:inherit;font-size:13px;padding:4px 6px}'
+    '.excluir:disabled{color:#d1d5db;cursor:not-allowed}'
+)
+
+PAINEIS = (
+    '<section class="painel"><h2>Validação</h2><div class="linha">'
+    '<button class="botao" id="validar">▶ Validar agora</button>'
+    '<p class="msg" id="status-msg">Carregando…</p></div>'
+    '<div class="barra" id="barra" hidden><div></div></div></section>'
+    '<section class="painel"><h2>Planos (PDFs) <span class="msg" id="qtd-planos"></span></h2>'
+    '<div class="soltar" id="soltar">Arraste PDFs para cá ou '
+    '<button class="botao leve" id="escolher" type="button">escolha arquivos</button>'
+    '<input type="file" id="arquivo" accept="application/pdf,.pdf" multiple hidden></div>'
+    '<p class="msg" id="envio-msg" hidden></p>'
+    '<ul class="arquivos" id="lista"></ul></section>'
+)
+
+SCRIPT = r"""
+const $ = id => document.getElementById(id);
+let rodando = false, estavaRodando = false, timer;
+
+function msg(el, texto, tipo) { el.textContent = texto; el.className = 'msg' + (tipo ? ' ' + tipo : ''); el.hidden = !texto; }
+function hora(iso) { return iso ? new Date(iso).toLocaleString('pt-BR') : ''; }
+function kb(n) { return n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB'; }
+async function corpo(resp) { try { return await resp.json(); } catch { return {}; } }
+
+function bloquear() {
+  $('validar').disabled = rodando;
+  $('escolher').disabled = rodando;
+  document.querySelectorAll('.excluir').forEach(b => b.disabled = rodando);
+}
+
+async function atualizarStatus() {
+  clearTimeout(timer);
+  let s;
+  try { s = await (await fetch('/status')).json(); }
+  catch { msg($('status-msg'), 'Sem conexão com o servidor', 'erro'); timer = setTimeout(atualizarStatus, 5000); return; }
+  rodando = s.rodando;
+  bloquear();
+  const barra = $('barra');
+  if (rodando) {
+    barra.hidden = false;
+    barra.firstChild.style.width = (s.total ? s.processados / s.total * 100 : 0) + '%';
+    msg($('status-msg'), `Validando ${Math.min(s.processados + 1, s.total)} de ${s.total}: ${s.atual || '…'}`);
+  } else {
+    barra.hidden = true;
+    if (s.erro) msg($('status-msg'), `Última validação falhou (${hora(s.finalizado_em)}): ${s.erro}`, 'erro');
+    else if (s.finalizado_em) msg($('status-msg'), `Validação concluída em ${hora(s.finalizado_em)}`, 'ok');
+    else msg($('status-msg'), 'Nenhuma validação em andamento');
+  }
+  // Ao terminar um lote, recarrega a página para mostrar os resultados novos.
+  if (estavaRodando && !rodando) { location.reload(); return; }
+  estavaRodando = rodando;
+  timer = setTimeout(atualizarStatus, rodando ? 2000 : 10000);
+}
+
+async function carregarPlanos() {
+  const { planos = [] } = await corpo(await fetch('/planos'));
+  $('qtd-planos').textContent = `(${planos.length})`;
+  const itens = planos.map(p => {
+    const li = document.createElement('li');
+    const a = document.createElement('a');
+    a.href = '/pdf?arquivo=' + encodeURIComponent(p.nome); a.target = '_blank'; a.rel = 'noopener';
+    a.textContent = '📄 ' + p.nome;
+    const info = document.createElement('span');
+    info.textContent = kb(p.tamanho) + ' · ' + hora(p.modificado);
+    const del = document.createElement('button');
+    del.className = 'excluir'; del.textContent = 'Excluir'; del.disabled = rodando;
+    del.onclick = () => excluir(p.nome);
+    li.append(a, info, del);
+    return li;
+  });
+  if (!itens.length) { const li = document.createElement('li'); li.innerHTML = '<span>Nenhum PDF na pasta.</span>'; itens.push(li); }
+  $('lista').replaceChildren(...itens);
+}
+
+async function excluir(nome) {
+  if (!confirm(`Excluir "${nome}"?`)) return;
+  const r = await fetch('/planos?arquivo=' + encodeURIComponent(nome), { method: 'DELETE' });
+  const d = await corpo(r);
+  msg($('envio-msg'), r.ok ? `"${nome}" excluído.` : (d.erro || d.mensagem || 'Falha ao excluir'), r.ok ? 'ok' : 'erro');
+  carregarPlanos();
+}
+
+async function enviar(arquivos) {
+  if (!arquivos.length || rodando) return;
+  const form = new FormData();
+  for (const a of arquivos) form.append('arquivos', a);
+  msg($('envio-msg'), `Enviando ${arquivos.length} arquivo(s)…`);
+  let r, d;
+  try { r = await fetch('/planos', { method: 'POST', body: form }); d = await corpo(r); }
+  catch { msg($('envio-msg'), 'Falha de conexão no envio', 'erro'); return; }
+  const salvos = d.salvos || [], recusados = d.recusados || [];
+  const substituidos = salvos.filter(s => s.substituido).length;
+  const partes = [];
+  if (salvos.length) partes.push(`${salvos.length} enviado(s)` + (substituidos ? ` (${substituidos} substituído(s))` : ''));
+  for (const x of recusados) partes.push(`${x.nome}: ${x.motivo}`);
+  if (!partes.length) partes.push(d.erro || d.mensagem || 'Falha no envio');
+  msg($('envio-msg'), partes.join(' · '), r.ok && !recusados.length ? 'ok' : 'erro');
+  carregarPlanos();
+}
+
+$('validar').onclick = async () => {
+  $('validar').disabled = true;
+  const r = await fetch('/validar', { method: 'POST' });
+  const d = await corpo(r);
+  if (r.ok || d.status === 'ocupado') { estavaRodando = true; atualizarStatus(); }
+  else { msg($('status-msg'), d.mensagem || 'Não foi possível iniciar', 'erro'); $('validar').disabled = false; }
+};
+$('escolher').onclick = () => $('arquivo').click();
+$('arquivo').onchange = e => { enviar([...e.target.files]); e.target.value = ''; };
+const zona = $('soltar');
+['dragenter', 'dragover'].forEach(t => zona.addEventListener(t, e => { e.preventDefault(); if (!rodando) zona.classList.add('ativo'); }));
+['dragleave', 'drop'].forEach(t => zona.addEventListener(t, e => { e.preventDefault(); zona.classList.remove('ativo'); }));
+zona.addEventListener('drop', e => enviar([...e.dataTransfer.files]));
+
+atualizarStatus();
+carregarPlanos();
+"""
+
+
 def gerar_html(linhas, atualizado_em):
     total = len(linhas)
     ok = sum(1 for l in linhas if l.get('Status Geral') == 'OK')
@@ -82,12 +223,14 @@ def gerar_html(linhas, atualizado_em):
         '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width, initial-scale=1">'
         '<title>Validação de Planos de Ensino</title>'
-        '<style>details summary::-webkit-details-marker{display:none}</style></head>'
+        '<style>details summary::-webkit-details-marker{display:none}' + ESTILO + '</style></head>'
         '<body style="margin:0;font-family:system-ui,-apple-system,sans-serif;background:#f3f4f6;color:#111827">'
         '<div style="max-width:1100px;margin:0 auto;padding:32px 16px">'
-        '<h1 style="margin:0 0 4px">📋 Validação de Planos de Ensino</h1>'
-        '<p style="margin:0 0 24px;color:#6b7280">Resultado da última validação: ' + escape(atualizado_em) + '</p>'
+        '<h1 style="margin:0 0 24px">📋 Validação de Planos de Ensino</h1>'
+        + PAINEIS +
+        '<h2 style="margin:32px 0 4px;font-size:20px">Resultados</h2>'
+        '<p style="margin:0 0 16px;color:#6b7280">Última validação: ' + escape(atualizado_em or '—') + '</p>'
         '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:24px">'
         + cartoes + '</div>' + corpo +
-        '</div></body></html>'
+        '</div><script>' + SCRIPT + '</script></body></html>'
     )

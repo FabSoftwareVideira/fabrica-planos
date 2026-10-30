@@ -15,8 +15,9 @@ services:
       - AGENDAR=1
       - TZ=${TZ}
     volumes:
-      # PDFs de entrada (somente leitura) ficam fora do container, na pasta indicada em PLANOS_HOST_DIR
-      - "${PLANOS_HOST_DIR}:/data/planos:ro"
+      # PDFs de entrada ficam fora do container, na pasta indicada em PLANOS_HOST_DIR.
+      # Gravável porque o dashboard envia e exclui PDFs.
+      - "${PLANOS_HOST_DIR}:/data/planos"
       - "./resultados:/data/resultados"
     depends_on:
       ollama:

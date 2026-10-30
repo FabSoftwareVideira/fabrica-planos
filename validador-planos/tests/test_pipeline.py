@@ -1,7 +1,8 @@
 import json
 import logging
 
-from app import csvsaida, lock, pipeline
+from app import csvsaida, pipeline
+from app.andamento import Andamento
 from app.config import Config
 
 
@@ -17,19 +18,25 @@ def _cfg(tmp_path):
     )
 
 
-def test_lote_grava_csv_registra_andamento_e_libera_lock(tmp_path, monkeypatch, caplog):
+def test_lote_grava_csv_registra_andamento_e_libera(tmp_path, monkeypatch, caplog):
     cfg = _cfg(tmp_path)
     monkeypatch.setattr(pipeline, 'extrair_texto', lambda caminho: 'Ementa: algo\n')
     resposta = json.dumps({'status_geral': 'OK', 'obs_geral': 'ok'})
     monkeypatch.setattr(pipeline, 'chamar_ollama', lambda url, payload: resposta)
-    lock.atualizar(cfg.lock_path)
+    andamento = Andamento()
+    nomes = pipeline.listar_pdfs(cfg.planos_dir)
+    assert andamento.iniciar(len(nomes))
+    assert not andamento.iniciar(len(nomes))
 
     with caplog.at_level(logging.INFO, logger='app.pipeline'):
-        pipeline.executar(cfg)
+        pipeline.executar(cfg, andamento, nomes)
 
     linhas = csvsaida.ler_csv(cfg.csv_path)
     assert [l['Arquivo'] for l in linhas] == ['a.pdf', 'b.PDF']
-    assert not lock.ocupado(cfg.lock_path)
+    resumo = andamento.resumo()
+    assert not resumo['rodando']
+    assert resumo['processados'] == resumo['total'] == 2
+    assert resumo['finalizado_em'] and not resumo['erro']
     mensagens = caplog.text
     assert 'Validação iniciada: 2 plano(s), modelo qwen2.5:14b' in mensagens
     assert '[1/2] Validando a.pdf' in mensagens
@@ -44,7 +51,28 @@ def test_falha_no_ollama_vira_erro_no_csv(tmp_path, monkeypatch):
         raise RuntimeError('Ollama inacessível')
 
     monkeypatch.setattr(pipeline, 'chamar_ollama', sem_conexao)
-    pipeline.executar(cfg)
+    andamento = Andamento()
+    andamento.iniciar(2)
+    pipeline.executar(cfg, andamento, pipeline.listar_pdfs(cfg.planos_dir))
     linhas = csvsaida.ler_csv(cfg.csv_path)
     assert all(l['Status Geral'] == 'ERRO' for l in linhas)
     assert 'Ollama inacessível' in linhas[0]['Observação Geral']
+
+
+def test_erro_inesperado_libera_e_registra(tmp_path, monkeypatch):
+    cfg = _cfg(tmp_path)
+    monkeypatch.setattr(pipeline, 'validar_plano', lambda cfg, nome: {'Status Geral': 'OK'})
+
+    def disco_cheio(caminho, linhas):
+        raise OSError('disco cheio')
+
+    monkeypatch.setattr(csvsaida, 'escrever_csv', disco_cheio)
+    andamento = Andamento()
+    andamento.iniciar(2)
+    try:
+        pipeline.executar(cfg, andamento, ['a.pdf', 'b.PDF'])
+    except OSError:
+        pass
+    resumo = andamento.resumo()
+    assert not resumo['rodando']
+    assert resumo['erro'] == 'disco cheio'
