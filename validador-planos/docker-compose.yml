@@ -25,6 +25,10 @@ services:
   ollama:
     image: ollama/ollama:latest
     restart: unless-stopped
+    ports:
+      # Acesso ao Ollama pelo host; o app usa a rede interna e não depende desta porta.
+      # Por padrão só aceita conexões da própria máquina (o Ollama não tem autenticação).
+      - "${OLLAMA_BIND:-127.0.0.1}:${OLLAMA_PORT:-11434}:11434"
     environment:
       - TZ=${TZ}
     volumes:
