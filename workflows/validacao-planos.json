@@ -440,11 +440,12 @@
         -4896,
         2400
       ],
-      "onError": "continueRegularOutput"
+      "onError": "continueRegularOutput",
+      "alwaysOutputData": true
     },
     {
       "parameters": {
-        "jsCode": "// Lock de execução: se o arquivo existe e foi atualizado há menos de 15 minutos, a validação está em andamento.\nconst erro = $input.first().json.error;\nlet ocupado = false;\nif (!erro) {\n  const conteudo = (await this.helpers.getBinaryDataBuffer(0, 'data')).toString('utf8').trim();\n  const ultimo = Date.parse(conteudo);\n  ocupado = !isNaN(ultimo) && Date.now() - ultimo < 15 * 60 * 1000;\n}\nreturn [{ json: { ocupado } }];\n"
+        "jsCode": "// Lock de execução: se o arquivo existe e foi atualizado há menos de 15 minutos, a validação está em andamento.\n// Sem arquivo (primeira execução) ou sem conteúdo binário, não há lock ativo.\nconst item = $input.first();\nlet ocupado = false;\nif (!item.json.error && item.binary && item.binary.data) {\n  const conteudo = (await this.helpers.getBinaryDataBuffer(0, 'data')).toString('utf8').trim();\n  const ultimo = Date.parse(conteudo);\n  ocupado = !isNaN(ultimo) && Date.now() - ultimo < 15 * 60 * 1000;\n}\nreturn [{ json: { ocupado } }];\n"
       },
       "id": "verificar-lock-001",
       "name": "Verificar Lock",
