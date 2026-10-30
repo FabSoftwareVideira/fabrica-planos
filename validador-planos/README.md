@@ -36,19 +36,29 @@ Ao iniciar, a validação grava a hora atual em `resultados/validacao.lock` e re
 cp .env.example .env
 ```
 
-2. Suba os containers:
+2. Conecte o validador ao Ollama existente por uma rede Docker compartilhada (uma vez). Crie a rede e ligue o container `ollama` a ela; isso não reinicia o Ollama:
+
+```bash
+docker network create ollama-net
+```
+
+```bash
+docker network connect ollama-net ollama
+```
+
+3. Suba o validador:
 
 ```bash
 docker compose up -d --build
 ```
 
-3. Baixe o modelo no Ollama existente (uma vez; `ollama` é o nome do container):
+4. Baixe o modelo no Ollama existente (uma vez; `ollama` é o nome do container):
 
 ```bash
 docker exec ollama ollama pull qwen2.5:7b
 ```
 
-4. Teste:
+5. Teste:
 
 ```bash
 curl -i -X POST http://localhost:8080/validar
@@ -65,6 +75,6 @@ pytest
 
 ## Observações
 
-- O validador não sobe um Ollama próprio: usa o que já roda no servidor, em `OLLAMA_URL` (padrão `http://host.docker.internal:11434`, a porta publicada no host). Se o firewall do host bloquear o tráfego dos containers para essa porta, libere-a para a rede do Docker.
+- O validador não sobe um Ollama próprio: usa o container `ollama` que já roda no servidor, pelo nome, na rede `OLLAMA_NETWORK` (padrão `ollama-net`). Se o container do Ollama for recriado, conecte-o de novo à rede com `docker network connect ollama-net ollama`.
 - A extração usa `pdfplumber`, que lê só a camada de texto. PDFs escaneados continuam precisando de OCR antes de entrar na pasta.
-- Para trocar o modelo, altere `OLLAMA_MODEL` no `.env` e reinicie o serviço `app`.
+- Para trocar o modelo, altere `OLLAMA_MODEL` (e, se quiser, `OLLAMA_NUM_CTX`) no `.env`, baixe o modelo com `docker exec ollama ollama pull <modelo>` e rode `docker compose up -d`. Um `docker compose restart` não recarrega o `.env`.

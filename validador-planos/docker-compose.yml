@@ -7,17 +7,23 @@ services:
     environment:
       - PLANOS_DIR=/data/planos
       - RESULTADOS_DIR=/data/resultados
-      # Ollama externo (outro container ou serviço), alcançado pela porta publicada no host
+      # Ollama externo, alcançado pelo nome do container na rede compartilhada
       - OLLAMA_URL=${OLLAMA_URL}
       - OLLAMA_MODEL=${OLLAMA_MODEL}
       - OLLAMA_NUM_CTX=${OLLAMA_NUM_CTX}
       - AGENDAMENTO_HORA=${AGENDAMENTO_HORA}
       - AGENDAR=1
       - TZ=${TZ}
-    extra_hosts:
-      # Em Linux, host.docker.internal só existe com esse mapeamento
-      - "host.docker.internal:host-gateway"
     volumes:
       # PDFs de entrada (somente leitura) ficam fora do container, na pasta indicada em PLANOS_HOST_DIR
       - "${PLANOS_HOST_DIR}:/data/planos:ro"
       - "./resultados:/data/resultados"
+    networks:
+      - default
+      - ollama
+
+networks:
+  # Rede criada fora do compose, à qual o container do Ollama também está conectado (ver README)
+  ollama:
+    external: true
+    name: ${OLLAMA_NETWORK}

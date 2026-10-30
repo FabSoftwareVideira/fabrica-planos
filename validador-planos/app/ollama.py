@@ -8,6 +8,8 @@ from .prompt import FORMAT_SCHEMA
 
 TENTATIVAS = 3
 ESPERA_SEGUNDOS = 5
+# Conexão falha em 10 s (rede/firewall); a resposta pode levar minutos com modelos maiores.
+TIMEOUT = (10, 600)
 
 
 def montar_payload(modelo, prompt, num_ctx):
@@ -25,7 +27,7 @@ class OllamaErro(Exception):
     pass
 
 
-def chamar_ollama(ollama_url, payload, timeout=180):
+def chamar_ollama(ollama_url, payload, timeout=TIMEOUT):
     ultimo_erro = None
     for tentativa in range(TENTATIVAS):
         try:

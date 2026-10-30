@@ -1,5 +1,6 @@
 import logging
 import os
+import time
 
 from . import csvsaida, lock
 from .extrator import extrair_texto
@@ -49,11 +50,20 @@ def validar_plano(cfg, nome):
 def executar(cfg):
     """Roda a validação de todos os PDFs. Espera que o lock já tenha sido gravado pelo chamador."""
     try:
+        nomes = listar_pdfs(cfg.planos_dir)
+        log.info('Validação iniciada: %d plano(s), modelo %s em %s', len(nomes), cfg.modelo, cfg.ollama_url)
         linhas = []
-        for nome in listar_pdfs(cfg.planos_dir):
-            linhas.append(validar_plano(cfg, nome))
+        for i, nome in enumerate(nomes, start=1):
+            log.info('[%d/%d] Validando %s', i, len(nomes), nome)
+            inicio = time.monotonic()
+            linha = validar_plano(cfg, nome)
+            log.info('[%d/%d] %s: %s (%.0f s)', i, len(nomes), nome, linha['Status Geral'], time.monotonic() - inicio)
+            linhas.append(linha)
             lock.atualizar(cfg.lock_path)
         csvsaida.escrever_csv(cfg.csv_path, linhas)
         log.info('Validação concluída: %d plano(s)', len(linhas))
+    except Exception:
+        log.exception('Validação interrompida por erro inesperado')
+        raise
     finally:
         lock.liberar(cfg.lock_path)
