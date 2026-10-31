@@ -1,0 +1,30 @@
+/* Ajustes comuns às páginas que já usam o Padrão Digital de Governo (Design System gov.br). */
+body{background:var(--gray-2);display:flex;flex-direction:column;min-height:100vh}
+main{flex:1}
+
+/* Cabeçalho: sigla no lugar do logotipo e rótulos que somem no celular, ficando só os ícones */
+.br-header .sigla{font-weight:var(--font-weight-black);font-size:var(--font-size-scale-up-03);color:#32a041;letter-spacing:.02em}
+.br-header .header-actions{gap:var(--spacing-scale-half)}
+.br-header .header-actions .br-button i+.rotulo,.br-header .usuario i+.rotulo{margin-left:var(--spacing-scale-base)}
+.br-header .usuario{font-size:var(--font-size-scale-down-01);color:var(--gray-60);white-space:nowrap;max-width:28ch;overflow:hidden;text-overflow:ellipsis}
+@media (max-width:575px){
+  .br-header .header-sign{display:none}
+  .br-header .header-actions .rotulo{display:none}
+}
+
+/* Painéis em cartões, com espaço entre eles */
+.br-card{margin-bottom:var(--spacing-scale-3x)}
+.br-card .card-header h2{font-size:var(--font-size-scale-up-02);margin:0}
+.br-card .card-header h2 .contagem{font-size:var(--font-size-scale-base);font-weight:var(--font-weight-regular);color:var(--gray-60)}
+
+/* Status dos planos (OK, PENDENTE...) sobre o br-tag; a cor vem de cada status */
+.br-tag.status-plano{font-size:var(--font-size-scale-down-02);font-weight:var(--font-weight-semi-bold);color:var(--pure-0);white-space:nowrap}
+
+/* Mensagens de retorno das ações (envio, exclusão) */
+.msg{margin:var(--spacing-scale-2x) 0 0;color:var(--gray-60)}
+.msg.erro{color:var(--danger)}
+.msg.ok{color:var(--success)}
+
+/* Texto da mensagem no tamanho normal (o DS aumenta um nível) e rodapé com respiro */
+.br-message .content{font-size:var(--font-size-scale-base)}
+.br-footer .info{padding:var(--spacing-scale-3x) 0 var(--spacing-scale-base)}

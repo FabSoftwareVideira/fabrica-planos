@@ -1,0 +1,31 @@
+{#- Cabeçalho das páginas no padrão gov.br (br-header compacto, sem os menus que dependem do JS do DS).
+    Usa: titulo_pagina, email e, opcionalmente, links = [(rótulo, endereço, ícone)]. -#}
+<header class="br-header compact" id="header">
+  <div class="container-lg">
+    <div class="header-top">
+      <div class="header-logo">
+        <span class="sigla" aria-hidden="true">IFC</span>
+        <span class="br-divider vertical"></span>
+        <div class="header-sign">Instituto Federal Catarinense</div>
+      </div>
+      <div class="header-actions">
+        {% for rotulo, endereco, icone in links %}
+        <a class="br-button small" href="{{ endereco }}"><i class="fas fa-{{ icone }}" aria-hidden="true"></i><span class="rotulo">{{ rotulo }}</span></a>
+        {% endfor %}
+        {% if email %}
+        <span class="br-divider vertical mx-1"></span>
+        <span class="usuario" title="{{ email }}"><i class="fas fa-user" aria-hidden="true"></i><span class="rotulo">{{ email }}</span></span>
+        <a class="br-button small" href="/oauth2/sign_out" aria-label="Sair"><i class="fas fa-sign-out-alt" aria-hidden="true"></i><span class="rotulo">Sair</span></a>
+        {% endif %}
+      </div>
+    </div>
+    <div class="header-bottom">
+      <div class="header-menu">
+        <div class="header-info">
+          <div class="header-title">{{ titulo_pagina }}</div>
+          <div class="header-subtitle">Validação de Planos de Ensino</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>

@@ -2,6 +2,9 @@
 # Com APP_HOST vazio o endereço vira ":APP_PORT" e o Caddy serve HTTP puro, sem certificado
 # (uso local). Com um nome (ex.: planos.200-135-55-29.sslip.io) emite o certificado pela porta 80.
 {$APP_HOST}:{$APP_PORT} {
+	# Compressão: o CSS do Design System gov.br cai de ~570 KB para ~70 KB
+	encode zstd gzip
+
 	# Telas de login, retorno do Google e saída
 	handle /oauth2/* {
 		reverse_proxy oauth2-proxy:4180

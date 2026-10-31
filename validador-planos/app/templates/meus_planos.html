@@ -1,39 +1,52 @@
 {% extends 'base.html' %}
 {#- "Meus planos": o servidor envia os próprios PDFs (a entrega oficial) e acompanha a avaliação, que começa
-    logo após o envio ou espera a vez na fila. A lista vem de /meus-planos/lista (static/js/meus_planos.js). -#}
+    logo após o envio ou espera a vez na fila. A lista vem de /meus-planos/lista (static/js/meus_planos.js).
+    Primeira página no Padrão Digital de Governo (Design System gov.br). -#}
 
 {% block titulo %}Meus planos · Validação de Planos de Ensino{% endblock %}
 
 {% block estilos %}
-  <link rel="stylesheet" href="{{ estatico('css/painel.css') }}">
+{% include '_ds.html' %}
   <link rel="stylesheet" href="{{ estatico('css/meus_planos.css') }}">
 {% endblock %}
 
 {% block corpo %}
-<div class="pagina" style="max-width:900px">
-  <h1>📋 Meus planos de ensino</h1>
-  <p class="usuario">
-    {%- if email %}{{ email }} · {% endif -%}
-    <a href="/dashboard">Painel geral</a>
-    {%- if email %} · <a href="/oauth2/sign_out">Sair</a>{% endif -%}
-  </p>
+{% with titulo_pagina='Meus planos de ensino', links=[('Painel geral', '/dashboard', 'chart-bar')] %}
+{% include '_cabecalho.html' %}
+{% endwith %}
 
-  <section class="painel">
-    <h2>Enviar plano de ensino</h2>
-    <p class="aviso">O PDF enviado aqui é a entrega do plano ao NDE. A avaliação automática começa logo em seguida; se algo precisar de ajuste, corrija no SIGAA, gere o PDF de novo e envie com o mesmo nome para substituir.</p>
-    <div class="soltar" id="soltar">Arraste o PDF para cá ou
-      <button class="botao leve" id="escolher" type="button">escolha arquivos</button>
-      <input type="file" id="arquivo" accept="application/pdf,.pdf" multiple hidden>
-      <p class="dica">PDF gerado pelo SIGAA (com texto selecionável), até {{ max_mb }} MB. Use um nome que identifique a disciplina, por exemplo: <b>2026-1 - Banco de Dados II - Seu Nome.pdf</b></p>
-    </div>
-    <p class="msg" id="envio-msg" hidden></p>
-  </section>
+<main id="main">
+  <div class="container-lg py-4">
+    <section class="br-card">
+      <div class="card-header"><h2>Enviar plano de ensino</h2></div>
+      <div class="card-content">
+        <div class="br-message info">
+          <div class="icon"><i class="fas fa-info-circle fa-lg" aria-hidden="true"></i></div>
+          <div class="content">
+            <span class="message-body">O PDF enviado aqui é a entrega do plano ao NDE. A avaliação automática começa logo em seguida; se algo precisar de ajuste, corrija no SIGAA, gere o PDF de novo e envie com o mesmo nome para substituir.</span>
+          </div>
+        </div>
+        <div class="soltar" id="soltar">
+          <i class="fas fa-cloud-upload-alt fa-2x" aria-hidden="true"></i>
+          <p class="mb-2"><span class="so-mouse">Arraste o PDF para cá ou </span>
+            <button class="br-button secondary small" id="escolher" type="button"><i class="fas fa-file-pdf" aria-hidden="true"></i> Escolher arquivos</button></p>
+          <input type="file" id="arquivo" accept="application/pdf,.pdf" multiple hidden>
+          <p class="dica">PDF gerado pelo SIGAA (com texto selecionável), até {{ max_mb }} MB. Use um nome que identifique a disciplina, por exemplo: <b>2026-1 - Banco de Dados II - Seu Nome.pdf</b></p>
+        </div>
+        <p class="msg" id="envio-msg" role="status" hidden></p>
+      </div>
+    </section>
 
-  <section class="painel">
-    <h2>Meus planos <span class="msg" id="qtd"></span></h2>
-    <ul class="meus" id="lista"><li><span class="msg">Carregando…</span></li></ul>
-  </section>
-</div>
+    <section class="br-card">
+      <div class="card-header"><h2>Meus planos <span class="contagem" id="qtd"></span></h2></div>
+      <div class="card-content">
+        <ul class="meus" id="lista"><li><span class="msg">Carregando…</span></li></ul>
+      </div>
+    </section>
+  </div>
+</main>
+
+{% include '_rodape.html' %}
 {% endblock %}
 
 {% block scripts %}

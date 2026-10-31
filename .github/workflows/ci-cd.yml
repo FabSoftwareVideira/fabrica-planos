@@ -87,6 +87,11 @@ jobs:
         working-directory: ${{ env.DEPLOY_DIR }}/validador-planos
         run: docker compose up -d --build --remove-orphans
 
+      # O Caddyfile é montado como arquivo: mudanças nele não recriam o container, então recarrega aqui
+      - name: Recarregar a configuração do Caddy
+        working-directory: ${{ env.DEPLOY_DIR }}/validador-planos
+        run: docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile
+
       - name: Verificar se o app respondeu
         working-directory: ${{ env.DEPLOY_DIR }}/validador-planos
         run: |

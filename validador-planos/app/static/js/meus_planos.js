@@ -6,7 +6,7 @@ let timer;
 function msg(el, texto, tipo) { el.textContent = texto; el.className = 'msg' + (tipo ? ' ' + tipo : ''); el.hidden = !texto; }
 function hora(iso) { return iso ? new Date(iso).toLocaleString('pt-BR') : ''; }
 async function corpo(resp) { try { return await resp.json(); } catch { return {}; } }
-function selo(texto, cor) { const s = document.createElement('span'); s.className = 'selo'; s.style.background = cor; s.textContent = texto; return s; }
+function selo(texto, cor) { const s = document.createElement('span'); s.className = 'br-tag status-plano'; s.style.background = cor; s.textContent = texto; return s; }
 
 function situacao(p) {
   if (p.situacao === 'na_fila') return [selo(`Na fila (${p.posicao}º)`, '#6b7280'), 'Aguardando a vez da avaliação automática.'];
@@ -30,11 +30,12 @@ function item(p) {
     acoes.append(marca);
     if (p.situacao === 'avaliado') {
       const a = document.createElement('a'); a.href = '/relatorio?arquivo=' + encodeURIComponent(p.nome);
-      a.textContent = '📝 Relatório'; acoes.append(a);
+      a.innerHTML = '<i class="fas fa-file-alt" aria-hidden="true"></i> Relatório'; acoes.append(a);
     }
     const pdf = document.createElement('a'); pdf.href = '/pdf?arquivo=' + encodeURIComponent(p.nome);
-    pdf.target = '_blank'; pdf.rel = 'noopener'; pdf.textContent = '📄 PDF';
-    const del = document.createElement('button'); del.className = 'excluir'; del.textContent = 'Excluir';
+    pdf.target = '_blank'; pdf.rel = 'noopener'; pdf.innerHTML = '<i class="fas fa-file-pdf" aria-hidden="true"></i> PDF';
+    const del = document.createElement('button'); del.type = 'button'; del.className = 'br-button small excluir';
+    del.innerHTML = '<i class="fas fa-trash-alt" aria-hidden="true"></i> Excluir';
     del.onclick = () => excluir(p.nome);
     acoes.append(pdf, del);
     const info = document.createElement('span'); info.className = 'info';

@@ -1,17 +1,21 @@
-/* "Meus planos": lista dos planos do servidor (carregada depois de painel.css). */
+/* "Meus planos": área de envio e lista dos planos do servidor (sobre o Design System gov.br e ds.css). */
+.soltar{border:2px dashed var(--gray-20);border-radius:var(--surface-rounder-md);padding:var(--spacing-scale-3x);
+  text-align:center;color:var(--gray-60);margin-top:var(--spacing-scale-3x);background:var(--pure-0)}
+.soltar>i{color:var(--interactive);margin-bottom:var(--spacing-scale-base)}
+.soltar.ativo{border-color:var(--interactive);background:var(--blue-5)}
+.dica{font-size:var(--font-size-scale-down-01);color:var(--gray-50);margin:0}
+@media (hover:none){.so-mouse{display:none}}  /* no celular não há arrastar e soltar */
+
 .meus{list-style:none;margin:0;padding:0}
-.meus li{border-top:1px solid #f1f5f9;padding:14px 4px;display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center}
+.meus li{border-top:1px solid var(--gray-10);padding:var(--spacing-scale-2x) var(--spacing-scale-half);display:flex;
+  flex-wrap:wrap;gap:var(--spacing-scale-base) var(--spacing-scale-2x);align-items:center}
 .meus li:first-child{border-top:0}
-.meus .nome{flex:1 1 240px;font-weight:600;overflow-wrap:anywhere}
-.meus .sub{display:block;font-size:12px;font-weight:400;color:#6b7280;margin-top:2px}
-.meus li.cab-grupo{display:block;border-top:0;padding:18px 4px 6px;font-size:15px;font-weight:700;color:#374151}
+.meus .nome{flex:1 1 240px;font-weight:var(--font-weight-semi-bold);overflow-wrap:anywhere}
+.meus .sub{display:block;font-size:var(--font-size-scale-down-01);font-weight:var(--font-weight-regular);color:var(--gray-60);margin-top:2px}
+.meus li.cab-grupo{display:block;border-top:0;padding:var(--spacing-scale-3x) var(--spacing-scale-half) var(--spacing-scale-half);
+  font-weight:var(--font-weight-bold);color:var(--gray-80)}
 .meus li.cab-grupo:first-child{padding-top:0}
-.meus .info{flex-basis:100%;font-size:13px;color:#6b7280;overflow-wrap:anywhere}
-.meus .acoes{display:flex;flex-wrap:wrap;gap:12px;align-items:center;font-size:13px}
-.meus .acoes a{color:#2563eb;font-weight:600;text-decoration:none}
-.selo{color:#fff;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;white-space:nowrap}
-.aviso{background:#eff6ff;color:#1e40af;border-radius:8px;padding:10px 14px;font-size:14px;margin:0 0 16px}
-@media (max-width:600px){
-  .meus li{padding:12px 2px}
-  .meus .acoes{gap:10px 16px}
-}
+.meus .info{flex-basis:100%;font-size:var(--font-size-scale-down-01);color:var(--gray-60);overflow-wrap:anywhere}
+.meus .acoes{display:flex;flex-wrap:wrap;gap:var(--spacing-scale-base) var(--spacing-scale-2x);align-items:center}
+.meus .acoes a{font-weight:var(--font-weight-semi-bold)}
+.meus .excluir{color:var(--danger)}

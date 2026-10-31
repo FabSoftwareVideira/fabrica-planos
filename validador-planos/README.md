@@ -16,7 +16,8 @@ app/
   rotas/            Blueprints, um por área: publico, painel, validacoes, administracao, meus_planos
   paginas/          dados de cada página (contexto do template) e funções comuns aos templates
   templates/        HTML das páginas em Jinja: base.html (esqueleto), _macros.html e uma por página
-  static/           CSS e JavaScript das páginas (css/, js/), servidos em /static com versão no endereço
+  static/           CSS e JavaScript das páginas (css/, js/), servidos em /static com versão no endereço;
+                    vendor/ tem o Design System gov.br, a fonte Rawline e o Font Awesome (scripts/atualizar_vendor.sh)
 tests/              testes unitários (regras, seções, extração, pipeline, rotas, CSV)
 resultados/         histórico das validações e cópia do CSV da última (criados automaticamente; ver "Histórico")
 docker-compose.yml, Dockerfile, .env.example, Caddyfile
@@ -25,6 +26,15 @@ docker-compose.yml, Dockerfile, .env.example, Caddyfile
 As camadas só dependem das de baixo: `rotas` → `servicos` → `avaliacao`/`armazenamento`, e `rotas` → `paginas` → `templates`. Cada rota monta o contexto com a função `contexto()` do módulo da página e chama `render_template`; o Jinja escapa os valores automaticamente. A página inicial é pública e traz o CSS embutido (`templates/inicio.css`), porque `/static` passa pelo login do proxy. As rotas só traduzem HTTP (parâmetros, códigos de resposta) e chamam os serviços, que guardam as regras de negócio (quem pode substituir um PDF, fila, bloqueio durante o lote) e avisam problemas com exceções (`Ocupado`, `NaoEncontrado`, `Proibido`). Os serviços são criados uma vez em `criar_app()` e ficam em `app.extensions['servicos']`; nos testes, `criar_app(cfg, executar=...)` roda as avaliações na hora, sem thread.
 
 Os PDFs ficam na pasta indicada por `PLANOS_HOST_DIR`, montada no container com escrita (o dashboard envia e exclui PDFs). Eles não entram na imagem nem no git.
+
+## Interface (Padrão Digital de Governo)
+
+As páginas estão migrando, uma por vez, para o [Padrão Digital de Governo](https://www.gov.br/ds/) (Design System gov.br, `@govbr-ds/core` 3.7). Já migrada: **Meus planos**. As demais ainda usam `static/css/painel.css` e `relatorio.css`.
+
+- `templates/_ds.html` carrega o CSS do DS, a fonte e os ícones; `_cabecalho.html` e `_rodape.html` são o cabeçalho e o rodapé no padrão.
+- `static/css/ds.css` tem os ajustes comuns às páginas migradas; cada página tem o seu CSS para o que é só dela.
+- As bibliotecas ficam copiadas em `static/vendor` (sem CDN). Para trocar de versão, ajuste as versões no topo de `scripts/atualizar_vendor.sh`, rode o script (precisa de npm) e confira as páginas.
+- Só o CSS do DS é usado; os componentes que dependem do JavaScript do DS (menus, upload) ficam de fora por enquanto.
 
 ## Dashboard
 
