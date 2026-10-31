@@ -32,6 +32,7 @@ Os PDFs ficam na pasta indicada por `PLANOS_HOST_DIR`, montada no container com 
 As páginas seguem o [Padrão Digital de Governo](https://www.gov.br/ds/) (Design System gov.br, `@govbr-ds/core` 3.7): página inicial, dashboard, relatório e Meus planos. Na página inicial, o botão "Entrar com Google" mantém o visual pedido pelas diretrizes do Google.
 
 - `templates/_ds.html` carrega o CSS do DS, a fonte e os ícones; `_cabecalho.html` e `_rodape.html` são o cabeçalho e o rodapé no padrão.
+- O cabeçalho tem o menu com texto e ícone (Painel, Administração para administradores, Meus planos) e a conta de quem está logado; abaixo de 992px vira menu hambúrguer (`static/js/cabecalho.js`). O logotipo do IFC entra ao colocar o arquivo oficial em `app/static/img/logo-ifc.svg` (ou `.png`); sem ele, aparece a sigla IFC.
 - `static/css/ds.css` tem os ajustes comuns às páginas migradas; cada página tem o seu CSS para o que é só dela.
 - As bibliotecas ficam copiadas em `static/vendor` (sem CDN). Para trocar de versão, ajuste as versões no topo de `scripts/atualizar_vendor.sh`, rode o script (precisa de npm) e confira as páginas.
 - Só o CSS do DS é usado; os componentes que dependem do JavaScript do DS (menus, upload) ficam de fora por enquanto.

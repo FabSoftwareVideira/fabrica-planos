@@ -10,17 +10,15 @@
 {% endblock %}
 
 {% block corpo %}
-{% with titulo_pagina='Painel de validação', email=usuario,
-         links=([('Administração', '/administracao', 'cog')] if admin else []) + [('Meus planos', '/meus-planos', 'folder-open')] %}
+{% with titulo_pagina='Painel de validação', pagina_atual='painel' %}
 {% include '_cabecalho.html' %}
 {% endwith %}
 {% include '_status.html' %}
 
 <main id="main">
   <div class="container-lg py-4">
-    {% if usuario %}
-    <p class="papel"><i class="fas fa-{{ 'user-shield' if admin else 'user' }}" aria-hidden="true"></i> {{ 'Administrador: envia PDFs e dispara validações' if admin else 'Consulta: vê resultados, relatórios e PDFs' }}
-      {%- if not admin %} · para entregar o seu plano, use <a href="/meus-planos">Meus planos</a>{% endif %}</p>
+    {% if usuario and not admin %}
+    <p class="papel"><i class="fas fa-info-circle" aria-hidden="true"></i> Para entregar o seu plano de ensino, use <a href="/meus-planos">Meus planos</a>.</p>
     {% endif %}
 
     {% if execucao is none %}

@@ -4,14 +4,49 @@ main{flex:1}
 /* O DS dá display aos botões (br-button) e mensagens, o que anularia o atributo hidden usado pelos scripts */
 [hidden]{display:none !important}
 
-/* Cabeçalho: sigla no lugar do logotipo e rótulos que somem no celular, ficando só os ícones */
-.br-header .sigla{font-weight:var(--font-weight-black);font-size:var(--font-size-scale-up-03);color:#32a041;letter-spacing:.02em}
-.br-header .header-actions{gap:var(--spacing-scale-half)}
-.br-header .header-actions .br-button i+.rotulo,.br-header .usuario i+.rotulo{margin-left:var(--spacing-scale-base)}
-.br-header .usuario{font-size:var(--font-size-scale-down-01);color:var(--gray-60);white-space:nowrap;max-width:28ch;overflow:hidden;text-overflow:ellipsis}
-@media (max-width:575px){
-  .br-header .header-sign{display:none}
-  .br-header .header-actions .rotulo{display:none}
+/* Cabeçalho: logotipo e nome do sistema à esquerda; menu (texto e ícone) e conta à direita.
+   Abaixo de 992px o menu vira hambúrguer: um painel que abre sob a barra. */
+.cabecalho{display:block;position:relative;z-index:30;padding:0}  /* o br-header do DS é flex */
+.cabecalho .topo{display:flex;align-items:center;gap:var(--spacing-scale-2x);min-height:64px;padding:var(--spacing-scale-base) 0}
+.cabecalho .marca{display:flex;align-items:center;gap:var(--spacing-scale-2x);text-decoration:none;color:var(--gray-80);margin-right:auto}
+.cabecalho .marca:hover{text-decoration:none}
+.cabecalho .logo{height:44px;width:auto;display:block}
+.cabecalho .sigla{font-weight:var(--font-weight-black);font-size:var(--font-size-scale-up-03);color:#32a041;letter-spacing:.02em}
+.cabecalho .br-divider.vertical{height:32px;margin:0}
+.cabecalho .sistema{font-weight:var(--font-weight-semi-bold);line-height:1.2;font-size:var(--font-size-scale-base)}
+.cabecalho .menu{display:flex;align-items:center;gap:var(--spacing-scale-2x)}
+.cabecalho .menu ul{display:flex;gap:var(--spacing-scale-half);list-style:none;margin:0;padding:0}
+.cabecalho .menu a:not(.br-button){display:flex;align-items:center;gap:var(--spacing-scale-base);padding:0 var(--spacing-scale-2x);
+  height:40px;border-radius:var(--surface-rounder-pill);color:var(--interactive);font-weight:var(--font-weight-semi-bold);
+  text-decoration:none;white-space:nowrap}
+.cabecalho .menu a:not(.br-button):hover{background:var(--blue-5)}
+.cabecalho .menu a.ativo{background:var(--interactive);color:var(--pure-0)}
+.cabecalho .conta{display:flex;align-items:center;gap:var(--spacing-scale-2x);padding-left:var(--spacing-scale-2x);
+  border-left:1px solid var(--gray-10)}
+.cabecalho .usuario{display:flex;align-items:center;gap:var(--spacing-scale-base);color:var(--gray-70);min-width:0}
+.cabecalho .usuario>i{font-size:1.6em;color:var(--gray-40)}
+.cabecalho .usuario>span{display:flex;flex-direction:column;min-width:0;line-height:1.25}
+.cabecalho .email{font-size:var(--font-size-scale-down-01);max-width:24ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cabecalho .papel-usuario{font-size:var(--font-size-scale-down-02);color:var(--gray-50)}
+.cabecalho .menu-botao{display:none}
+.titulo-pagina{border-top:1px solid var(--gray-10);background:var(--gray-1,#f8f8f8);padding:var(--spacing-scale-base) 0;
+  font-size:var(--font-size-scale-up-01);font-weight:var(--font-weight-medium);color:var(--gray-80)}
+@media (max-width:991px){
+  .cabecalho .menu-botao{display:inline-flex}
+  .cabecalho .topo{height:64px;min-height:0}
+  .cabecalho .menu{display:none;position:absolute;left:0;right:0;top:64px;  /* abre logo abaixo da barra, sobre o título */
+   flex-direction:column;align-items:stretch;gap:0;
+    background:var(--pure-0);box-shadow:0 8px 16px rgba(0,0,0,.16);padding:var(--spacing-scale-base) var(--spacing-scale-2x) var(--spacing-scale-2x)}
+  .cabecalho .menu.aberto{display:flex}
+  .cabecalho .menu ul{flex-direction:column;gap:0}
+  .cabecalho .menu a:not(.br-button){height:48px;border-radius:var(--surface-rounder-sm)}
+  .cabecalho .conta{border-left:0;border-top:1px solid var(--gray-10);padding:var(--spacing-scale-2x) var(--spacing-scale-2x) 0;
+    margin-top:var(--spacing-scale-base);justify-content:space-between}
+  .cabecalho .email{max-width:none}
+}
+@media (max-width:420px){
+  .cabecalho .sistema{font-size:var(--font-size-scale-down-01)}
+  .cabecalho .logo{height:36px}
 }
 
 /* Painéis em cartões, com espaço entre eles */

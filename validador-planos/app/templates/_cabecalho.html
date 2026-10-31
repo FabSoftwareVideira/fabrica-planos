@@ -1,31 +1,44 @@
-{#- Cabeçalho das páginas no padrão gov.br (br-header compacto, sem os menus que dependem do JS do DS).
-    Usa: titulo_pagina, email e, opcionalmente, links = [(rótulo, endereço, ícone)]. -#}
-<header class="br-header compact" id="header">
+{#- Cabeçalho de todas as páginas (br-header do Padrão Digital de Governo): logotipo, nome do sistema, menu com
+    texto e ícone e quem está logado. Em telas menores o menu vira hambúrguer (static/js/cabecalho.js).
+    Usa: titulo_pagina e pagina_atual; usuario_email e usuario_admin vêm de paginas/comum.py. -#}
+{% set itens = [('painel', 'Painel', '/dashboard', 'chart-bar')]
+             + ([('administracao', 'Administração', '/administracao', 'cog')] if usuario_admin else [])
+             + [('meus', 'Meus planos', '/meus-planos', 'folder-open')] %}
+<header class="br-header cabecalho" id="header">
   <div class="container-lg">
-    <div class="header-top">
-      <div class="header-logo">
-        <span class="sigla" aria-hidden="true">IFC</span>
+    <div class="topo">
+      <a class="marca" href="/" aria-label="Validação de Planos de Ensino, página inicial">
+        {% if logo_ifc() %}<img class="logo" src="{{ logo_ifc() }}" alt="Instituto Federal Catarinense">
+        {% else %}<span class="sigla" aria-hidden="true">IFC</span>{% endif %}
         <span class="br-divider vertical"></span>
-        <div class="header-sign">Instituto Federal Catarinense</div>
-      </div>
-      <div class="header-actions">
-        {% for rotulo, endereco, icone in links %}
-        <a class="br-button small" href="{{ endereco }}"><i class="fas fa-{{ icone }}" aria-hidden="true"></i><span class="rotulo">{{ rotulo }}</span></a>
-        {% endfor %}
-        {% if email %}
-        <span class="br-divider vertical mx-1"></span>
-        <span class="usuario" title="{{ email }}"><i class="fas fa-user" aria-hidden="true"></i><span class="rotulo">{{ email }}</span></span>
-        <a class="br-button small" href="/oauth2/sign_out" aria-label="Sair"><i class="fas fa-sign-out-alt" aria-hidden="true"></i><span class="rotulo">Sair</span></a>
-        {% endif %}
-      </div>
-    </div>
-    <div class="header-bottom">
-      <div class="header-menu">
-        <div class="header-info">
-          <div class="header-title">{{ titulo_pagina }}</div>
-          <div class="header-subtitle">Validação de Planos de Ensino</div>
+        <span class="sistema">Validação de<br>Planos de Ensino</span>
+      </a>
+
+      {% if usuario_email %}
+      <button class="br-button circle menu-botao" type="button" aria-controls="menu-principal" aria-expanded="false" aria-label="Abrir menu">
+        <i class="fas fa-bars" aria-hidden="true"></i>
+      </button>
+      <nav class="menu" id="menu-principal" aria-label="Menu principal">
+        <ul>
+          {% for chave, rotulo, endereco, icone in itens %}
+          <li><a href="{{ endereco }}"{% if chave == pagina_atual %} class="ativo" aria-current="page"{% endif %}><i class="fas fa-{{ icone }}" aria-hidden="true"></i><span>{{ rotulo }}</span></a></li>
+          {% endfor %}
+        </ul>
+        <div class="conta">
+          <span class="usuario" title="{{ usuario_email }}">
+            <i class="fas fa-user-circle" aria-hidden="true"></i>
+            <span><span class="email">{{ usuario_email }}</span><small class="papel-usuario">{{ 'Administrador' if usuario_admin else 'Consulta' }}</small></span>
+          </span>
+          <a class="br-button secondary small sair" href="/oauth2/sign_out"><i class="fas fa-sign-out-alt" aria-hidden="true"></i> Sair</a>
         </div>
-      </div>
+      </nav>
+      {% else %}
+      <a class="br-button primary small entrar" href="/dashboard"><i class="fas fa-sign-in-alt" aria-hidden="true"></i> Entrar</a>
+      {% endif %}
     </div>
   </div>
+  {% if titulo_pagina %}
+  <div class="titulo-pagina"><div class="container-lg">{{ titulo_pagina }}</div></div>
+  {% endif %}
 </header>
+{% if usuario_email %}<script src="{{ estatico('js/cabecalho.js') }}" defer></script>{% endif %}

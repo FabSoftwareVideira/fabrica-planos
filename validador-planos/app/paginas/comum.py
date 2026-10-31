@@ -35,12 +35,27 @@ def estatico(arquivo):
     return url_for('static', filename=arquivo, v=_versoes[arquivo])
 
 
+def logo_ifc():
+    """URL do logotipo do IFC, se o arquivo estiver em static/img (SVG de preferência); vazio sem ele."""
+    for nome in ('img/logo-ifc.svg', 'img/logo-ifc.png'):
+        if os.path.exists(os.path.join(current_app.static_folder, nome)):
+            return estatico(nome)
+    return ''
+
+
+def _usuario():
+    # Importado aqui: rotas.comum depende do Flask montado, e as rotas importam este pacote
+    from ..rotas.comum import eh_admin, email
+    return {'usuario_email': email(), 'usuario_admin': bool(email()) and eh_admin()}
+
+
 def ano_atual():
     return datetime.now().year
 
 
 def registrar(app):
-    app.jinja_env.globals.update(cor=cor, estatico=estatico, ano_atual=ano_atual)
+    app.jinja_env.globals.update(cor=cor, estatico=estatico, ano_atual=ano_atual, logo_ifc=logo_ifc)
+    app.context_processor(_usuario)
     app.jinja_env.filters['data_br'] = data_br
     # Sem espaços e quebras sobrando em volta dos blocos {% ... %}
     app.jinja_env.trim_blocks = True

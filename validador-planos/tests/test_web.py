@@ -288,8 +288,8 @@ def test_servidor_consulta_mas_nao_administra(com_login):
     (planos / 'a.pdf').write_bytes(PDF)
     _execucao(c, ['a.pdf'], 10)
     html = c.get('/dashboard', headers=SERVIDOR).get_data(as_text=True)
-    # Quem está logado aparece no cabeçalho; o papel, logo abaixo
-    assert 'fulano@ifc.edu.br' in html and 'Consulta:' in html and 'href="/oauth2/sign_out"' in html
+    # Quem está logado e o papel aparecem no cabeçalho
+    assert 'fulano@ifc.edu.br' in html and 'papel-usuario">Consulta<' in html and 'href="/oauth2/sign_out"' in html
     assert 'id="validar"' not in html and 'id="soltar"' not in html and 'class="revalidar"' not in html
     assert 'ADMIN = false;' in html and 'href="/meus-planos"' in html and 'href="/administracao"' not in html
     r = c.get('/administracao', headers=SERVIDOR)
@@ -309,7 +309,7 @@ def test_servidor_consulta_mas_nao_administra(com_login):
 def test_admin_administra(com_login):
     c, planos = com_login
     html = c.get('/dashboard', headers=ADMIN).get_data(as_text=True)
-    assert 'admin@ifc.edu.br' in html and 'Administrador:' in html and 'id="validar"' in html
+    assert 'admin@ifc.edu.br' in html and 'papel-usuario">Administrador<' in html and 'id="validar"' in html
     assert 'href="/administracao"' in html
     assert 'id="soltar"' in c.get('/administracao', headers=ADMIN).get_data(as_text=True)
     r = c.post('/planos', headers=ADMIN, data=_envio(('b.pdf', PDF)), content_type='multipart/form-data')

@@ -10,7 +10,7 @@
 {% endblock %}
 
 {% block corpo %}
-{% with titulo_pagina='Administração', email=usuario, links=[('Painel', '/dashboard', 'chart-bar'), ('Meus planos', '/meus-planos', 'folder-open')] %}
+{% with titulo_pagina='Administração', pagina_atual='administracao' %}
 {% include '_cabecalho.html' %}
 {% endwith %}
 {% include '_status.html' %}
