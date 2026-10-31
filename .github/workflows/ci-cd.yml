@@ -38,8 +38,11 @@ jobs:
 
       - run: pytest -q
 
-      # Garante que a imagem ainda constrói antes de chegar ao servidor
-      - run: docker build -t validador-planos:ci .
+      # Garante que a imagem de produção ainda constrói antes de chegar ao servidor
+      - run: docker build --target producao -t validador-planos:ci .
+
+      # E que o compose de desenvolvimento continua válido
+      - run: docker compose -f docker-compose.dev.yml config --quiet
 
   deploy:
     needs: testes

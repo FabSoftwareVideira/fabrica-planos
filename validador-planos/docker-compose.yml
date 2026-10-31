@@ -1,6 +1,10 @@
+# Produção (servidor, deploy pelo CI/CD): app com gunicorn atrás do Caddy (HTTPS) e do oauth2-proxy
+# (login com Google), e o Ollama com GPU. Para desenvolver na sua máquina, use docker-compose.dev.yml.
 services:
   app:
-    build: .
+    build:
+      context: .
+      target: producao
     restart: unless-stopped
     # Sem "ports": o acesso de fora passa pelo serviço caddy (HTTPS e login), que repassa o e-mail
     # de quem entrou; só os e-mails de ADMIN_EMAILS enviam/excluem PDFs e disparam validações.

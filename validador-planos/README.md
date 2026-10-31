@@ -20,7 +20,11 @@ app/
                     vendor/ tem o Design System gov.br, a fonte Rawline e o Font Awesome (scripts/atualizar_vendor.sh)
 tests/              testes unitários (regras, seções, extração, pipeline, rotas, CSV)
 resultados/         validação atual, cópia do CSV dela, usuários e revisões (criados automaticamente; ver "Resultado")
-docker-compose.yml, Dockerfile, .env.example, Caddyfile
+dev-resultados/     o mesmo, no modo de desenvolvimento (fora do git)
+Dockerfile          imagem em dois estágios: desenvolvimento (Flask com recarga) e producao (gunicorn)
+docker-compose.yml  produção: app, Caddy, oauth2-proxy e Ollama com GPU (é o que o deploy sobe)
+docker-compose.dev.yml  desenvolvimento: só o app, sem login, com recarga automática (Ollama opcional)
+.env.example, Caddyfile, .dockerignore
 ```
 
 As camadas só dependem das de baixo: `rotas` → `servicos` → `avaliacao`/`armazenamento`, e `rotas` → `paginas` → `templates`. Cada rota monta o contexto com a função `contexto()` do módulo da página e chama `render_template`; o Jinja escapa os valores automaticamente. `/static` (CSS, JS, fontes e ícones) é público, no app e no Caddy, porque a página inicial também o usa. As rotas só traduzem HTTP (parâmetros, códigos de resposta) e chamam os serviços, que guardam as regras de negócio (quem pode substituir um PDF, fila, bloqueio durante o lote) e avisam problemas com exceções (`Ocupado`, `NaoEncontrado`, `Proibido`). Os serviços são criados uma vez em `criar_app()` e ficam em `app.extensions['servicos']`; nos testes, `criar_app(cfg, executar=...)` roda as avaliações na hora, sem thread.
@@ -132,7 +136,38 @@ Só a validação atual é guardada, em `resultados/historico/AAAAMMDD-HHMMSS/`:
 
 O estado da validação fica em memória no processo do gunicorn (`app/servicos/validador.py` e `andamento.py`), que roda com um único worker (`-w 1` no `Dockerfile`). Não aumente o número de workers: cada um teria seu próprio estado e duas validações poderiam rodar juntas. Se o container reiniciar no meio de um lote, a validação é perdida e o estado volta a livre; basta iniciar de novo.
 
+## Rodar em desenvolvimento
+
+Para testar na sua máquina, sem Caddy, sem login com Google e com recarga automática:
+
+```bash
+docker compose -f docker-compose.dev.yml up --build
+```
+
+Abra http://localhost:8000. Nesse modo:
+
+- **Sem login** (`EXIGIR_LOGIN=0`): todo acesso conta como administrador e pode revisar planos, e todos os envios de "Meus planos" ficam com o mesmo dono (`local`). A validação diária automática fica desligada.
+- **Recarga automática:** a pasta do projeto é montada em `/app`, e o servidor do Flask (modo debug) reinicia ao salvar um arquivo `.py`; templates, CSS e JS valem no próximo recarregar da página. Não precisa reconstruir a imagem, só quando mudar o `requirements*.txt`.
+- **Dados separados:** os PDFs vêm da pasta `planos/` do repositório (os de exemplo) e os resultados, usuários e revisões ficam em `dev-resultados/`, fora do git. O projeto do compose se chama `validador-planos-dev`, então não encosta nos containers nem nos volumes de produção.
+- **Só a sua máquina acessa:** a porta é publicada em `127.0.0.1` (o depurador do Flask não pode ficar exposto na rede).
+- **A IA é opcional.** Sem ela, a interface funciona e as validações terminam em ERRO ("Ollama inacessível"). Para validar de verdade, suba também o Ollama:
+  - **na GPU NVIDIA** (recomendado): `docker compose -f docker-compose.dev.yml --profile ia up --build`. Precisa do Docker com acesso à GPU (no Windows, Docker Desktop com o driver NVIDIA; no Linux, o NVIDIA Container Toolkit); confira com `docker run --rm --gpus all ubuntu nvidia-smi -L`. Numa RTX 3060 (12 GB), o `qwen2.5:7b` roda 100% na GPU: cerca de 2 minutos no primeiro plano (carrega o modelo) e uns 7 s nos seguintes;
+  - **na CPU**, sem GPU: `--profile ia-cpu` no lugar de `--profile ia` (lento: minutos por plano);
+  - os modelos ficam no mesmo volume do `docker-compose.yml` (`validador-planos_ollama-data`): se a produção já rodou nesta máquina, o modelo não é baixado de novo. Senão, uma vez: `docker compose -f docker-compose.dev.yml exec ollama ollama pull qwen2.5:7b` (com `ollama-cpu` no lugar de `ollama` no perfil `ia-cpu`). Para um volume só do dev, use `DEV_OLLAMA_VOLUME=validador-planos-dev-modelos`;
+  - o Ollama do dev fica em http://localhost:11434; o app o acessa pela rede do compose;
+  - ou use um Ollama que já roda no seu computador, ou o do servidor por um túnel SSH (`ssh -p 50026 -N -L 11434:localhost:PORTA usuario@200.135.55.29`, com a `OLLAMA_PORT` do `.env` do servidor no lugar de PORTA): `DEV_OLLAMA_URL=http://host.docker.internal:11434`.
+
+Variáveis opcionais (no ambiente ou num `.env`): `DEV_PORT` (padrão 8000), `DEV_PLANOS_DIR` (padrão `../planos`), `DEV_OLLAMA_URL`, `DEV_OLLAMA_MODEL`, `DEV_OLLAMA_NUM_CTX`, `DEV_OLLAMA_PORT` (padrão 11434) e `DEV_OLLAMA_VOLUME`. Comandos úteis:
+
+```bash
+docker compose -f docker-compose.dev.yml exec app pytest -q    # testes dentro do container
+docker compose -f docker-compose.dev.yml logs -f app           # acompanhar o log
+docker compose -f docker-compose.dev.yml down                  # parar
+```
+
 ## Subir no servidor
+
+O `docker-compose.yml` é o de produção e é o padrão do `docker compose`: no servidor (e no deploy automático) basta `docker compose up -d --build`, que constrói o estágio `producao` da imagem (gunicorn com o código copiado).
 
 1. Crie o cliente OAuth no Google (uma vez), com a sua conta `@ifc.edu.br`, em [console.cloud.google.com](https://console.cloud.google.com): crie um projeto; em **Tela de permissão OAuth**, escolha o tipo **Interno** se estiver disponível (só contas da instituição conseguem entrar); em **Credenciais > Criar credenciais > ID do cliente OAuth**, tipo **Aplicativo da Web**, com o URI de redirecionamento `https://APP_HOST/oauth2/callback` (acrescente `:APP_PORT` se não for 443). Guarde o ID e a chave secreta do cliente.
 
@@ -198,6 +233,8 @@ pip install -r requirements-dev.txt
 pytest
 ```
 
+Sem Python instalado, rode dentro do container de desenvolvimento: `docker compose -f docker-compose.dev.yml exec app pytest -q`.
+
 ## Observações
 
 - O Ollama roda como serviço `ollama` do próprio compose; o validador o alcança pela rede interna em `http://ollama:11434`. No host, ele fica em `OLLAMA_PORT` (padrão 11434), aceitando só conexões locais; para liberar na rede, use `OLLAMA_BIND=0.0.0.0` (o Ollama não tem autenticação). Não altere `OLLAMA_URL` ao trocar a porta. Os modelos ficam no volume `ollama-data` e sobrevivem a `docker compose down` (só `down -v` os apaga). Para usar GPU NVIDIA, descomente o bloco `deploy` do serviço no `docker-compose.yml`.
@@ -208,7 +245,7 @@ pytest
 
 ## Deploy automático (GitHub Actions)
 
-O workflow `.github/workflows/ci-cd.yml` roda os testes (e um `docker build`) em todo push e pull request que mexa em `validador-planos/`. Em push na `master` que passe nos testes, o job de deploy roda **no próprio servidor**, num runner self-hosted: atualiza o clone para o commit testado, executa `docker compose up -d --build` e confere se o app respondeu. Commits que só mexem no TCC ou nos workflows do n8n não disparam deploy. Para reimplantar sem commit, use **Actions > CI/CD > Run workflow**.
+O workflow `.github/workflows/ci-cd.yml` roda os testes (e constrói a imagem de produção e confere o `docker-compose.dev.yml`) em todo push e pull request que mexa em `validador-planos/`. Em push na `master` que passe nos testes, o job de deploy roda **no próprio servidor**, num runner self-hosted: atualiza o clone para o commit testado, executa `docker compose up -d --build` e confere se o app respondeu. Commits que só mexem no TCC ou nos workflows do n8n não disparam deploy. Para reimplantar sem commit, use **Actions > CI/CD > Run workflow**.
 
 O deploy reinicia o container `app`: uma validação em andamento naquele momento é perdida (ver "Controle de execução") e precisa ser iniciada de novo.
 

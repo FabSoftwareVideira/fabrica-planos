@@ -1,0 +1,9 @@
+# Fora do contexto do build: dados, segredos e o que só serve ao desenvolvimento
+.env
+resultados/
+dev-resultados/
+planos/
+.git
+**/__pycache__/
+.pytest_cache/
+.venv*/

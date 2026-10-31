@@ -1,0 +1,76 @@
+# Desenvolvimento na sua máquina: só o app, sem Caddy nem login com Google, com recarga automática.
+#   docker compose -f docker-compose.dev.yml up --build        → http://localhost:8000
+#   docker compose -f docker-compose.dev.yml --profile ia up      → também o Ollama, na GPU NVIDIA
+#   docker compose -f docker-compose.dev.yml --profile ia-cpu up  → também o Ollama, na CPU (sem GPU)
+# Projeto separado (validador-planos-dev): não mexe nos containers nem nos volumes de produção.
+# Não precisa de .env; dá para ajustar com as variáveis DEV_* (ver README, "Rodar em desenvolvimento").
+name: validador-planos-dev
+
+services:
+  app:
+    build:
+      context: .
+      target: desenvolvimento
+    ports:
+      # Só a sua máquina acessa (o modo debug do Flask não deve ficar exposto na rede)
+      - "127.0.0.1:${DEV_PORT:-8000}:8000"
+    environment:
+      - PLANOS_DIR=/data/planos
+      - RESULTADOS_DIR=/data/resultados
+      # Ollama dos perfis "ia"/"ia-cpu" abaixo, ou outro: o do host (http://host.docker.internal:11434)
+      # ou o do servidor por um túnel SSH (ssh -L 11434:localhost:PORTA ...) também no host
+      - OLLAMA_URL=${DEV_OLLAMA_URL:-http://ollama:11434}
+      - OLLAMA_MODEL=${DEV_OLLAMA_MODEL:-qwen2.5:7b}
+      - OLLAMA_NUM_CTX=${DEV_OLLAMA_NUM_CTX:-8192}
+      - PDF_MAX_MB=10
+      # Sem login: todo acesso conta como administrador e pode revisar planos
+      - EXIGIR_LOGIN=0
+      # Sem validação diária automática
+      - AGENDAR=0
+      - TZ=America/Sao_Paulo
+    volumes:
+      # Código do host: o Flask recarrega a cada arquivo salvo
+      - .:/app
+      # PDFs: por padrão os de exemplo da pasta planos/ do repositório
+      - "${DEV_PLANOS_DIR:-../planos}:/data/planos"
+      # Resultados, usuários e revisões de desenvolvimento, separados dos de produção
+      - ./dev-resultados:/data/resultados
+    extra_hosts:
+      # host.docker.internal também no Linux (no Windows e no macOS ele já existe)
+      - "host.docker.internal:host-gateway"
+
+  # Ollama na GPU NVIDIA (precisa do Docker com suporte a GPU: Docker Desktop + driver NVIDIA no Windows,
+  # ou o NVIDIA Container Toolkit no Linux).
+  ollama:
+    image: ollama/ollama:latest
+    profiles: [ia]
+    ports:
+      - "127.0.0.1:${DEV_OLLAMA_PORT:-11434}:11434"
+    volumes:
+      - modelos:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  # O mesmo Ollama na CPU, para quem não tem GPU NVIDIA (lento, mas serve para testar a validação).
+  # Atende pelo mesmo nome (ollama) na rede do compose. Use um perfil ou o outro, não os dois.
+  ollama-cpu:
+    image: ollama/ollama:latest
+    profiles: [ia-cpu]
+    ports:
+      - "127.0.0.1:${DEV_OLLAMA_PORT:-11434}:11434"
+    volumes:
+      - modelos:/root/.ollama
+    networks:
+      default:
+        aliases: [ollama]
+
+volumes:
+  # Modelos baixados: por padrão o mesmo volume do docker-compose.yml (validador-planos_ollama-data),
+  # para não baixar de novo os ~5 GB do qwen2.5:7b se a produção já rodou nesta máquina.
+  modelos:
+    name: ${DEV_OLLAMA_VOLUME:-validador-planos_ollama-data}
