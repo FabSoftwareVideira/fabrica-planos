@@ -5,13 +5,15 @@ h3{font-size:var(--font-size-scale-up-01);margin:0;display:flex;align-items:cent
 .nota{margin:var(--spacing-scale-half) 0 0;font-size:var(--font-size-scale-down-01)}
 .br-card{margin-bottom:var(--spacing-scale-3x)}
 
-/* Escolha do curso e do período */
-.escolha{display:flex;align-items:center;flex-wrap:wrap;gap:var(--spacing-scale-base) var(--spacing-scale-3x);margin-bottom:var(--spacing-scale-half)}
-.escolha label{display:flex;align-items:center;gap:var(--spacing-scale-base);font-weight:var(--font-weight-semi-bold);margin:0}
-.escolha select{font:inherit;font-weight:var(--font-weight-regular);height:40px;padding:0 var(--spacing-scale-2x);max-width:100%;
-  border:1px solid var(--gray-40);border-radius:var(--surface-rounder-sm);background:var(--pure-0);color:var(--gray-80)}
-.escolha .zip{margin-left:auto}
-.meta-validacao{margin:0 0 var(--spacing-scale-3x);color:var(--gray-60);font-size:var(--font-size-scale-down-01)}
+/* Topo (curso e validação, zip à direita) e barra com a escolha do curso e do período, como os filtros do dashboard */
+.topo-curso{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:var(--spacing-scale-base) var(--spacing-scale-2x);
+  margin-bottom:var(--spacing-scale-2x)}
+.meta-validacao{margin:var(--spacing-scale-half) 0 0;color:var(--gray-60);font-size:var(--font-size-scale-down-01)}
+.escolha{display:flex;align-items:center;flex-wrap:wrap;gap:var(--spacing-scale-2x) var(--spacing-scale-3x);padding:var(--spacing-scale-2x)}
+.escolha label{display:flex;align-items:center;gap:var(--spacing-scale-base);margin:0;white-space:nowrap;font-weight:var(--font-weight-semi-bold)}
+.escolha select{font:inherit;font-size:var(--font-size-scale-base);font-weight:var(--font-weight-regular);height:40px;min-width:220px;max-width:100%;
+  padding:0 var(--spacing-scale-2x);border:1px solid var(--gray-40);border-radius:var(--surface-rounder-sm);background:var(--pure-0);color:var(--gray-80)}
+.escolha select:focus{outline:2px solid var(--focus-color,#c2850c);outline-offset:2px}
 
 /* Indicadores e barra com a proporção de cada situação */
 .indicadores{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:var(--spacing-scale-2x)}
@@ -49,8 +51,8 @@ h3{font-size:var(--font-size-scale-up-01);margin:0;display:flex;align-items:cent
 
 @media (max-width:767px){
   .colunas{grid-template-columns:1fr}
-  .escolha label,.escolha select{flex:1 1 100%}
-  .escolha .zip{margin-left:0}
+  .escolha label{flex:1 1 100%}
+  .escolha select{flex:1;min-width:0}
   .indicadores{grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--spacing-scale-base)}
   .indicador{padding:var(--spacing-scale-base) var(--spacing-scale-2x)}
   .indicador .num{font-size:var(--font-size-scale-up-03)}

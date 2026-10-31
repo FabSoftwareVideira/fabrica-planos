@@ -20,14 +20,21 @@
     {% if not cursos %}
     <p class="msg">Nenhum curso com planos na validação atual.</p>
     {% else %}
-    <form class="escolha" method="get" action="/coordenacao">
+    {# Topo: curso exibido e quando foi a validação, com o zip à direita; abaixo, a escolha do curso e do período. #}
+    <div class="topo-curso">
+      <div>
+        <h2>{{ nome_curso }}</h2>
+        {% if meta.finalizado_em %}<p class="meta-validacao">Validação concluída em {{ meta.finalizado_em|data_br }}</p>{% endif %}
+      </div>
+      {% if url_zip %}<a class="br-button secondary small" href="{{ url_zip }}"><i class="fas fa-file-archive" aria-hidden="true"></i> PDFs do curso (zip)</a>{% endif %}
+    </div>
+    <form class="br-card escolha" method="get" action="/coordenacao">
       {% if cursos|length > 1 %}
       <label>Curso <select name="curso" onchange="this.form.periodo.value='';this.form.submit()">
         {% for sigla, nome_c in cursos %}<option value="{{ sigla }}"{% if sigla == curso %} selected{% endif %}>{{ nome_c }}</option>{% endfor %}
       </select></label>
       {% else %}
       <input type="hidden" name="curso" value="{{ curso }}">
-      <h2>{{ nome_curso }}</h2>
       {% endif %}
       {% if periodos %}
       <label>Período <select name="periodo" onchange="this.form.submit()">
@@ -37,9 +44,7 @@
       <input type="hidden" name="periodo" value="">
       {% endif %}
       <noscript><button class="br-button secondary small" type="submit">Ver</button></noscript>
-      {% if url_zip %}<a class="br-button secondary small zip" href="{{ url_zip }}"><i class="fas fa-file-archive" aria-hidden="true"></i> PDFs do curso (zip)</a>{% endif %}
     </form>
-    {% if meta.finalizado_em %}<p class="meta-validacao">Validação concluída em {{ meta.finalizado_em|data_br }}</p>{% endif %}
 
     {% if not planos %}
     <p class="msg">Nenhum plano de {{ nome_curso }} na validação atual.</p>
