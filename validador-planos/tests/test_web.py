@@ -637,3 +637,57 @@ def test_professor_ve_o_parecer(com_login, monkeypatch):
     [plano] = c.get('/meus-planos/lista', headers=SERVIDOR).json['planos']
     assert plano['revisao']['status'] == 'PENDENTE' and plano['revisao']['comentario'] == 'Falta o cronograma.'
     assert plano['revisao']['papel'] == 'NDE' and not plano['revisao']['concorda']
+
+
+# Login simulado (só desenvolvimento) -------------------------------------------------------------------
+
+NAVEGAR = {'Sec-Fetch-Mode': 'navigate'}
+
+
+@pytest.fixture
+def dev(fabrica):
+    return fabrica(exigir_login=True, login_simulado=True, admins=frozenset({'admin@ifc.edu.br'}))
+
+
+def test_login_simulado_leva_a_escolha_de_persona(dev):
+    c, _ = dev
+    r = c.get('/dashboard?x=1', headers=NAVEGAR)
+    assert r.status_code == 303 and r.headers['Location'] == '/dev/login?rd=/dashboard%3Fx%3D1'
+    assert c.get('/planos').status_code == 401  # requisições da página continuam recebendo 401
+    html = c.get('/dev/login').get_data(as_text=True)
+    assert 'Carlos Coordenador' in html and 'Modo de desenvolvimento' in html
+
+
+def test_persona_entra_com_nome_e_papeis(dev):
+    c, _ = dev
+    r = c.post('/dev/login', data={'email': 'coordenacao.cc@ifc.edu.br', 'rd': '/meus-planos'})
+    assert r.status_code == 303 and r.headers['Location'] == '/meus-planos'
+    html = c.get('/dashboard').get_data(as_text=True)
+    assert 'Carlos Coordenador' in html and 'Trocar usuário' in html and 'Consulta' in html
+    assert _servicos(c).usuarios.papeis('coordenacao.cc@ifc.edu.br') == [('CC', 'coordenador')]
+    assert c.get('/administracao').status_code == 302  # não é administrador
+
+    c.post('/dev/login', data={'email': 'admin@ifc.edu.br'})  # troca de usuário
+    assert c.get('/administracao').status_code == 200
+    c.post('/dev/login', data={'email': 'qualquer@ifc.edu.br', 'nome': 'Fulana Livre'})
+    assert 'Fulana Livre' in c.get('/dashboard').get_data(as_text=True)
+
+    r = c.get('/oauth2/sign_out')
+    assert r.status_code == 303 and r.headers['Location'] == '/'
+    assert c.get('/planos').status_code == 401
+
+
+def test_login_simulado_recusa_outro_dominio(dev):
+    c, _ = dev
+    for endereco in ('aluno@estudantes.ifc.edu.br', 'alguem@gmail.com', ''):
+        r = c.post('/dev/login', data={'email': endereco})
+        assert r.status_code == 403 and 'só entram contas @ifc.edu.br' in r.get_data(as_text=True)
+    assert c.get('/planos').status_code == 401
+
+
+def test_sem_login_simulado_o_cookie_nao_vale(com_login):
+    c, _ = com_login
+    c.set_cookie('dev_usuario', 'admin%40ifc.edu.br%0AAna')
+    assert c.get('/planos').status_code == 401
+    assert c.get('/dev/login').status_code == 401
+    assert c.post('/dev/login', data={'email': 'admin@ifc.edu.br'}).status_code == 401

@@ -1,4 +1,5 @@
-# Desenvolvimento na sua máquina: só o app, sem Caddy nem login com Google, com recarga automática.
+# Desenvolvimento na sua máquina: só o app, sem Caddy nem Google (login simulado em /dev/login, para
+# entrar como pessoas e perfis diferentes), com recarga automática.
 #   docker compose -f docker-compose.dev.yml up --build        → http://localhost:8000
 #   docker compose -f docker-compose.dev.yml --profile ia up      → também o Ollama, na GPU NVIDIA
 #   docker compose -f docker-compose.dev.yml --profile ia-cpu up  → também o Ollama, na CPU (sem GPU)
@@ -23,8 +24,13 @@ services:
       - OLLAMA_MODEL=${DEV_OLLAMA_MODEL:-qwen2.5:7b}
       - OLLAMA_NUM_CTX=${DEV_OLLAMA_NUM_CTX:-8192}
       - PDF_MAX_MB=10
-      # Sem login: todo acesso conta como administrador e pode revisar planos
-      - EXIGIR_LOGIN=0
+      # Login simulado: em vez do Google, escolhe-se uma persona (administração, coordenação, NDE, NDB,
+      # professor) ou qualquer e-mail em /dev/login. Com DEV_EXIGIR_LOGIN=0, sem login nenhum: todo
+      # acesso conta como administrador.
+      - EXIGIR_LOGIN=${DEV_EXIGIR_LOGIN:-1}
+      - LOGIN_SIMULADO=1
+      - ADMIN_EMAILS=${DEV_ADMIN_EMAILS:-admin@ifc.edu.br}
+      - EMAIL_DOMINIO=ifc.edu.br
       # Sem validação diária automática
       - AGENDAR=0
       - TZ=America/Sao_Paulo

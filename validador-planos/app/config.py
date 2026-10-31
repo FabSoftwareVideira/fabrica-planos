@@ -16,6 +16,9 @@ class Config:
     # Sem exigir login (uso local, testes), todo acesso conta como administrador.
     exigir_login: bool = False
     admins: frozenset = frozenset()
+    # Só em desenvolvimento: login simulado em /dev/login no lugar do Google (rotas/login_simulado.py)
+    login_simulado: bool = False
+    email_dominio: str = 'ifc.edu.br'
 
     @property
     def historico_dir(self):
@@ -49,4 +52,6 @@ def carregar():
         pdf_max_mb=int(os.environ.get('PDF_MAX_MB') or '10'),
         exigir_login=os.environ.get('EXIGIR_LOGIN', '1') == '1',
         admins=frozenset(e.strip().lower() for e in os.environ.get('ADMIN_EMAILS', '').split(',') if e.strip()),
+        login_simulado=os.environ.get('LOGIN_SIMULADO', '0') == '1',
+        email_dominio=(os.environ.get('EMAIL_DOMINIO') or 'ifc.edu.br').strip().lower(),
     )

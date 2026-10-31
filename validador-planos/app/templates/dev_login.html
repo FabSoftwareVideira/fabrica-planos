@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+{#- Login simulado, só em desenvolvimento (rotas/login_simulado.py, LOGIN_SIMULADO=1): no lugar do Google,
+    escolhe-se uma persona ou qualquer e-mail para testar perfis diferentes. -#}
+
+{% block titulo %}Login simulado · Validação de Planos de Ensino{% endblock %}
+
+{% block estilos %}
+{% include '_ds.html' %}
+  <link rel="stylesheet" href="{{ estatico('css/dev_login.css') }}">
+{% endblock %}
+
+{% block corpo %}
+{% with sem_menu=true %}{% include '_cabecalho.html' %}{% endwith %}
+<main id="main">
+  <div class="container-lg py-4">
+    <div class="br-message warning" role="note">
+      <div class="icon"><i class="fas fa-flask fa-lg" aria-hidden="true"></i></div>
+      <div class="content"><span class="message-title">Modo de desenvolvimento.</span>
+        <span class="message-body">Este login simulado substitui o login com Google e só existe com LOGIN_SIMULADO=1. Administradores (ADMIN_EMAILS): {{ admins|join(', ') or 'nenhum' }}.</span></div>
+    </div>
+
+    {% if erro %}
+    <div class="br-message danger" role="alert">
+      <div class="icon"><i class="fas fa-times-circle fa-lg" aria-hidden="true"></i></div>
+      <div class="content"><span class="message-body">{{ erro }}</span></div>
+    </div>
+    {% endif %}
+
+    {% if atual %}<p class="atual">Você está como <strong>{{ atual }}</strong>. Escolha outra pessoa para trocar, ou <a href="/oauth2/sign_out">saia</a>.</p>{% endif %}
+
+    <section class="br-card">
+      <div class="card-header"><h1>Entrar como…</h1></div>
+      <div class="card-content">
+        <ul class="personas">
+          {% for p in personas %}
+          <li>
+            <form method="post" action="/dev/login">
+              <input type="hidden" name="email" value="{{ p.email }}"><input type="hidden" name="rd" value="{{ rd }}">
+              <button type="submit" class="persona{{ ' ativa' if p.email == atual }}">
+                <span class="nome">{{ p.nome }}{% if p.admin %} <span class="br-tag admin">Administrador</span>{% endif %}</span>
+                <span class="descricao">{{ p.descricao }}</span>
+                <span class="email">{{ p.email }}</span>
+              </button>
+            </form>
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+    </section>
+
+    <section class="br-card">
+      <div class="card-header"><h2>Outro e-mail</h2></div>
+      <div class="card-content">
+        <form class="outro" method="post" action="/dev/login">
+          <input type="hidden" name="rd" value="{{ rd }}">
+          <div class="br-input"><label for="email">E-mail</label><input id="email" name="email" type="email" required placeholder="nome@{{ dominio }}"></div>
+          <div class="br-input"><label for="nome">Nome</label><input id="nome" name="nome" type="text" placeholder="Como aparece no cabeçalho"></div>
+          <button class="br-button primary" type="submit"><i class="fas fa-sign-in-alt" aria-hidden="true"></i> Entrar</button>
+        </form>
+        <p class="nota">Papéis de coordenação, NDE e NDB de outros e-mails são dados em Administração → Usuários, entrando como administrador.</p>
+      </div>
+    </section>
+  </div>
+</main>
+{% include '_rodape.html' %}
+{% endblock %}

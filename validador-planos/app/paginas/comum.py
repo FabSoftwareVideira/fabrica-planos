@@ -53,7 +53,8 @@ def _usuario():
             nome_usuario = (servicos().usuarios.obter(usuario) or {}).get('nome', '')
         except Exception:
             nome_usuario = ''
-    return {'usuario_email': usuario, 'usuario_nome': nome_usuario, 'usuario_admin': bool(usuario) and eh_admin()}
+    return {'usuario_email': usuario, 'usuario_nome': nome_usuario, 'usuario_admin': bool(usuario) and eh_admin(),
+            'login_simulado': servicos().cfg.login_simulado}
 
 
 def ano_atual():

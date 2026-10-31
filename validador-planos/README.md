@@ -138,7 +138,7 @@ O estado da validação fica em memória no processo do gunicorn (`app/servicos/
 
 ## Rodar em desenvolvimento
 
-Para testar na sua máquina, sem Caddy, sem login com Google e com recarga automática:
+Para testar na sua máquina, sem Caddy nem Google (com login simulado) e com recarga automática:
 
 ```bash
 docker compose -f docker-compose.dev.yml up --build
@@ -146,7 +146,7 @@ docker compose -f docker-compose.dev.yml up --build
 
 Abra http://localhost:8000. Nesse modo:
 
-- **Sem login** (`EXIGIR_LOGIN=0`): todo acesso conta como administrador e pode revisar planos, e todos os envios de "Meus planos" ficam com o mesmo dono (`local`). A validação diária automática fica desligada.
+- **Login simulado** (`LOGIN_SIMULADO=1`): no lugar do Google, "Entrar" leva a `/dev/login`, onde se escolhe uma persona ou se digita qualquer e-mail e nome. As personas cobrem os perfis: administração (`admin@ifc.edu.br`, que o compose põe em `ADMIN_EMAILS`), coordenação e NDE de CC, NDB de IN (já entram com o papel no curso), dois professores sem papel (para testar donos diferentes em "Meus planos") e uma estudante, recusada como no Google (só entram contas `@ifc.edu.br`). O botão **Trocar usuário**, no cabeçalho, volta à escolha. Por baixo, um cookie vira os mesmos cabeçalhos que o Caddy e o oauth2-proxy mandam em produção (`X-Usuario-Email` e o ID token), então login, cadastro, papéis e permissões passam pelo mesmo código. Fora do dev (`LOGIN_SIMULADO` não definido, como no `docker-compose.yml`) nada disso é registrado e o cookie é ignorado. Com `DEV_EXIGIR_LOGIN=0` não há login nenhum (todo acesso conta como administrador). A validação diária automática fica desligada.
 - **Recarga automática:** a pasta do projeto é montada em `/app`, e o servidor do Flask (modo debug) reinicia ao salvar um arquivo `.py`; templates, CSS e JS valem no próximo recarregar da página. Não precisa reconstruir a imagem, só quando mudar o `requirements*.txt`.
 - **Dados separados:** os PDFs vêm da pasta `planos/` do repositório (os de exemplo) e os resultados, usuários e revisões ficam em `dev-resultados/`, fora do git. O projeto do compose se chama `validador-planos-dev`, então não encosta nos containers nem nos volumes de produção.
 - **Só a sua máquina acessa:** a porta é publicada em `127.0.0.1` (o depurador do Flask não pode ficar exposto na rede).
@@ -157,7 +157,7 @@ Abra http://localhost:8000. Nesse modo:
   - o Ollama do dev fica em http://localhost:11434; o app o acessa pela rede do compose;
   - ou use um Ollama que já roda no seu computador, ou o do servidor por um túnel SSH (`ssh -p 50026 -N -L 11434:localhost:PORTA usuario@200.135.55.29`, com a `OLLAMA_PORT` do `.env` do servidor no lugar de PORTA): `DEV_OLLAMA_URL=http://host.docker.internal:11434`.
 
-Variáveis opcionais (no ambiente ou num `.env`): `DEV_PORT` (padrão 8000), `DEV_PLANOS_DIR` (padrão `../planos`), `DEV_OLLAMA_URL`, `DEV_OLLAMA_MODEL`, `DEV_OLLAMA_NUM_CTX`, `DEV_OLLAMA_PORT` (padrão 11434) e `DEV_OLLAMA_VOLUME`. Comandos úteis:
+Variáveis opcionais (no ambiente ou num `.env`): `DEV_PORT` (padrão 8000), `DEV_ADMIN_EMAILS` (padrão `admin@ifc.edu.br`), `DEV_EXIGIR_LOGIN` (padrão 1), `DEV_PLANOS_DIR` (padrão `../planos`), `DEV_OLLAMA_URL`, `DEV_OLLAMA_MODEL`, `DEV_OLLAMA_NUM_CTX`, `DEV_OLLAMA_PORT` (padrão 11434) e `DEV_OLLAMA_VOLUME`. Comandos úteis:
 
 ```bash
 docker compose -f docker-compose.dev.yml exec app pytest -q    # testes dentro do container

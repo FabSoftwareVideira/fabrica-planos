@@ -1,4 +1,6 @@
-from flask import Blueprint, current_app, render_template, request
+from urllib.parse import quote
+
+from flask import Blueprint, current_app, redirect, render_template, request
 
 from ..paginas import inicio
 from .comum import eh_admin, email, json_, nome, servicos, texto
@@ -11,11 +13,20 @@ PUBLICAS = {'/', '/health'}
 PREFIXOS_PUBLICOS = ('/static/',)
 
 
+# Com o login simulado (desenvolvimento), a página de login e a saída também são públicas
+PREFIXOS_LOGIN_SIMULADO = ('/dev/', '/oauth2/')
+
+
 @bp.before_app_request
 def exigir_login():
     # O proxy só deixa passar quem fez login; isto barra quem chegar ao app sem passar por ele.
-    if (servicos().cfg.exigir_login and not email() and request.path not in PUBLICAS
+    cfg = servicos().cfg
+    if cfg.login_simulado and request.path.startswith(PREFIXOS_LOGIN_SIMULADO):
+        return None
+    if (cfg.exigir_login and not email() and request.path not in PUBLICAS
             and not request.path.startswith(PREFIXOS_PUBLICOS)):
+        if cfg.login_simulado and request.headers.get('Sec-Fetch-Mode') == 'navigate':
+            return redirect('/dev/login?rd=' + quote(request.full_path.rstrip('?')), 303)  # no lugar do Google
         return texto('Login necessário.', 401)
     usuario = email()
     if not usuario or request.path.startswith(PREFIXOS_PUBLICOS):

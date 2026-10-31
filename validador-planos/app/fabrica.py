@@ -1,3 +1,4 @@
+import logging
 from dataclasses import dataclass
 
 from flask import Flask
@@ -34,6 +35,11 @@ def criar_app(cfg=None, executar=None):
                                            Revisao(cfg, Revisoes(cfg.revisoes_path), usuarios))
     paginas.registrar(app)
     rotas.registrar(app)
+    if cfg.login_simulado:  # só em desenvolvimento (docker-compose.dev.yml)
+        from .rotas import login_simulado
+        app.wsgi_app = login_simulado.Middleware(app.wsgi_app)
+        app.register_blueprint(login_simulado.bp)
+        logging.getLogger(__name__).warning('LOGIN SIMULADO ATIVO (/dev/login): use só em desenvolvimento')
     validador.preparar_historico()
     if cfg.agendar:
         validador.iniciar_agendador()
