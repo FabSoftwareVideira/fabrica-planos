@@ -31,6 +31,13 @@ services:
     depends_on:
       ollama:
         condition: service_healthy
+    # Saudável quando o gunicorn responde /health (a imagem não tem curl: usa o Python dela)
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
 
   caddy:
     # Porta de entrada: o Traefik do Dokploy repassa o domínio para cá (porta 80, na rede dokploy-network).
@@ -44,9 +51,19 @@ services:
     networks:
       - default
       - dokploy-network
+    # Pelo próprio Caddy até o app: confere a porta de entrada e o repasse ao app de uma vez
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:80/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     depends_on:
-      - app
-      - oauth2-proxy
+      # Só recebe tráfego depois que o app está de pé
+      app:
+        condition: service_healthy
+      oauth2-proxy:
+        condition: service_started
 
   oauth2-proxy:
     # Login com Google; só aceita contas @ifc.edu.br (alunos usam @estudantes.ifc.edu.br e ficam de fora)

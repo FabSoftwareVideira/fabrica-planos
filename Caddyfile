@@ -27,6 +27,13 @@
 		reverse_proxy app:8000
 	}
 
+	# Verificação de saúde, pública: healthcheck do container caddy e monitoramento externo (Uptime Kuma)
+	handle /health {
+		request_header -X-Usuario-Email
+		request_header -X-Usuario-Token
+		reverse_proxy app:8000
+	}
+
 	# Página inicial, pública: apresenta o projeto e tem o botão de login
 	handle / {
 		request_header -X-Usuario-Email

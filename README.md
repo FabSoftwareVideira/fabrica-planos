@@ -128,7 +128,7 @@ Em `/meus-planos` cada servidor entrega os próprios planos: o PDF enviado vai p
 | GET | `/validacoes/ID/pdf?arquivo=nome.pdf` | O PDF como estava na validação |
 | GET | `/pdf?arquivo=nome.pdf` | O PDF atual da pasta de planos |
 | GET | `/` | Página inicial pública: apresentação do projeto e botão **Entrar com Google** |
-| GET | `/health` | `{"status":"ok"}` |
+| GET | `/health` | `{"status":"ok"}`, sem login (healthcheck dos containers e monitoramento externo) |
 | GET | `/meus-planos` | Página de entrega e acompanhamento dos planos de quem está logado |
 | GET | `/meus-planos/lista` | Planos de quem está logado: `nome`, `enviado_em`, `situacao` (`na_fila` com `posicao`, `validando`, `avaliado` com `status`, `obs` e `problemas`, ou `aguardando`) |
 | POST | `/meus-planos` | Entrega (multipart, campo `arquivos`); cada PDF salvo entra na fila de avaliação (`posicao`, 0 se já começou) |
@@ -217,6 +217,8 @@ docker exec -it $(docker ps -qf name=ollama) ollama pull qwen2.5:7b
 ```
 
 8. Abra `https://SEU_DOMINIO/dashboard`, entre com a conta Google institucional, envie os PDFs (se a pasta estiver vazia) e clique em **Validar agora**.
+
+**Saúde dos containers:** o `app` tem *healthcheck* em `/health` e o `caddy` confere `/health` passando por ele até o app; o Caddy só sobe depois que o app está saudável. No Dokploy, o estado (`healthy`/`unhealthy`) aparece na lista de containers do recurso. Para monitorar de fora (Uptime Kuma, por exemplo), use `https://SEU_DOMINIO/health`, que responde sem login.
 
 ### Migrar do deploy anterior (Caddy com portas próprias e runner self-hosted)
 
