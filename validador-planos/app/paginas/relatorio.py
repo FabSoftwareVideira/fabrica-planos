@@ -46,12 +46,13 @@ def _campos(linha, sec):
     return campos
 
 
-def contexto(linhas, indice, det, execucao, eh_ultima=True, pode_revalidar=False):
+def contexto(linhas, indice, det, execucao, eh_ultima=True, pode_revalidar=False, email=''):
     linha = linhas[indice]
     nome = linha.get('Arquivo', '')
     # Para a última validação o dashboard dispensa o ?validacao=, como no link do menu.
     url_dashboard = ('/dashboard' + ('' if eh_ultima else '?validacao=' + execucao.id) + '#plano-' + str(indice))
     return {
+        'email': email,
         'nome': nome,
         'linha': linha,
         'det': det,

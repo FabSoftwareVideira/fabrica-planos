@@ -1,41 +1,44 @@
-/* Relatório de um plano: barra de navegação, campos e texto extraído. */
-body{margin:0;font-family:system-ui,-apple-system,sans-serif;background:#f3f4f6;color:#111827}
-.pagina{max-width:1100px;margin:0 auto;padding:24px 16px 32px}
-.nav{position:sticky;top:0;z-index:1;background:rgba(243,244,246,.95);backdrop-filter:blur(4px);border-bottom:1px solid #e5e7eb}
-.nav>div{max-width:1100px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.nav a,.nav span.off{font-size:14px;font-weight:600;text-decoration:none;color:#2563eb;padding:6px 10px;border-radius:8px;white-space:nowrap}
-.nav a:hover{background:#e0e7ff}
-.nav span.off{color:#d1d5db}
-.nav .voltar{background:#2563eb;color:#fff}
-.nav .voltar:hover{background:#1d4ed8}
-.nav .pos{margin-left:auto;font-size:13px;color:#6b7280}
-.nav .revalidar{border:1px solid #2563eb;background:#fff;color:#2563eb;border-radius:8px;padding:6px 10px;font:inherit;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap}
-.nav .revalidar:disabled{border-color:#d1d5db;color:#9ca3af;cursor:wait}
-h1{margin:0 0 8px;font-size:24px;overflow-wrap:anywhere}
-.meta{color:#6b7280;font-size:14px;margin:0 0 16px;display:flex;gap:16px;flex-wrap:wrap;align-items:center}
-.meta a{color:#2563eb;font-weight:600;text-decoration:none}
-.caixa{background:#fff;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.1);padding:16px 20px;margin-bottom:12px}
-.campo{border-left:4px solid var(--cor)}
-.cab{display:flex;justify-content:space-between;align-items:center;gap:8px}
-.cab h2{margin:0;font-size:16px}
-.obs{margin:8px 0 0;font-size:14px;color:#374151}
-.nota{margin:8px 0 0;font-size:12px;color:#9ca3af}
-.aviso{background:#fef3c7;color:#92400e;border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:14px}
-pre{white-space:pre-wrap;overflow-wrap:anywhere;font:13px/1.5 ui-monospace,Consolas,monospace;background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px;margin:10px 0 0;max-height:320px;overflow:auto}
-pre.vazio{color:#dc2626;font-family:inherit}
-details.caixa>summary{cursor:pointer;font-weight:600}
-details.caixa pre{max-height:600px}
+/* Relatório de um plano (sobre o Design System gov.br e ds.css): barra de navegação, campos e texto extraído. */
+
+/* Barra que fica no topo ao rolar a página */
+.nav{position:sticky;top:0;z-index:10;background:rgba(255,255,255,.96);backdrop-filter:blur(4px);
+  border-bottom:1px solid var(--gray-10);box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.nav>div{display:flex;align-items:center;gap:var(--spacing-scale-base);flex-wrap:wrap;padding-top:var(--spacing-scale-base);
+  padding-bottom:var(--spacing-scale-base)}
+.nav span.off{font-weight:var(--font-weight-semi-bold);color:var(--gray-20);padding:0 var(--spacing-scale-2x);white-space:nowrap}
+.nav .pos{margin-left:auto;font-size:var(--font-size-scale-down-01);color:var(--gray-60)}
 .curto{display:none}
+
+h1{font-size:var(--font-size-scale-up-03);margin:0 0 var(--spacing-scale-base);overflow-wrap:anywhere}
+.meta{display:flex;gap:var(--spacing-scale-base) var(--spacing-scale-3x);flex-wrap:wrap;align-items:center;
+  color:var(--gray-60);font-size:var(--font-size-scale-down-01);margin-bottom:var(--spacing-scale-3x)}
+.meta a{font-weight:var(--font-weight-semi-bold)}
+.br-message{margin-bottom:var(--spacing-scale-3x)}
+
+/* Cada campo avaliado: cartão com a cor do status na borda esquerda */
+.campo{border-left:4px solid var(--cor)}
+.campo .card-header{display:flex;justify-content:space-between;align-items:center;gap:var(--spacing-scale-base)}
+.campo .card-header h2{font-size:var(--font-size-scale-up-01);margin:0}
+.obs{margin:0 0 var(--spacing-scale-base);color:var(--gray-80)}
+.nota{margin:var(--spacing-scale-base) 0 0;font-size:var(--font-size-scale-down-01);color:var(--gray-50)}
+
+pre{white-space:pre-wrap;overflow-wrap:anywhere;font:var(--font-size-scale-down-01)/1.5 ui-monospace,Consolas,monospace;
+  background:var(--gray-2);border:1px solid var(--gray-10);border-radius:var(--surface-rounder-sm);
+  padding:var(--spacing-scale-base) var(--spacing-scale-2x);margin:var(--spacing-scale-base) 0 0;max-height:320px;overflow:auto}
+pre.vazio{color:var(--danger);font-family:inherit}
+
+/* Texto completo, prompt e resposta da IA: recolhidos por padrão */
+.bruto>summary{cursor:pointer;list-style:none;font-weight:var(--font-weight-semi-bold)}
+.bruto>summary::-webkit-details-marker{display:none}
+.bruto>summary i{transition:transform .2s;margin-right:var(--spacing-scale-half)}
+.bruto[open]>summary i{transform:rotate(90deg)}
+.bruto pre{max-height:600px;margin-top:0}
+
+/* Celular: barra compacta (rótulos curtos) para não ocupar meia tela fixa no topo */
 @media (max-width:600px){
-  .nav>div{padding:8px 12px;gap:4px}
-  .nav a,.nav span.off,.nav .revalidar{padding:6px 8px}
-  .longo{display:none}
-  .curto{display:inline}
-  .nav .pos{font-size:12px}
-  .pagina{padding:16px 12px 32px}
-  h1{font-size:20px}
-  .meta{gap:6px 14px;font-size:13px}
-  .caixa{padding:14px}
-  .cab{flex-wrap:wrap}
-  pre{font-size:12px;max-height:260px}
+  .nav>div{gap:var(--spacing-scale-half)}
+  .nav .br-button{padding:0 var(--spacing-scale-base)}
+  .longo{display:none}.curto{display:inline}
+  h1{font-size:var(--font-size-scale-up-02)}
+  pre{max-height:260px}
 }

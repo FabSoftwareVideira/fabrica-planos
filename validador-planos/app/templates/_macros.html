@@ -4,3 +4,8 @@
 {% macro selo(status) -%}
 <span style="background:{{ cor(status) }};color:#fff;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;white-space:nowrap">{{ status or '-' }}</span>
 {%- endmacro %}
+
+{# Status no padrão gov.br (br-tag), para as páginas já migradas para o DS. #}
+{% macro tag_status(status) -%}
+<span class="br-tag status-plano" style="background:{{ cor(status) }}">{{ status or '-' }}</span>
+{%- endmacro %}

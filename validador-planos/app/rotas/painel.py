@@ -51,7 +51,8 @@ def pagina_relatorio():
     eh_ultima = execucao.id == execucoes[0].id
     pode_revalidar = eh_ultima and eh_admin() and s.planos.existe(nome)
     return render_template('relatorio.html',
-                           **relatorio.contexto(linhas, indice, det, execucao, eh_ultima, pode_revalidar))
+                           **relatorio.contexto(linhas, indice, det, execucao, eh_ultima, pode_revalidar,
+                                                      email()))
 
 
 @bp.get('/status')
