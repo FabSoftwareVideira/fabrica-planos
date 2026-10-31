@@ -46,10 +46,6 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
-    cap_add:
-      # O app roda como root, mas as pastas de /srv/validador-planos podem ter outro dono (foram copiadas com
-      # cp -a). Sem esta capacidade o root do container não grava nelas: "Permission denied" no CSV.
-      - DAC_OVERRIDE
     # Extrair o texto de 23 planos reais chegou a 340 MB; o teto deixa folga para um envio e uma validação ao mesmo tempo
     deploy:
       resources:
