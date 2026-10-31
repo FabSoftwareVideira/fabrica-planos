@@ -15,9 +15,14 @@
 			forward_auth oauth2-proxy:4180 {
 				uri /oauth2/auth
 				copy_headers X-Auth-Request-Email>X-Usuario-Email
+				# Sem sessão, só a navegação (abrir a página) vai para o login. Requisições da página
+				# (fetch de /status, /planos) recebem 401: se fossem redirecionadas, cada uma iniciaria
+				# outro login e trocaria o cookie CSRF do que está em andamento ("CSRF token" na volta).
 				@sem_login status 401
 				handle_response @sem_login {
-					redir * /oauth2/start?rd={uri}
+					@navegacao header Sec-Fetch-Mode navigate
+					redir @navegacao /oauth2/start?rd={uri}
+					respond "Login necessário" 401
 				}
 			}
 			reverse_proxy app:8000

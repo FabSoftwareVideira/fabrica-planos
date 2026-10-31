@@ -156,7 +156,11 @@ function trocarValidacao(id) { location.href = '/dashboard' + (id ? '?validacao=
 async function atualizarStatus() {
   clearTimeout(timer);
   let s;
-  try { s = await (await fetch('/status')).json(); }
+  try {
+    const r = await fetch('/status');
+    if (r.status === 401) { location.reload(); return; }  // sessão expirou: recarregar leva ao login
+    s = await r.json();
+  }
   catch { msg($('status-msg'), 'Sem conexão com o servidor', 'erro'); timer = setTimeout(atualizarStatus, 5000); return; }
   rodando = s.rodando;
   bloquear();
