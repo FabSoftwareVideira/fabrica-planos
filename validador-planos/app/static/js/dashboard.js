@@ -55,14 +55,14 @@ async function carregarPlanos() {
     const li = document.createElement('li');
     const a = document.createElement('a');
     a.href = '/pdf?arquivo=' + encodeURIComponent(p.nome); a.target = '_blank'; a.rel = 'noopener';
-    a.textContent = '📄 ' + p.nome;
+    a.innerHTML = '<i class="fas fa-file-pdf" aria-hidden="true"></i> '; a.append(p.nome);
     const info = document.createElement('span');
     info.textContent = kb(p.tamanho) + ' · ' + hora(p.modificado) + (p.dono ? ' · ' + p.dono : '');
     const val = document.createElement('button');
-    val.className = 'revalidar'; val.textContent = '↻ Validar'; val.disabled = rodando; val.dataset.arquivo = p.nome;
+    val.type = 'button'; val.className = 'revalidar'; val.innerHTML = '<i class="fas fa-redo" aria-hidden="true"></i> Validar'; val.disabled = rodando; val.dataset.arquivo = p.nome;
     val.title = 'Valida só este PDF e atualiza a última validação';
     const del = document.createElement('button');
-    del.className = 'excluir'; del.textContent = 'Excluir'; del.disabled = rodando;
+    del.type = 'button'; del.className = 'excluir'; del.innerHTML = '<i class="fas fa-trash-alt" aria-hidden="true"></i> Excluir'; del.disabled = rodando;
     del.onclick = () => excluir(p.nome);
     li.append(a, info, val, del);
     return li;
@@ -174,7 +174,7 @@ function agrupar() {
         const n = s => g.cards.filter(c => c.dataset.status === s).length;
         const ok = n('OK'), pend = n('PENDENTE');
         resumo.textContent = `${g.cards.length} plano(s) · ${ok} OK · ${pend} pendente(s) · ${g.cards.length - ok - pend} com problemas`;
-        const zip = document.createElement('a'); zip.className = 'zip'; zip.textContent = '⬇ PDFs (zip)';
+        const zip = document.createElement('a'); zip.className = 'zip'; zip.innerHTML = '<i class="fas fa-file-archive" aria-hidden="true"></i> PDFs (zip)';
         zip.dataset.titulo = g.titulo;
         cab.append(g.titulo, resumo, zip);
         secao.append(cab);

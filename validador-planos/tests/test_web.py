@@ -286,7 +286,8 @@ def test_servidor_consulta_mas_nao_administra(com_login):
     (planos / 'a.pdf').write_bytes(PDF)
     _execucao(c, ['a.pdf'], 10)
     html = c.get('/dashboard', headers=SERVIDOR).get_data(as_text=True)
-    assert 'fulano@ifc.edu.br · consulta' in html and 'href="/oauth2/sign_out"' in html
+    # Quem está logado aparece no cabeçalho; o papel, logo abaixo
+    assert 'fulano@ifc.edu.br' in html and 'Consulta:' in html and 'href="/oauth2/sign_out"' in html
     assert 'id="validar"' not in html and 'id="soltar"' not in html and 'class="revalidar"' not in html
     assert 'ADMIN = false;' in html and 'href="/meus-planos"' in html
     assert 'id="revalidar"' not in c.get('/relatorio?arquivo=a.pdf', headers=SERVIDOR).get_data(as_text=True)
@@ -304,7 +305,7 @@ def test_servidor_consulta_mas_nao_administra(com_login):
 def test_admin_administra(com_login):
     c, planos = com_login
     html = c.get('/dashboard', headers=ADMIN).get_data(as_text=True)
-    assert 'admin@ifc.edu.br · administrador' in html and 'id="validar"' in html and 'id="soltar"' in html
+    assert 'admin@ifc.edu.br' in html and 'Administrador:' in html and 'id="validar"' in html and 'id="soltar"' in html
     r = c.post('/planos', headers=ADMIN, data=_envio(('b.pdf', PDF)), content_type='multipart/form-data')
     assert r.status_code == 200
     assert c.delete('/planos?arquivo=b.pdf', headers=ADMIN).status_code == 200

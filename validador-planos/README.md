@@ -29,7 +29,7 @@ Os PDFs ficam na pasta indicada por `PLANOS_HOST_DIR`, montada no container com 
 
 ## Interface (Padrão Digital de Governo)
 
-As páginas estão migrando, uma por vez, para o [Padrão Digital de Governo](https://www.gov.br/ds/) (Design System gov.br, `@govbr-ds/core` 3.7). Já migradas: **Meus planos** e **Relatório**. O dashboard ainda usa `static/css/painel.css`.
+As páginas seguem o [Padrão Digital de Governo](https://www.gov.br/ds/) (Design System gov.br, `@govbr-ds/core` 3.7): dashboard, relatório e Meus planos. A página inicial, pública, ainda tem o visual próprio (CSS embutido em `templates/inicio.css`).
 
 - `templates/_ds.html` carrega o CSS do DS, a fonte e os ícones; `_cabecalho.html` e `_rodape.html` são o cabeçalho e o rodapé no padrão.
 - `static/css/ds.css` tem os ajustes comuns às páginas migradas; cada página tem o seu CSS para o que é só dela.

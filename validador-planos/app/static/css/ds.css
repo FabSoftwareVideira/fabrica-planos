@@ -1,6 +1,8 @@
 /* Ajustes comuns às páginas que já usam o Padrão Digital de Governo (Design System gov.br). */
 body{background:var(--gray-2);display:flex;flex-direction:column;min-height:100vh}
 main{flex:1}
+/* O DS dá display aos botões (br-button) e mensagens, o que anularia o atributo hidden usado pelos scripts */
+[hidden]{display:none !important}
 
 /* Cabeçalho: sigla no lugar do logotipo e rótulos que somem no celular, ficando só os ícones */
 .br-header .sigla{font-weight:var(--font-weight-black);font-size:var(--font-size-scale-up-03);color:#32a041;letter-spacing:.02em}
@@ -28,3 +30,11 @@ main{flex:1}
 /* Texto da mensagem no tamanho normal (o DS aumenta um nível) e rodapé com respiro */
 .br-message .content{font-size:var(--font-size-scale-base)}
 .br-footer .info{padding:var(--spacing-scale-3x) 0 var(--spacing-scale-base)}
+
+/* Área de envio de PDFs (arrastar e soltar ou escolher), usada no dashboard e em "Meus planos" */
+.soltar{border:2px dashed var(--gray-20);border-radius:var(--surface-rounder-md);padding:var(--spacing-scale-3x);
+  text-align:center;color:var(--gray-60);margin-top:var(--spacing-scale-3x);background:var(--pure-0)}
+.soltar>i{color:var(--interactive);margin-bottom:var(--spacing-scale-base)}
+.soltar.ativo{border-color:var(--interactive);background:var(--blue-5)}
+.dica{font-size:var(--font-size-scale-down-01);color:var(--gray-50);margin:0}
+@media (hover:none){.so-mouse{display:none}}  /* no celular não há arrastar e soltar */

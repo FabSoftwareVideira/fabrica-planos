@@ -1,11 +1,4 @@
-/* "Meus planos": área de envio e lista dos planos do servidor (sobre o Design System gov.br e ds.css). */
-.soltar{border:2px dashed var(--gray-20);border-radius:var(--surface-rounder-md);padding:var(--spacing-scale-3x);
-  text-align:center;color:var(--gray-60);margin-top:var(--spacing-scale-3x);background:var(--pure-0)}
-.soltar>i{color:var(--interactive);margin-bottom:var(--spacing-scale-base)}
-.soltar.ativo{border-color:var(--interactive);background:var(--blue-5)}
-.dica{font-size:var(--font-size-scale-down-01);color:var(--gray-50);margin:0}
-@media (hover:none){.so-mouse{display:none}}  /* no celular não há arrastar e soltar */
-
+/* "Meus planos": lista dos planos do servidor (sobre o Design System gov.br e ds.css). */
 .meus{list-style:none;margin:0;padding:0}
 .meus li{border-top:1px solid var(--gray-10);padding:var(--spacing-scale-2x) var(--spacing-scale-half);display:flex;
   flex-wrap:wrap;gap:var(--spacing-scale-base) var(--spacing-scale-2x);align-items:center}

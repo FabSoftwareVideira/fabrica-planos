@@ -1,0 +1,102 @@
+/* Dashboard (sobre o Design System gov.br e ds.css): painéis, resumo, filtros e cards dos planos. */
+h2{font-size:var(--font-size-scale-up-02);margin:0}
+.papel{margin:0 0 var(--spacing-scale-2x);font-size:var(--font-size-scale-down-01);color:var(--gray-60)}
+.linha{display:flex;align-items:center;gap:var(--spacing-scale-2x);flex-wrap:wrap}
+.linha .msg{margin:0}
+
+/* Painéis de validação e de PDFs lado a lado em telas largas */
+.paineis{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(420px,100%),1fr));gap:0 var(--spacing-scale-3x)}
+.cab-planos{display:flex;align-items:center;justify-content:space-between;gap:var(--spacing-scale-base)}
+.excluir{color:var(--danger)}
+.excluir:disabled,.revalidar:disabled{color:var(--gray-20);cursor:not-allowed}
+
+/* Barra de progresso da validação */
+.barra{height:8px;background:var(--gray-10);border-radius:var(--surface-rounder-pill);overflow:hidden;margin-top:var(--spacing-scale-2x)}
+.barra>div{height:100%;width:0;background:var(--interactive);transition:width .4s}
+
+/* Lista dos PDFs da pasta (montada por dashboard.js) */
+.arquivos{list-style:none;margin:var(--spacing-scale-2x) 0 0;padding:0;max-height:320px;overflow:auto}
+.arquivos li{display:flex;align-items:center;flex-wrap:wrap;gap:var(--spacing-scale-half) var(--spacing-scale-2x);
+  padding:var(--spacing-scale-base) var(--spacing-scale-half);border-top:1px solid var(--gray-10);font-size:var(--font-size-scale-down-01)}
+.arquivos li a{flex:1 1 220px;overflow-wrap:anywhere;font-weight:var(--font-weight-semi-bold)}
+.arquivos li span{color:var(--gray-50);white-space:nowrap}
+.arquivos button{border:0;background:none;font:inherit;cursor:pointer;color:var(--interactive);font-weight:var(--font-weight-semi-bold);
+  padding:var(--spacing-scale-half)}
+.arquivos button.excluir{color:var(--danger)}
+
+/* Cabeçalho dos resultados: título, validação exibida e downloads */
+.cab-resultados{display:flex;align-items:center;gap:var(--spacing-scale-base) var(--spacing-scale-2x);flex-wrap:wrap;
+  margin:var(--spacing-scale-3x) 0 var(--spacing-scale-half)}
+.cab-resultados h2{margin-right:auto}
+select,.busca input{font:inherit;font-size:var(--font-size-scale-base);height:40px;padding:0 var(--spacing-scale-2x);
+  border:1px solid var(--gray-40);border-radius:var(--surface-rounder-sm);background:var(--pure-0);color:var(--gray-80);max-width:100%}
+select:focus,.busca input:focus{outline:2px solid var(--focus-color,#c2850c);outline-offset:2px}
+.meta-validacao{margin:0 0 var(--spacing-scale-2x);color:var(--gray-60);font-size:var(--font-size-scale-down-01)}
+.meta-validacao .erro{color:var(--danger)}
+
+/* Resumo: total e contagem por situação */
+.resumo{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:var(--spacing-scale-2x);margin-bottom:var(--spacing-scale-3x)}
+.cartao{margin:0;padding:var(--spacing-scale-2x) var(--spacing-scale-3x);border-left:4px solid var(--cor,var(--gray-20))}
+.cartao .rot{font-size:var(--font-size-scale-down-01);color:var(--gray-60)}
+.cartao .num{font-size:var(--font-size-scale-up-05);font-weight:var(--font-weight-bold);color:var(--cor,var(--gray-80))}
+.cartao .num span{font-size:var(--font-size-scale-base);font-weight:var(--font-weight-regular);color:var(--gray-50)}
+
+/* Filtros dos cards (aplicados no navegador) */
+.filtros{display:flex;flex-wrap:wrap;gap:var(--spacing-scale-2x);align-items:center;padding:var(--spacing-scale-2x)}
+.agrupar{display:flex;align-items:center;gap:var(--spacing-scale-base);white-space:nowrap;margin:0;font-weight:var(--font-weight-semi-bold)}
+.busca{position:relative;flex:1 1 240px;min-width:0}
+.busca i{position:absolute;left:var(--spacing-scale-2x);top:50%;transform:translateY(-50%);color:var(--gray-50)}
+.busca input{width:100%;padding-left:calc(var(--spacing-scale-2x) * 2 + 1em)}
+.chips{display:flex;gap:var(--spacing-scale-base);flex-wrap:wrap}
+.chip{border:1px solid var(--interactive);background:var(--pure-0);color:var(--interactive);border-radius:var(--surface-rounder-pill);
+  padding:0 var(--spacing-scale-2x);height:32px;font:inherit;font-size:var(--font-size-scale-down-01);font-weight:var(--font-weight-semi-bold);cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--interactive);color:var(--pure-0)}
+.contagem{font-size:var(--font-size-scale-down-01);color:var(--gray-60);margin-left:auto}
+.plano[hidden],.grupo[hidden]{display:none}
+
+/* Grupos (curso e período, docente...) montados por dashboard.js */
+.cab-grupo{display:flex;align-items:baseline;gap:var(--spacing-scale-base) var(--spacing-scale-2x);flex-wrap:wrap;
+  margin:var(--spacing-scale-4x) 0 var(--spacing-scale-2x);font-size:var(--font-size-scale-up-01);color:var(--gray-80)}
+.cab-grupo span{font-size:var(--font-size-scale-down-01);font-weight:var(--font-weight-regular);color:var(--gray-60)}
+.cab-grupo a{font-size:var(--font-size-scale-down-01);font-weight:var(--font-weight-semi-bold);margin-left:auto}
+
+/* Card de cada plano: resumo clicável e, aberto, os campos avaliados */
+.plano{background:var(--pure-0);border-radius:var(--surface-rounder-md);box-shadow:var(--surface-shadow-sm,0 1px 6px rgba(0,0,0,.16));
+  margin-bottom:var(--spacing-scale-2x);scroll-margin-top:var(--spacing-scale-2x);transition:box-shadow .3s}
+.plano.destaque{box-shadow:0 0 0 3px var(--interactive-light)}
+.plano>summary{display:flex;flex-wrap:wrap;align-items:center;gap:var(--spacing-scale-base) var(--spacing-scale-2x);
+  padding:var(--spacing-scale-2x) var(--spacing-scale-3x);cursor:pointer;list-style:none}
+.plano>summary::-webkit-details-marker{display:none}
+.plano .titulo{flex:1 1 280px;min-width:0;overflow-wrap:anywhere}
+.plano .nome{font-weight:var(--font-weight-semi-bold)}
+.plano .sub{display:block;font-size:var(--font-size-scale-down-01);color:var(--gray-60);margin-top:2px}
+.plano .acoes{display:flex;flex-wrap:wrap;align-items:center;gap:var(--spacing-scale-base) var(--spacing-scale-2x)}
+.plano .acoes a,.plano .revalidar{font-size:var(--font-size-scale-down-01);font-weight:var(--font-weight-semi-bold);white-space:nowrap}
+.revalidar{border:0;background:none;color:var(--interactive);font:inherit;cursor:pointer;padding:0}
+.plano .seta{color:var(--gray-50);font-size:var(--font-size-scale-down-01);white-space:nowrap}
+.plano .seta i{transition:transform .2s}
+.plano[open] .seta i{transform:rotate(180deg)}
+.plano .corpo{padding:0 var(--spacing-scale-3x) var(--spacing-scale-3x)}
+.plano .obs-geral{margin:0 0 var(--spacing-scale-2x);color:var(--gray-60);font-size:var(--font-size-scale-down-01)}
+.topicos{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(240px,100%),1fr));gap:var(--spacing-scale-base)}
+.topico{border:1px solid var(--gray-10);border-left:4px solid var(--cor);border-radius:var(--surface-rounder-sm);
+  padding:var(--spacing-scale-base) var(--spacing-scale-2x);background:var(--gray-2)}
+.topico .cab{display:flex;justify-content:space-between;align-items:center;gap:var(--spacing-scale-base)}
+.topico .rotulo{font-size:var(--font-size-scale-down-01);font-weight:var(--font-weight-semi-bold)}
+.topico .obs{font-size:var(--font-size-scale-down-01);color:var(--gray-60);margin-top:var(--spacing-scale-half)}
+
+/* Celular: campos ocupando a linha toda (fonte de 16px nos campos: o iOS dá zoom abaixo disso) */
+@media (max-width:600px){
+  .cab-resultados h2{flex-basis:100%}
+  .cab-resultados select,.filtros select,.agrupar{flex:1 1 100%}
+  .agrupar select{flex:1;min-width:0}
+  .busca{flex-basis:100%}
+  .contagem{margin-left:0}
+  .resumo{grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--spacing-scale-base)}
+  .cartao{padding:var(--spacing-scale-base) var(--spacing-scale-2x)}
+  .cartao .num{font-size:var(--font-size-scale-up-03)}
+  .plano>summary{padding:var(--spacing-scale-2x)}
+  .plano .corpo{padding:0 var(--spacing-scale-2x) var(--spacing-scale-2x)}
+  .plano .seta .rotulo{display:none}
+  .cab-grupo a{margin-left:0}
+}
