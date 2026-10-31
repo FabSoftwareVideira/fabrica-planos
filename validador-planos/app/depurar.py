@@ -7,9 +7,9 @@ import os
 import sys
 
 from .config import carregar
-from .extrator import extrair_texto
-from .prompt import build_prompt
-from .secoes import analisar_texto
+from .avaliacao.extrator import extrair_texto
+from .avaliacao.prompt import build_prompt
+from .avaliacao.secoes import analisar_texto
 
 
 def main(args):

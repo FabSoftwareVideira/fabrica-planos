@@ -3,7 +3,7 @@ import os
 import time
 from datetime import datetime
 
-from . import csvsaida, detalhes, historico
+from ..armazenamento import csvsaida, detalhes, historico
 from .extrator import PdfIlegivel, extrair_texto
 from .ollama import chamar_ollama, extrair_json, montar_payload
 from .prompt import build_prompt

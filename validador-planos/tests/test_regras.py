@@ -1,4 +1,4 @@
-from app.regras import aplicar_regras
+from app.avaliacao.regras import aplicar_regras
 
 
 def _validacao_ok():

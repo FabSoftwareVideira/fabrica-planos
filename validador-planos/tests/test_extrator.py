@@ -1,5 +1,5 @@
-from app.extrator import _texto_pagina
-from app.secoes import analisar_texto
+from app.avaliacao.extrator import _texto_pagina
+from app.avaliacao.secoes import analisar_texto
 
 
 def _palavra(texto, x0, top):
@@ -92,7 +92,7 @@ def test_pagina_normal_mantem_tolerancia_padrao():
 def test_extrair_texto_de_pdf_real_e_recusa_digitalizado(tmp_path):
     import pytest
 
-    from app.extrator import PdfIlegivel, extrair_texto
+    from app.avaliacao.extrator import PdfIlegivel, extrair_texto
     from conftest import PDF_COM_TEXTO, PDF_SEM_TEXTO
 
     bom = tmp_path / 'bom.pdf'
@@ -106,7 +106,7 @@ def test_extrair_texto_de_pdf_real_e_recusa_digitalizado(tmp_path):
 
 
 def test_limpa_rodape_titulos_e_cabecalho_repetido():
-    from app.extrator import _limpar
+    from app.avaliacao.extrator import _limpar
     pagina1 = '\n'.join([
         'Ministério da Educação', 'Instituto Federal Catarinense', 'Plano de Ensino', 'Ementa: Estudo de bancos.',
         'Este documento foi emitido pelo Sistema Integrado de Gestão de Atividades Acadêmicas. Acesse https://x',

@@ -1,4 +1,4 @@
-from app.secoes import analisar_texto, contar_referencias, tem_horario_atendimento
+from app.avaliacao.secoes import analisar_texto, contar_referencias, tem_horario_atendimento
 
 PLANO = """Plano de Ensino
 Instituição: IFC  Componente: Fundamentos  Docente: Fulano

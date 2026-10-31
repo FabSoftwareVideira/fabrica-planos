@@ -2,30 +2,36 @@ import io
 import os
 from pathlib import Path
 
-os.environ.setdefault('AGENDAR', '0')  # antes de importar app.web, para não subir o agendador
-
 import pytest
 
-from app import web
-from app.andamento import Andamento
 from app.config import Config
+from app.fabrica import criar_app
 from conftest import PDF_COM_TEXTO, PDF_SEM_TEXTO
 
 PDF = PDF_COM_TEXTO
 
 
 @pytest.fixture
-def cliente(tmp_path, monkeypatch):
-    planos = tmp_path / 'planos'
-    planos.mkdir()
-    cfg = Config(
-        planos_dir=str(planos), resultados_dir=str(tmp_path / 'res'),
-        ollama_url='http://ollama:11434', modelo='m', num_ctx=1, hora_agendada=5, agendar=False, pdf_max_mb=1,
-    )
-    monkeypatch.setattr(web, 'cfg', cfg)
-    monkeypatch.setattr(web, 'andamento', Andamento())
-    monkeypatch.setattr(web, '_fila', [])
-    return web.app.test_client(), planos
+def fabrica(tmp_path):
+    """Cria a aplicação com pastas temporárias; as avaliações rodam na hora, sem thread."""
+    def criar(**opcoes):
+        planos = tmp_path / 'planos'
+        planos.mkdir(exist_ok=True)
+        cfg = Config(
+            planos_dir=str(planos), resultados_dir=str(tmp_path / 'res'), ollama_url='http://ollama:11434',
+            modelo='m', num_ctx=1, hora_agendada=5, agendar=False, pdf_max_mb=1, **opcoes,
+        )
+        return criar_app(cfg, executar=lambda tarefa: tarefa()).test_client(), planos
+    return criar
+
+
+@pytest.fixture
+def cliente(fabrica):
+    return fabrica()
+
+
+def _servicos(c):
+    return c.application.extensions['servicos']
 
 
 def _envio(*arquivos):
@@ -81,7 +87,7 @@ def test_exclusao_recusa_caminho(cliente):
 def test_validacao_em_andamento_bloqueia_alteracoes(cliente):
     c, planos = cliente
     (planos / 'a.pdf').write_bytes(PDF)
-    web.andamento.iniciar(1)
+    _servicos(c).validador.andamento.iniciar(1)
     assert c.post('/validar').status_code == 409
     assert c.post('/planos', data=_envio(('b.pdf', PDF)), content_type='multipart/form-data').status_code == 409
     assert c.delete('/planos?arquivo=a.pdf').status_code == 409
@@ -101,13 +107,13 @@ def test_dashboard_tem_controles(cliente):
     assert 'id="validar"' in html and 'id="soltar"' in html
 
 
-def _execucao(nomes, quando, validacao=None, pdfs=()):
+def _execucao(c, nomes, quando, validacao=None, pdfs=()):
     """Cria no histórico uma validação concluída com esses planos."""
     from datetime import datetime
 
-    from app import csvsaida, historico
+    from app.armazenamento import csvsaida, historico
     validacao = validacao or {'status_geral': 'OK'}
-    execucao = historico.criar(web.cfg.historico_dir, datetime(2026, 10, 30, quando))
+    execucao = historico.criar(_servicos(c).cfg.historico_dir, datetime(2026, 10, 30, quando))
     linhas = [csvsaida.linha_resultado(n, '/x', validacao) for n in nomes]
     csvsaida.escrever_csv(execucao.csv_path, linhas)
     for nome in pdfs:
@@ -118,10 +124,10 @@ def _execucao(nomes, quando, validacao=None, pdfs=()):
 
 
 def test_relatorio_mostra_avaliacao_e_texto_extraido(cliente):
-    from app import detalhes
+    from app.armazenamento import detalhes
     c, _ = cliente
     validacao = {'status_geral': 'PENDENTE', 'obs_geral': 'falta algo', 'ementa': {'status': 'OK', 'obs': 'ementa boa'}}
-    execucao = _execucao(['Plano Á.pdf'], 10, validacao)
+    execucao = _execucao(c, ['Plano Á.pdf'], 10, validacao)
     detalhes.salvar(execucao.detalhes_dir, 'Plano Á.pdf', {
         'arquivo': 'Plano Á.pdf', 'modelo': 'qwen', 'texto': 'TEXTO <BRUTO>',
         'secoes': {'ementa': 'Estudo de <matrizes>', 'ref_basicas': 2, 'ref_complementares': 5},
@@ -137,7 +143,7 @@ def test_relatorio_mostra_avaliacao_e_texto_extraido(cliente):
 
 def test_relatorio_sem_detalhes_avisa(cliente):
     c, _ = cliente
-    _execucao(['Plano Á.pdf'], 10)
+    _execucao(c, ['Plano Á.pdf'], 10)
     r = c.get('/relatorio?arquivo=Plano%20%C3%81.pdf')
     assert r.status_code == 200
     assert 'texto extraído não está disponível' in r.get_data(as_text=True)
@@ -145,7 +151,7 @@ def test_relatorio_sem_detalhes_avisa(cliente):
 
 def test_relatorio_navega_entre_planos_e_volta_ao_card(cliente):
     c, _ = cliente
-    execucao = _execucao(['a.pdf', 'b.pdf', 'c.pdf'], 10)
+    execucao = _execucao(c, ['a.pdf', 'b.pdf', 'c.pdf'], 10)
     html = c.get('/relatorio?arquivo=b.pdf').get_data(as_text=True)
     assert 'href="/dashboard#plano-1"' in html
     v = 'validacao=' + execucao.id
@@ -161,7 +167,7 @@ def test_relatorio_navega_entre_planos_e_volta_ao_card(cliente):
 def test_relatorio_de_plano_desconhecido(cliente):
     c, _ = cliente
     assert c.get('/relatorio?arquivo=x.pdf').status_code == 404
-    _execucao(['a.pdf'], 10)
+    _execucao(c, ['a.pdf'], 10)
     assert c.get('/relatorio?arquivo=x.pdf').status_code == 404
     assert c.get('/relatorio?arquivo=../x.pdf').status_code == 404
     assert c.get('/relatorio?validacao=20200101-000000&arquivo=a.pdf').status_code == 404
@@ -169,8 +175,8 @@ def test_relatorio_de_plano_desconhecido(cliente):
 
 def test_dashboard_mostra_historico_e_validacao_anterior(cliente):
     c, _ = cliente
-    antiga = _execucao(['velho.pdf'], 9)
-    nova = _execucao(['novo.pdf'], 11, pdfs=['novo.pdf'])
+    antiga = _execucao(c, ['velho.pdf'], 9)
+    nova = _execucao(c, ['novo.pdf'], 11, pdfs=['novo.pdf'])
     html = c.get('/dashboard').get_data(as_text=True)
     assert 'novo' in html and 'velho' not in html.split('id="historico"')[1].split('</select>')[1]
     assert f'/validacoes/{nova.id}/pdfs.zip' in html and f'/validacoes/{nova.id}/csv' in html
@@ -190,8 +196,8 @@ def test_zip_csv_e_pdf_da_ultima_validacao(cliente):
     import io
     import zipfile
     c, _ = cliente
-    antiga = _execucao(['a.pdf'], 9)
-    nova = _execucao(['a.pdf', 'b.pdf'], 10, pdfs=['a.pdf', 'b.pdf'])
+    antiga = _execucao(c, ['a.pdf'], 9)
+    nova = _execucao(c, ['a.pdf', 'b.pdf'], 10, pdfs=['a.pdf', 'b.pdf'])
 
     r = c.get(f'/validacoes/{nova.id}/pdfs.zip')
     assert r.status_code == 200 and r.mimetype == 'application/zip'
@@ -212,16 +218,16 @@ def test_excluir_todos(cliente):
     c, planos = cliente
     for nome in ('a.pdf', 'b.pdf'):
         (planos / nome).write_bytes(PDF)
-    web.andamento.iniciar(1)
+    _servicos(c).validador.andamento.iniciar(1)
     assert c.delete('/planos/todos').status_code == 409
-    web.andamento.finalizar()
+    _servicos(c).validador.andamento.finalizar()
     r = c.delete('/planos/todos')
     assert r.json == {'excluidos': 2}
     assert list(planos.iterdir()) == []
 
 
 def test_revalidar_pela_rota(cliente, monkeypatch):
-    from app import pipeline
+    from app.avaliacao import pipeline
     c, planos = cliente
     chamadas = []
     monkeypatch.setattr(pipeline, 'revalidar', lambda cfg, andamento, nome: chamadas.append(nome))
@@ -230,16 +236,16 @@ def test_revalidar_pela_rota(cliente, monkeypatch):
     (planos / 'a.pdf').write_bytes(PDF)
     r = c.post('/validar?arquivo=a.pdf')
     assert r.json == {'status': 'iniciado', 'arquivo': 'a.pdf', 'posicao': 0}
-    web.andamento.finalizar()
+    _servicos(c).validador.andamento.finalizar()
     assert chamadas == ['a.pdf']
-    assert web.andamento.resumo()['unico'] == 'a.pdf'
+    assert _servicos(c).validador.andamento.resumo()['unico'] == 'a.pdf'
 
 
 def test_dashboard_tem_filtros_e_revalidar_so_na_ultima(cliente):
     c, planos = cliente
     validacao = {'status_geral': 'PENDENTE', 'horario_atendimento': {'status': 'INCOMPLETO', 'obs': ''}}
-    antiga = _execucao(['a.pdf'], 9)
-    _execucao(['a.pdf', 'b.pdf'], 10, validacao)
+    antiga = _execucao(c, ['a.pdf'], 9)
+    _execucao(c, ['a.pdf', 'b.pdf'], 10, validacao)
     html = c.get('/dashboard').get_data(as_text=True)
     assert 'id="busca"' in html and 'data-status="PENDENTE"' in html
     assert 'Pendentes (2)' in html and '<option value="Horário Atendimento">' in html
@@ -252,11 +258,9 @@ def test_dashboard_tem_filtros_e_revalidar_so_na_ultima(cliente):
 
 
 @pytest.fixture
-def com_login(cliente, monkeypatch):
+def com_login(fabrica):
     """Login exigido, com admin@ifc.edu.br como único administrador."""
-    from dataclasses import replace
-    monkeypatch.setattr(web, 'cfg', replace(web.cfg, exigir_login=True, admins=frozenset({'admin@ifc.edu.br'})))
-    return cliente
+    return fabrica(exigir_login=True, admins=frozenset({'admin@ifc.edu.br'}))
 
 
 ADMIN = {'X-Usuario-Email': 'Admin@ifc.edu.br'}
@@ -278,7 +282,7 @@ def test_sem_login_so_responde_inicio_e_health(com_login):
 def test_servidor_consulta_mas_nao_administra(com_login):
     c, planos = com_login
     (planos / 'a.pdf').write_bytes(PDF)
-    _execucao(['a.pdf'], 10)
+    _execucao(c, ['a.pdf'], 10)
     html = c.get('/dashboard', headers=SERVIDOR).get_data(as_text=True)
     assert 'fulano@ifc.edu.br · consulta' in html and 'href="/oauth2/sign_out"' in html
     assert 'id="validar"' not in html and 'id="soltar"' not in html and 'class="revalidar"' not in html
@@ -305,30 +309,29 @@ def test_admin_administra(com_login):
 
 
 def test_revalidacoes_esperam_na_fila(cliente, monkeypatch):
-    from app import pipeline
+    from app.avaliacao import pipeline
     c, planos = cliente
     chamadas = []
     monkeypatch.setattr(pipeline, 'revalidar', lambda cfg, andamento, nome: chamadas.append(nome))
-    monkeypatch.setattr(web, '_disparar', lambda alvo, *args: alvo(*args))  # sem thread
     for nome in ('a.pdf', 'b.pdf'):
         (planos / nome).write_bytes(PDF)
-    web.andamento.iniciar(1)  # outra validação rodando
+    _servicos(c).validador.andamento.iniciar(1)  # outra validação rodando
     assert c.post('/validar?arquivo=a.pdf').json == {'status': 'na_fila', 'arquivo': 'a.pdf', 'posicao': 1}
     assert c.post('/validar?arquivo=b.pdf').json['posicao'] == 2
     assert c.post('/validar?arquivo=a.pdf').json['posicao'] == 1  # não entra duas vezes
     assert c.get('/status').json['fila'] == ['a.pdf', 'b.pdf']
     (planos / 'a.pdf').unlink()  # excluído enquanto esperava: é pulado
-    web.andamento.finalizar()
-    web._proximo_da_fila()
+    _servicos(c).validador.andamento.finalizar()
+    _servicos(c).validador.proximo_da_fila()
     assert chamadas == ['b.pdf'] and c.get('/status').json['fila'] == []
 
 
 def test_professor_entrega_e_acompanha_o_proprio_plano(com_login, monkeypatch):
-    from app import detalhes, pipeline
+    from app.armazenamento import detalhes
+    from app.avaliacao import pipeline
     c, planos = com_login
     chamadas = []
     monkeypatch.setattr(pipeline, 'revalidar', lambda cfg, andamento, nome: (chamadas.append(nome), andamento.finalizar()))
-    monkeypatch.setattr(web, '_disparar', lambda alvo, *args: alvo(*args))
     assert 'id="soltar"' in c.get('/meus-planos', headers=SERVIDOR).get_data(as_text=True)
 
     r = c.post('/meus-planos', headers=SERVIDOR, data=_envio(('meu.pdf', PDF)), content_type='multipart/form-data')
@@ -337,7 +340,7 @@ def test_professor_entrega_e_acompanha_o_proprio_plano(com_login, monkeypatch):
     [plano] = c.get('/meus-planos/lista', headers=SERVIDOR).json['planos']
     assert plano['situacao'] == 'aguardando'  # a avaliação falsa não gravou resultado
 
-    execucao = _execucao(['meu.pdf'], 23, {'status_geral': 'PENDENTE'})
+    execucao = _execucao(c, ['meu.pdf'], 23, {'status_geral': 'PENDENTE'})
     detalhes.salvar(execucao.detalhes_dir, 'meu.pdf', {'validado_em': '2099-01-01T00:00:00'})
     [plano] = c.get('/meus-planos/lista', headers=SERVIDOR).json['planos']
     assert plano['situacao'] == 'avaliado' and plano['status'] == 'PENDENTE' and 'Ementa' in plano['problemas']

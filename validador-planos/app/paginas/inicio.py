@@ -1,6 +1,6 @@
 from html import escape
 
-from .csvsaida import CAMPOS_COLUNA
+from ..armazenamento.csvsaida import CAMPOS_COLUNA
 
 # Página pública (sem login): apresenta o projeto e leva ao login com a conta Google institucional.
 ESTILO = (

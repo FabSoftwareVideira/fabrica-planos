@@ -5,11 +5,22 @@ Aplicação em Python (Flask + gunicorn) que valida os PDFs de planos de ensino 
 ## Estrutura
 
 ```
-app/            código da aplicação
-tests/          testes unitários (regras, seções, extração, rotas, CSV)
-resultados/     histórico das validações e cópia do CSV da última (criados automaticamente; ver "Histórico")
-docker-compose.yml, Dockerfile, .env.example
+app/
+  web.py            entrada do gunicorn (app.web:app)
+  fabrica.py        Application Factory: cria o Flask, os serviços e registra as rotas
+  config.py         configuração lida do ambiente (.env)
+  depurar.py        linha de comando para conferir a extração de um PDF
+  avaliacao/        como um plano é avaliado: extração do PDF, seções, prompt, Ollama, regras e o pipeline
+  armazenamento/    arquivos em resultados/: CSV, detalhes por plano, histórico e dono de cada PDF
+  servicos/         casos de uso com estado: Validador (lote, fila, agendador) e PastaDePlanos (envio/exclusão)
+  rotas/            Blueprints, um por área: publico, painel, validacoes, administracao, meus_planos
+  paginas/          HTML das páginas (inicio, dashboard, relatorio, meus_planos) e peças comuns
+tests/              testes unitários (regras, seções, extração, pipeline, rotas, CSV)
+resultados/         histórico das validações e cópia do CSV da última (criados automaticamente; ver "Histórico")
+docker-compose.yml, Dockerfile, .env.example, Caddyfile
 ```
+
+As camadas só dependem das de baixo: `rotas` → `servicos` → `avaliacao`/`armazenamento`, e `rotas` → `paginas`. As rotas só traduzem HTTP (parâmetros, códigos de resposta) e chamam os serviços, que guardam as regras de negócio (quem pode substituir um PDF, fila, bloqueio durante o lote) e avisam problemas com exceções (`Ocupado`, `NaoEncontrado`, `Proibido`). Os serviços são criados uma vez em `criar_app()` e ficam em `app.extensions['servicos']`; nos testes, `criar_app(cfg, executar=...)` roda as avaliações na hora, sem thread.
 
 Os PDFs ficam na pasta indicada por `PLANOS_HOST_DIR`, montada no container com escrita (o dashboard envia e exclui PDFs). Eles não entram na imagem nem no git.
 
@@ -71,7 +82,7 @@ Cada validação fica em `resultados/historico/AAAAMMDD-HHMMSS/`, com o CSV (`va
 
 ## Controle de execução
 
-O estado da validação fica em memória no processo do gunicorn (`app/andamento.py`), que roda com um único worker (`-w 1` no `Dockerfile`). Não aumente o número de workers: cada um teria seu próprio estado e duas validações poderiam rodar juntas. Se o container reiniciar no meio de um lote, a validação é perdida e o estado volta a livre; basta iniciar de novo.
+O estado da validação fica em memória no processo do gunicorn (`app/servicos/validador.py` e `andamento.py`), que roda com um único worker (`-w 1` no `Dockerfile`). Não aumente o número de workers: cada um teria seu próprio estado e duas validações poderiam rodar juntas. Se o container reiniciar no meio de um lote, a validação é perdida e o estado volta a livre; basta iniciar de novo.
 
 ## Subir no servidor
 

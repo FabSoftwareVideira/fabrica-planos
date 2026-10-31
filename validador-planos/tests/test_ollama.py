@@ -1,7 +1,7 @@
 import pytest
 import requests
 
-from app import ollama
+from app.avaliacao import ollama
 
 
 class _Resp:

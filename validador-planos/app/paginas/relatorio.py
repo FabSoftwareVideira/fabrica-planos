@@ -2,9 +2,9 @@ import json
 from html import escape
 from urllib.parse import quote
 
-from .csvsaida import CAMPOS_COLUNA
-from .dashboard import _badge, _cor, data_br
-from .prompt import LIMITE_PADRAO, LIMITES
+from ..armazenamento.csvsaida import CAMPOS_COLUNA
+from .comum import cor, data_br, selo
+from ..avaliacao.prompt import LIMITE_PADRAO, LIMITES
 
 # Relatório de um plano: avaliação de cada campo ao lado do texto que foi extraído para ele.
 
@@ -68,8 +68,8 @@ def _campo(rotulo, chave, linha, sec):
         if chave != 'coerencia':
             corpo += _texto(sec.get(chave, ''), chave)
     return (
-        '<section class="caixa campo" style="--cor:' + _cor(status) + '"><div class="cab">'
-        '<h2>' + escape(rotulo) + '</h2>' + _badge(status) + '</div>' + corpo + '</section>'
+        '<section class="caixa campo" style="--cor:' + cor(status) + '"><div class="cab">'
+        '<h2>' + escape(rotulo) + '</h2>' + selo(status) + '</div>' + corpo + '</section>'
     )
 
 
@@ -149,7 +149,7 @@ def gerar_html(linhas, indice, det, execucao, eh_ultima=True, pode_revalidar=Fal
     elif det.get('erro'):
         aviso = '<div class="aviso">Falha ao validar: ' + escape(det['erro']) + '</div>'
 
-    meta = [_badge(linha.get('Status Geral', '')), 'Validado em ' + escape(linha.get('Data Validação', ''))]
+    meta = [selo(linha.get('Status Geral', '')), 'Validado em ' + escape(linha.get('Data Validação', ''))]
     if det and det.get('modelo'):
         meta.append('Modelo ' + escape(det['modelo']))
     if nome in execucao.pdfs():

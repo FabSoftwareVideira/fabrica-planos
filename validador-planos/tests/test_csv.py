@@ -1,10 +1,10 @@
 import csv
 from datetime import datetime
 
-from app import csvsaida
-from app.pipeline import nome_valido
-from app.prompt import build_prompt
-from app.secoes import analisar_texto
+from app.armazenamento import csvsaida
+from app.avaliacao.pipeline import nome_valido
+from app.avaliacao.prompt import build_prompt
+from app.avaliacao.secoes import analisar_texto
 
 
 def test_csv_usa_ponto_e_virgula_e_bom(tmp_path):

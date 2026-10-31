@@ -2,9 +2,10 @@ import json
 import logging
 from datetime import datetime
 
-from app import csvsaida, detalhes, historico, pipeline
-from app.andamento import Andamento
+from app.armazenamento import csvsaida, detalhes, historico
+from app.avaliacao import pipeline
 from app.config import Config
+from app.servicos.andamento import Andamento
 
 
 def _cfg(tmp_path, historico_max=3):
@@ -37,7 +38,7 @@ def test_lote_grava_historico_registra_andamento_e_libera(tmp_path, monkeypatch,
     assert andamento.iniciar(len(nomes))
     assert not andamento.iniciar(len(nomes))
 
-    with caplog.at_level(logging.INFO, logger='app.pipeline'):
+    with caplog.at_level(logging.INFO, logger='app.avaliacao.pipeline'):
         pipeline.executar(cfg, andamento, nomes)
 
     resumo = andamento.resumo()

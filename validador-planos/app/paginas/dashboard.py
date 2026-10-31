@@ -1,25 +1,8 @@
-from datetime import datetime
 from html import escape
 from urllib.parse import quote
 
-from .csvsaida import CAMPOS_COLUNA
-
-CORES = {
-    'OK': '#22c55e',
-    'INCOMPLETO': '#eab308',
-    'PENDENTE': '#eab308',
-}
-
-
-def _cor(status):
-    return CORES.get(status, '#ef4444')
-
-
-def _badge(status):
-    return (
-        '<span style="background:' + _cor(status) + ';color:#fff;padding:2px 8px;border-radius:10px;'
-        'font-size:11px;font-weight:600;white-space:nowrap">' + escape(status or '-') + '</span>'
-    )
+from ..armazenamento.csvsaida import CAMPOS_COLUNA
+from .comum import cor, data_br, selo
 
 
 def _card(indice, linha, validacao, pdfs_guardados, ultima):
@@ -30,10 +13,10 @@ def _card(indice, linha, validacao, pdfs_guardados, ultima):
         status = linha.get(rotulo, '')
         obs = linha.get(rotulo + ' Obs', '')
         topicos.append(
-            '<div style="border:1px solid #e5e7eb;border-left:4px solid ' + _cor(status) + ';border-radius:8px;'
+            '<div style="border:1px solid #e5e7eb;border-left:4px solid ' + cor(status) + ';border-radius:8px;'
             'padding:10px 12px;background:#fafafa">'
             '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px">'
-            '<span style="font-size:13px;font-weight:600">' + escape(rotulo) + '</span>' + _badge(status) + '</div>'
+            '<span style="font-size:13px;font-weight:600">' + escape(rotulo) + '</span>' + selo(status) + '</div>'
             + ('<div style="font-size:12px;color:#6b7280;margin-top:6px">' + escape(obs) + '</div>' if obs else '')
             + '</div>'
         )
@@ -57,7 +40,7 @@ def _card(indice, linha, validacao, pdfs_guardados, ultima):
         + '" data-problemas="' + escape('|'.join(problemas), quote=True) + '" '
         'style="background:#fff;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.1);margin-bottom:12px">'
         '<summary style="display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer;list-style:none">'
-        '<span style="font-weight:600;flex:1">' + escape(nome) + '</span>' + _badge(linha.get('Status Geral', ''))
+        '<span style="font-weight:600;flex:1">' + escape(nome) + '</span>' + selo(linha.get('Status Geral', ''))
         + link + '<span style="color:#9ca3af;font-size:12px">▼ detalhes</span></summary>'
         '<div style="padding:0 16px 16px">'
         + ('<p style="margin:0 0 12px;font-size:13px;color:#6b7280">' + escape(observacao) + '</p>' if observacao else '')
@@ -382,13 +365,6 @@ def _filtros(linhas):
         '<button type="button" class="limpar" id="limpar-filtros" hidden>Limpar filtros</button>'
         '</div>'
     )
-
-
-def data_br(iso):
-    try:
-        return datetime.fromisoformat(iso).strftime('%d/%m/%Y %H:%M')
-    except (TypeError, ValueError):
-        return '—'
 
 
 def _rotulo_execucao(meta, ultima):
