@@ -438,6 +438,13 @@ def test_paginas_usam_css_e_js_de_static_com_versao(cliente):
         assert arquivos, pagina
         for caminho in arquivos:
             assert c.get(caminho).status_code == 200
-    # A página inicial é pública e /static passa pelo login: o CSS dela vem embutido.
-    inicio = c.get('/').get_data(as_text=True)
-    assert '<style>' in inicio and '/static/' not in inicio
+    assert 'vendor/govbr-ds/govbr-ds.min.css' in c.get('/').get_data(as_text=True)
+
+
+def test_static_e_publico_para_a_pagina_inicial(com_login):
+    # A página inicial (sem login) usa o CSS do Design System; o resto continua exigindo login
+    c, _ = com_login
+    assert c.get('/static/css/ds.css').status_code == 200
+    assert c.get('/static/vendor/govbr-ds/govbr-ds.min.css').status_code == 200
+    assert c.get('/static/../dashboard').status_code in (401, 404)
+    assert c.get('/dashboard').status_code == 401

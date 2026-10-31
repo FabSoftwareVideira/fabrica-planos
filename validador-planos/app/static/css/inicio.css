@@ -1,0 +1,27 @@
+/* Página inicial (sobre o Design System gov.br e ds.css): destaque com o login e explicação do projeto. */
+.destaque{background:var(--pure-0);border-bottom:1px solid var(--gray-10);padding:var(--spacing-scale-5x) 0;text-align:center}
+.destaque h1{font-size:clamp(28px,5vw,var(--font-size-scale-up-06));margin:0 0 var(--spacing-scale-2x);color:var(--blue-warm-vivid-70)}
+.chamada{max-width:640px;margin:0 auto var(--spacing-scale-4x);font-size:var(--font-size-scale-up-01);color:var(--gray-70)}
+.restrito{margin:var(--spacing-scale-2x) 0 0;font-size:var(--font-size-scale-down-01);color:var(--gray-60)}
+
+/* Botão "Entrar com Google" nas cores e formato pedidos pelas diretrizes do Google */
+.google{display:inline-flex;align-items:center;gap:12px;background:#fff;color:#1f1f1f;text-decoration:none;
+  border:1px solid #747775;border-radius:999px;padding:12px 24px;font-weight:600;font-size:16px;
+  box-shadow:0 1px 3px rgba(0,0,0,.08);transition:box-shadow .2s}
+.google:hover{box-shadow:0 2px 8px rgba(0,0,0,.18);text-decoration:none;color:#1f1f1f}
+.google svg{width:20px;height:20px}
+
+.br-card .card-header h2{font-size:var(--font-size-scale-up-02);margin:0}
+
+/* Passos do processo, com ícone */
+.passos{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:var(--spacing-scale-3x);margin:0;padding:0;list-style:none}
+.passos li{font-size:var(--font-size-scale-down-01);color:var(--gray-70)}
+.passos .icone{display:flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:50%;
+  background:var(--blue-5);color:var(--interactive);margin-bottom:var(--spacing-scale-base)}
+.passos strong{display:block;color:var(--gray-90);font-size:var(--font-size-scale-base);margin-bottom:var(--spacing-scale-half)}
+
+/* Campos verificados e legenda dos status */
+.campos{display:flex;flex-wrap:wrap;gap:var(--spacing-scale-base)}
+.campos .br-tag{background:var(--gray-5);color:var(--gray-80);font-weight:var(--font-weight-medium)}
+.legenda{display:flex;flex-wrap:wrap;gap:var(--spacing-scale-2x) var(--spacing-scale-3x);margin-top:var(--spacing-scale-3x);
+  font-size:var(--font-size-scale-down-01);color:var(--gray-70)}

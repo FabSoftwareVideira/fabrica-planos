@@ -7,12 +7,15 @@ from .comum import email, json_, servicos, texto
 bp = Blueprint('publico', __name__)
 
 PUBLICAS = {'/', '/health'}
+# CSS, JS, fontes e ícones: a página inicial (pública) também usa, e nada ali é sigiloso
+PREFIXOS_PUBLICOS = ('/static/',)
 
 
 @bp.before_app_request
 def exigir_login():
     # O proxy só deixa passar quem fez login; isto barra quem chegar ao app sem passar por ele.
-    if servicos().cfg.exigir_login and not email() and request.path not in PUBLICAS:
+    if (servicos().cfg.exigir_login and not email() and request.path not in PUBLICAS
+            and not request.path.startswith(PREFIXOS_PUBLICOS)):
         return texto('Login necessário.', 401)
 
 

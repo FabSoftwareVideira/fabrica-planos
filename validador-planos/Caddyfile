@@ -10,6 +10,12 @@
 		reverse_proxy oauth2-proxy:4180
 	}
 
+	# CSS, JS, fontes e ícones: públicos (a página inicial usa o Design System gov.br) e sem nada sigiloso
+	handle /static/* {
+		request_header -X-Usuario-Email
+		reverse_proxy app:8000
+	}
+
 	# Página inicial, pública: apresenta o projeto e tem o botão de login
 	handle / {
 		request_header -X-Usuario-Email

@@ -23,13 +23,13 @@ resultados/         histórico das validações e cópia do CSV da última (cria
 docker-compose.yml, Dockerfile, .env.example, Caddyfile
 ```
 
-As camadas só dependem das de baixo: `rotas` → `servicos` → `avaliacao`/`armazenamento`, e `rotas` → `paginas` → `templates`. Cada rota monta o contexto com a função `contexto()` do módulo da página e chama `render_template`; o Jinja escapa os valores automaticamente. A página inicial é pública e traz o CSS embutido (`templates/inicio.css`), porque `/static` passa pelo login do proxy. As rotas só traduzem HTTP (parâmetros, códigos de resposta) e chamam os serviços, que guardam as regras de negócio (quem pode substituir um PDF, fila, bloqueio durante o lote) e avisam problemas com exceções (`Ocupado`, `NaoEncontrado`, `Proibido`). Os serviços são criados uma vez em `criar_app()` e ficam em `app.extensions['servicos']`; nos testes, `criar_app(cfg, executar=...)` roda as avaliações na hora, sem thread.
+As camadas só dependem das de baixo: `rotas` → `servicos` → `avaliacao`/`armazenamento`, e `rotas` → `paginas` → `templates`. Cada rota monta o contexto com a função `contexto()` do módulo da página e chama `render_template`; o Jinja escapa os valores automaticamente. `/static` (CSS, JS, fontes e ícones) é público, no app e no Caddy, porque a página inicial também o usa. As rotas só traduzem HTTP (parâmetros, códigos de resposta) e chamam os serviços, que guardam as regras de negócio (quem pode substituir um PDF, fila, bloqueio durante o lote) e avisam problemas com exceções (`Ocupado`, `NaoEncontrado`, `Proibido`). Os serviços são criados uma vez em `criar_app()` e ficam em `app.extensions['servicos']`; nos testes, `criar_app(cfg, executar=...)` roda as avaliações na hora, sem thread.
 
 Os PDFs ficam na pasta indicada por `PLANOS_HOST_DIR`, montada no container com escrita (o dashboard envia e exclui PDFs). Eles não entram na imagem nem no git.
 
 ## Interface (Padrão Digital de Governo)
 
-As páginas seguem o [Padrão Digital de Governo](https://www.gov.br/ds/) (Design System gov.br, `@govbr-ds/core` 3.7): dashboard, relatório e Meus planos. A página inicial, pública, ainda tem o visual próprio (CSS embutido em `templates/inicio.css`).
+As páginas seguem o [Padrão Digital de Governo](https://www.gov.br/ds/) (Design System gov.br, `@govbr-ds/core` 3.7): página inicial, dashboard, relatório e Meus planos. Na página inicial, o botão "Entrar com Google" mantém o visual pedido pelas diretrizes do Google.
 
 - `templates/_ds.html` carrega o CSS do DS, a fonte e os ícones; `_cabecalho.html` e `_rodape.html` são o cabeçalho e o rodapé no padrão.
 - `static/css/ds.css` tem os ajustes comuns às páginas migradas; cada página tem o seu CSS para o que é só dela.
