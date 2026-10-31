@@ -18,6 +18,19 @@ def test_periodo_em_outra_linha():
     assert (ident['disciplina'], ident['periodo'], ident['semestre']) == ('Ética e Legislação', '2026.2', 2)
 
 
+def test_rotulo_turma_vazio_antes_da_turma():
+    # "2026-2 Tecnologia Ciência e Sociedade": o SIGAA põe um "Turma:" vazio entre a carga horária e a turma.
+    ident = extrair(CABECALHO + 'CCC0722 - CIÊNCIA, TECNOLOGIA E SOCIEDADE (30h)\nTurma:\n- Turma: 01 (2026.2)\n'
+                    'Horário: 5N12')
+    assert ident['codigo'] == 'CCC0722' and ident['disciplina'] == 'Ciência, Tecnologia e Sociedade'
+    assert (ident['turma'], ident['curso'], ident['periodo']) == ('01', 'Ciência da Computação', '2026.2')
+
+
+def test_sem_turma_ainda_identifica_curso_e_periodo():
+    ident = extrair('CCC0722 - CIÊNCIA, TECNOLOGIA E SOCIEDADE (30h)\n(2026.2)')
+    assert (ident['turma'], ident['sigla_curso'], ident['periodo']) == ('', 'CC', '2026.2')
+
+
 def test_tecnico_anual_traz_o_nome_do_curso():
     ident = extrair(CABECALHO + 'INC0713-1 - WEB DESIGN (60h) - Turma: 03 (2026)\n'
                     'Turma: [TÉCNICO EM INFORMÁTICA INTEGRADO AO ENSINO\nMÉDIO - IN07 (MT) - A (2026)]')
@@ -36,7 +49,10 @@ def test_cabecalho_nao_reconhecido():
     assert extrair('') is None
 
 
-def test_de_detalhes_usa_o_guardado_ou_o_texto():
+def test_de_detalhes_le_o_texto_de_novo():
     assert de_detalhes(None) is None
-    assert de_detalhes({'identificacao_plano': None, 'texto': 'CCC0707 - X (60h) - Turma: 01 (2026.2)'}) is None
+    # Gravado como não identificado por uma versão anterior do leitor: vale o que o texto diz hoje.
+    det = {'identificacao_plano': None, 'texto': 'CCC0722 - CTS (30h)\nTurma:\n- Turma: 01 (2026.2)'}
+    assert de_detalhes(det)['periodo'] == '2026.2'
     assert de_detalhes({'texto': 'CCC0707 - X (60h) - Turma: 01 (2026.2)'})['periodo'] == '2026.2'  # validação antiga
+    assert de_detalhes({'identificacao_plano': {'periodo': '2026.1'}})['periodo'] == '2026.1'  # sem texto guardado

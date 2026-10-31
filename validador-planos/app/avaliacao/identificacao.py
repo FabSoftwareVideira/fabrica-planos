@@ -14,9 +14,12 @@ CURSOS = {
 
 CABECALHO = 1500  # a identificação fica no início do documento
 
+# Depois da carga horária vem a turma, mas o SIGAA às vezes quebra o cabeçalho com um "Turma:" vazio no
+# meio ("(30h) Turma: - Turma: 01 (2026.2)"); por isso a turma é o primeiro "Turma:" seguido de um número
+# ou letra, logo adiante. Sem ela, o plano ainda é identificado pelo código e pelo período.
 COMPONENTE = re.compile(
     r'\b(?P<codigo>(?P<sigla>[A-Z]{2})[A-Z]?\d{3,6}(?:-\d+)?)\s*-\s*(?P<disciplina>.+?)\s*\((?P<ch>\d+)\s*h\)'
-    r'\s*-\s*Turma:\s*(?P<turma>[\w.]+)'
+    r'(?:.{0,40}?Turma:\s*(?P<turma>[A-Za-z0-9]+)\b)?'
 )
 PERIODO = re.compile(r'\((?P<ano>(?:19|20)\d{2})(?:\.(?P<semestre>[12]))?\)')
 TURMA_TECNICO = re.compile(r'Turma:\s*\[(?P<curso>[^\]]+?)\s*-\s*[A-Z]{2}\d{2}\b[^\]]*\]')
@@ -54,7 +57,7 @@ def extrair(texto):
         'codigo': componente['codigo'],
         'disciplina': _titulo(componente['disciplina']),
         'carga_horaria': int(componente['ch']),
-        'turma': componente['turma'],
+        'turma': componente['turma'] or '',
         'sigla_curso': sigla,
         'curso': curso,
         'ano': ano,
@@ -65,9 +68,8 @@ def extrair(texto):
 
 
 def de_detalhes(det):
-    """Identificação guardada nos detalhes do plano; para validações antigas, tira do texto extraído."""
+    """Identificação a partir do texto guardado nos detalhes do plano. Lê o texto de novo em vez de confiar
+    na que foi gravada na validação, para que correções neste leitor valham sem validar outra vez."""
     if not det:
         return None
-    if 'identificacao_plano' in det:
-        return det['identificacao_plano']
-    return extrair(det.get('texto', ''))
+    return extrair(det.get('texto', '')) or det.get('identificacao_plano')

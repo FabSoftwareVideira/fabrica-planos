@@ -20,8 +20,8 @@ def _card(indice, linha, validacao, pdfs_guardados, ultima, ident=None):
     nome = (linha.get('Arquivo') or '').replace('2024-1 - ', '').replace('.pdf', '')
     sub = ''
     if ident:
-        sub = ('<span class="sub">' + escape(ident['codigo']) + ' · ' + escape(ident['disciplina'])
-               + ' · Turma ' + escape(ident['turma']) + ' · ' + str(ident['carga_horaria']) + 'h</span>')
+        partes = [ident['codigo'], ident['disciplina']] + (['Turma ' + ident['turma']] if ident['turma'] else [])
+        sub = '<span class="sub">' + escape(' · '.join(partes + [str(ident['carga_horaria']) + 'h'])) + '</span>'
     problemas = [rotulo for rotulo, _ in CAMPOS_COLUNA if linha.get(rotulo) != 'OK']
     topicos = []
     for rotulo, _ in CAMPOS_COLUNA:
