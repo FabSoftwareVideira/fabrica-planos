@@ -2,6 +2,9 @@
 # oauth2-proxy (login com Google), e o Ollama com GPU. O domínio e o HTTPS ficam com o Traefik do Dokploy,
 # configurados na tela do Dokploy para o serviço caddy (porta 80). As variáveis vêm da aba Environment
 # (modelo em .env.example). Para desenvolver na sua máquina, use docker-compose.dev.yml.
+# Limites de hardware: cada serviço tem teto de memória e de CPU (ajustáveis pelas variáveis *_MEMORIA e
+# *_CPUS), para que um não derrube os outros projetos da VPS. Passar do teto de memória reinicia só aquele
+# container. O número de CPUs não pode passar do que a máquina tem (o Docker recusa).
 services:
   app:
     build:
@@ -38,6 +41,18 @@ services:
       timeout: 5s
       retries: 3
       start_period: 20s
+    # Extrair o texto de 23 planos reais chegou a 340 MB; o teto deixa folga para um envio e uma validação ao mesmo tempo
+    deploy:
+      resources:
+        limits:
+          memory: ${APP_MEMORIA:-1500m}
+          cpus: "${APP_CPUS:-1.5}"
+    # Logs do Docker giram em até 3 arquivos de 10 MB (sem isso crescem até encher o disco)
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   caddy:
     # Porta de entrada: o Traefik do Dokploy repassa o domínio para cá (porta 80, na rede dokploy-network).
@@ -64,6 +79,18 @@ services:
         condition: service_healthy
       oauth2-proxy:
         condition: service_started
+    # Só repassa requisições: bem menos que isto
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+          cpus: "0.5"
+    # Logs do Docker giram em até 3 arquivos de 10 MB (sem isso crescem até encher o disco)
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   oauth2-proxy:
     # Login com Google; só aceita contas @ifc.edu.br (alunos usam @estudantes.ifc.edu.br e ficam de fora)
@@ -89,6 +116,18 @@ services:
       # Um cookie CSRF por tentativa de login: duas abas fazendo login ao mesmo tempo não se atrapalham
       - OAUTH2_PROXY_COOKIE_CSRF_PER_REQUEST=true
       - OAUTH2_PROXY_COOKIE_CSRF_EXPIRE=15m
+    # Só confere a sessão de login a cada requisição
+    deploy:
+      resources:
+        limits:
+          memory: 128m
+          cpus: "0.25"
+    # Logs do Docker giram em até 3 arquivos de 10 MB (sem isso crescem até encher o disco)
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   ollama:
     image: ollama/ollama:latest
@@ -99,6 +138,9 @@ services:
       - "${OLLAMA_BIND:-127.0.0.1}:${OLLAMA_PORT:-11434}:11434"
     environment:
       - TZ=${TZ}
+      # Um modelo carregado e uma geração por vez (o validador avalia um plano por vez): menos memória na GPU
+      - OLLAMA_MAX_LOADED_MODELS=1
+      - OLLAMA_NUM_PARALLEL=1
     volumes:
       # Modelos baixados persistem entre recriações do container
       - ollama-data:/root/.ollama
@@ -108,13 +150,24 @@ services:
       timeout: 5s
       retries: 10
       start_period: 10s
+    # Com o modelo na GPU, a memória do sistema serve para carregá-lo (qwen2.5:7b tem ~4,7 GB) e para o que
+    # não couber na placa. Teto baixo demais faz o modelo carregar devagar ou o container reiniciar.
     deploy:
       resources:
+        limits:
+          memory: ${OLLAMA_MEMORIA:-8g}
+          cpus: "${OLLAMA_CPUS:-2}"
         reservations:
           devices:
             - driver: nvidia
               count: all
               capabilities: [gpu]
+    # Logs do Docker giram em até 3 arquivos de 10 MB (sem isso crescem até encher o disco)
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 networks:
   # Rede do Traefik do Dokploy (criada na instalação do Dokploy)

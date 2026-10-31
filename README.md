@@ -218,6 +218,17 @@ docker exec -it $(docker ps -qf name=ollama) ollama pull qwen2.5:7b
 
 8. Abra `https://SEU_DOMINIO/dashboard`, entre com a conta Google institucional, envie os PDFs (se a pasta estiver vazia) e clique em **Validar agora**.
 
+**Limites de hardware:** cada serviço tem teto de memória e de CPU no `docker-compose.yml`, para não derrubar os outros projetos da VPS. Passar do teto de memória reinicia só aquele container.
+
+| Serviço | Memória | CPUs | Ajuste |
+|---|---|---|---|
+| `app` | 1500m | 1,5 | `APP_MEMORIA`, `APP_CPUS` |
+| `ollama` | 8g | 2 | `OLLAMA_MEMORIA`, `OLLAMA_CPUS` |
+| `caddy` | 256m | 0,5 | fixo |
+| `oauth2-proxy` | 128m | 0,25 | fixo |
+
+Medidas de referência: o app chegou a 340 MB extraindo 23 planos reais; o Ollama usa cerca de 1,8 GB de memória do sistema com o `qwen2.5:7b` inteiro na GPU (o modelo ocupa ~4,8 GB da placa). Se o modelo não couber na GPU, parte roda na CPU e precisa de mais memória: aumente `OLLAMA_MEMORIA`. O número de CPUs não pode passar dos núcleos da máquina (`nproc`), ou o Docker recusa subir o container. O Ollama também mantém um modelo carregado e uma geração por vez (`OLLAMA_MAX_LOADED_MODELS=1`, `OLLAMA_NUM_PARALLEL=1`), e os logs de cada container giram em até 3 arquivos de 10 MB. Acompanhe o consumo na aba **Monitoring** do recurso, no Dokploy.
+
 **Saúde dos containers:** o `app` tem *healthcheck* em `/health` e o `caddy` confere `/health` passando por ele até o app; o Caddy só sobe depois que o app está saudável. No Dokploy, o estado (`healthy`/`unhealthy`) aparece na lista de containers do recurso. Para monitorar de fora (Uptime Kuma, por exemplo), use `https://SEU_DOMINIO/health`, que responde sem login.
 
 ### Migrar do deploy anterior (Caddy com portas próprias e runner self-hosted)
