@@ -26,7 +26,13 @@ CMD ["flask", "--app", "app.web", "run", "--debug", "--host", "0.0.0.0", "--port
 
 FROM base AS producao
 
+# Usuário sem privilégios, com UID fixo: as pastas de dados do servidor (/srv/validador-planos/...)
+# pertencem a ele (ver README, "Pastas de dados"). O código fica do root, só para leitura.
+RUN useradd --system --uid 10001 --no-create-home --shell /usr/sbin/nologin validador
+
 COPY app ./app
+
+USER 10001
 
 # Um único worker: a fila e o lock ficam dentro do processo.
 CMD ["gunicorn", "-w", "1", "--threads", "4", "-b", "0.0.0.0:8000", "--access-logfile", "-", "app.web:app"]
