@@ -24,7 +24,7 @@ def _dados_grupo(ident, docentes):
     return dados
 
 
-def _card(indice, linha, validacao, pdfs_guardados, admin, ident=None, docentes=(), revisao=None):
+def _card(indice, linha, validacao, pdfs_guardados, admin, ident=None, docentes=(), revisao=None, revisavel=False):
     arquivo = linha.get('Arquivo') or ''
     partes = []
     if ident:
@@ -47,6 +47,8 @@ def _card(indice, linha, validacao, pdfs_guardados, admin, ident=None, docentes=
         'url_relatorio': '/relatorio?arquivo=' + quote(arquivo),
         'url_pdf': '/validacoes/' + validacao + '/pdf?arquivo=' + quote(arquivo) if tem_pdf else '',
         'revalidar': admin,  # revalidar é coisa de administrador
+        # Coordenação/NDE/NDB do curso: leva direto ao formulário do parecer no relatório.
+        'url_revisar': '/relatorio?arquivo=' + quote(arquivo) + '#revisao' if revisavel else '',
     }
 
 
@@ -68,8 +70,10 @@ def _filtros(linhas, grupos, revisados):
     }
 
 
-def contexto(linhas, max_mb=10, execucao=None, usuario='', admin=True, idents=None, docentes=None, revisoes=None):
-    """`revisoes`: {arquivo: resumo da revisão vigente} (servicos/revisao.py: resumo)."""
+def contexto(linhas, max_mb=10, execucao=None, usuario='', admin=True, idents=None, docentes=None, revisoes=None,
+             exportar=True, revisaveis=()):
+    """`revisoes`: {arquivo: resumo da revisão vigente} (servicos/revisao.py: resumo); `exportar`: pode baixar
+    o CSV e os zips; `revisaveis`: arquivos que o usuário pode revisar."""
     revisoes = revisoes or {}
     # Com revisão vigente, o status do revisor substitui o da IA em tudo (resumo, filtros, agrupamento).
     linhas = [dict(l, **{'Status Geral': revisoes[l.get('Arquivo')]['status']}) if l.get('Arquivo') in revisoes else l
@@ -85,6 +89,7 @@ def contexto(linhas, max_mb=10, execucao=None, usuario='', admin=True, idents=No
     ctx = {
         'max_mb': int(max_mb),
         'admin': admin,
+        'exportar': exportar,
         'usuario': usuario,
         'total': total,
         'resumo': [('Aprovados', ok, pct(ok), '#22c55e'), ('Pendentes', pendente, pct(pendente), '#eab308'),
@@ -100,7 +105,8 @@ def contexto(linhas, max_mb=10, execucao=None, usuario='', admin=True, idents=No
         pdfs = set(execucao.pdfs())
         idents, docentes = idents or {}, docentes or {}
         ctx['cards'] = [_card(i, l, execucao.id, pdfs, admin, idents.get(l.get('Arquivo')),
-                              docentes.get(l.get('Arquivo'), ()), revisoes.get(l.get('Arquivo')))
+                              docentes.get(l.get('Arquivo'), ()), revisoes.get(l.get('Arquivo')),
+                              l.get('Arquivo') in revisaveis)
                         for i, l in enumerate(linhas)]
         grupos = sorted({identificacao.grupo_curso_periodo(idents.get(l.get('Arquivo'))) for l in linhas},
                         key=lambda g: (g[2], g[1]))

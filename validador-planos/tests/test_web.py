@@ -162,7 +162,7 @@ def test_relatorio_navega_entre_planos_e_volta_ao_card(cliente):
     assert '<span class="off">‹ Anterior</span>' in primeiro
 
     dashboard = c.get('/dashboard').get_data(as_text=True)
-    assert 'id="plano-1"' in dashboard and 'const MAX_MB = 1, ADMIN = true;' in dashboard
+    assert 'id="plano-1"' in dashboard and 'const MAX_MB = 1, ADMIN = true, EXPORTAR = true;' in dashboard
 
 
 def test_relatorio_de_plano_desconhecido(cliente):
@@ -278,7 +278,7 @@ def test_servidor_consulta_mas_nao_administra(com_login):
     # Quem está logado e o papel aparecem no cabeçalho
     assert 'fulano@ifc.edu.br' in html and 'papel-usuario">Consulta<' in html and 'href="/oauth2/sign_out"' in html
     assert 'id="validar"' not in html and 'id="soltar"' not in html and 'class="revalidar"' not in html
-    assert 'ADMIN = false;' in html and 'href="/meus-planos"' in html and 'href="/administracao"' not in html
+    assert 'ADMIN = false,' in html and 'href="/meus-planos"' in html and 'href="/administracao"' not in html
     r = c.get('/administracao', headers=SERVIDOR)
     assert r.status_code == 302 and r.headers['Location'].endswith('/dashboard')
     assert 'id="revalidar"' not in c.get('/relatorio?arquivo=a.pdf', headers=SERVIDOR).get_data(as_text=True)
@@ -691,3 +691,32 @@ def test_sem_login_simulado_o_cookie_nao_vale(com_login):
     assert c.get('/planos').status_code == 401
     assert c.get('/dev/login').status_code == 401
     assert c.post('/dev/login', data={'email': 'admin@ifc.edu.br'}).status_code == 401
+
+
+def test_so_coordenacao_e_administracao_baixam_csv_e_zip(com_login):
+    c, planos = com_login
+    execucao = _plano_cc(c, planos)
+    (Path(execucao.pdfs_dir) / 'web.pdf').write_bytes(PDF)
+    _dar_papel(c, 'nde@ifc.edu.br')
+    _dar_papel(c, 'coord@ifc.edu.br', papel='coordenador')
+    coord = {'X-Usuario-Email': 'coord@ifc.edu.br'}
+    rotas = (f'/validacoes/{execucao.id}/csv', f'/validacoes/{execucao.id}/pdfs.zip')
+    for cab in (SERVIDOR, NDE):
+        assert all(c.get(r, headers=cab).status_code == 403 for r in rotas)
+        html = c.get('/dashboard', headers=cab).get_data(as_text=True)
+        assert '/csv"' not in html and 'pdfs.zip' not in html and 'EXPORTAR = false' in html
+        # cada plano e PDF continua abrindo
+        assert c.get(f'/validacoes/{execucao.id}/pdf?arquivo=web.pdf', headers=cab).status_code == 200
+    for cab in (coord, ADMIN):
+        assert all(c.get(r, headers=cab).status_code == 200 for r in rotas)
+        assert 'EXPORTAR = true' in c.get('/dashboard', headers=cab).get_data(as_text=True)
+
+
+def test_card_tem_botao_revisar_para_quem_pode_revisar(com_login):
+    c, planos = com_login
+    _plano_cc(c, planos)
+    _dar_papel(c, 'nde@ifc.edu.br')
+    assert 'class="revisar" href="/relatorio?arquivo=web.pdf#revisao"' in c.get(
+        '/dashboard', headers=NDE).get_data(as_text=True)
+    for cab in (SERVIDOR, ADMIN):
+        assert 'class="revisar"' not in c.get('/dashboard', headers=cab).get_data(as_text=True)

@@ -8,7 +8,7 @@ from flask import Blueprint, request, send_file, send_from_directory
 
 from ..armazenamento import historico
 from ..avaliacao import pipeline
-from .comum import json_, servicos, texto
+from .comum import json_, servicos, somente_exportadores, texto
 
 # Histórico das validações: resumo de cada uma, CSV, PDFs guardados e zip da última.
 bp = Blueprint('validacoes', __name__, url_prefix='/validacoes')
@@ -28,6 +28,7 @@ def listar_validacoes():
 
 
 @bp.get('/<id_>/csv')
+@somente_exportadores
 def baixar_csv(id_):
     execucao, erro = _execucao_ou_404(id_)
     if erro:
@@ -54,6 +55,7 @@ def _nome_de_arquivo(titulo):
 
 
 @bp.get('/<id_>/pdfs.zip')
+@somente_exportadores
 def baixar_zip(id_):
     """Zip com os PDFs da validação; com ?arquivo=... (repetido), só esses (o zip de um grupo da dashboard),
     e ?nome= dá o nome do arquivo baixado."""

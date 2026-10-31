@@ -58,6 +58,24 @@ def somente_admin(rota):
     return verificar
 
 
+def pode_exportar():
+    """Zip dos PDFs e CSV da validação: administradores e coordenadores de curso. Os demais abrem cada
+    plano e PDF pelo dashboard."""
+    if eh_admin():
+        return True
+    usuario = email()
+    return bool(usuario) and any(papel == 'coordenador' for _, papel in servicos().usuarios.papeis(usuario))
+
+
+def somente_exportadores(rota):
+    @wraps(rota)
+    def verificar(*args, **kwargs):
+        if not pode_exportar():
+            return texto('Apenas a coordenação de curso ou a administração podem baixar o CSV e o zip dos PDFs.', 403)
+        return rota(*args, **kwargs)
+    return verificar
+
+
 def json_(obj, status=200):
     resp = jsonify(obj)
     resp.status_code = status

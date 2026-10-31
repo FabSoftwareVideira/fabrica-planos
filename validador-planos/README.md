@@ -54,12 +54,13 @@ No dashboard é possível:
 - abrir o **Relatório** de cada plano avaliado: a avaliação de cada campo ao lado do texto extraído para ele, o texto completo do PDF, o prompt enviado e a resposta da IA. A barra do topo volta ao dashboard já no card do plano (ou `Esc`) e passa para o plano anterior/próximo (ou `←`/`→`). Planos validados antes desta versão só mostram o texto depois de uma nova validação;
 - **revalidar um plano só** (botão ↻ no card, no relatório ou na lista de PDFs, útil depois que o docente corrige o PDF): a linha dele na validação atual é substituída (ou acrescentada, se for um PDF novo), sem rodar o lote;
 - ver os resultados agrupados, com o resumo de cada grupo, escolhendo em **Agrupar por**: curso e período (padrão; ver "Curso e período"), só período, só curso, docente, situação (aprovados, pendentes…) ou sem agrupar. O agrupamento é feito no navegador e a escolha fica guardada nele;
-- baixar o **zip com os PDFs de um grupo** (link no cabeçalho do grupo): leva os planos visíveis nele, respeitando os filtros;
+- baixar o **zip com os PDFs de um grupo** (link no cabeçalho do grupo): leva os planos visíveis nele, respeitando os filtros (só coordenação de curso e administração);
 - filtrar os resultados por texto (disciplina ou docente, sem diferenciar acentos), curso e período, status e campo com problema; os filtros ficam guardados enquanto a aba estiver aberta;
-- baixar o CSV e o **zip com os PDFs** da validação atual;
+- baixar o CSV e o **zip com os PDFs** da validação atual (só coordenação de curso e administração; os demais abrem cada plano e PDF pelo card);
+- ir direto ao parecer pelo botão **Revisar** do card, que aparece para a coordenação, o NDE e o NDB do curso do plano;
 - ver quais planos já foram **revisados** pela coordenação, NDE ou NDB (selo "Revisado" e o parecer no card), filtrar ou agrupar por revisão. Com revisão, vale o status do revisor (ver "Revisão manual").
 
-Enquanto uma validação geral roda, envio e exclusão pelo administrador ficam bloqueados; o envio pelo professor (em "Meus planos") é aceito e avaliado em seguida. O acesso exige login com a conta Google `@ifc.edu.br` (ver "Login"). Qualquer servidor consulta resultados, relatórios, PDFs, CSV e zip e entrega os próprios planos; só os administradores (`ADMIN_EMAILS`) veem e usam **Validar agora**, ↻ Revalidar, envio e exclusão de quaisquer PDFs.
+Enquanto uma validação geral roda, envio e exclusão pelo administrador ficam bloqueados; o envio pelo professor (em "Meus planos") é aceito e avaliado em seguida. O acesso exige login com a conta Google `@ifc.edu.br` (ver "Login"). Qualquer servidor consulta resultados, relatórios e PDFs e entrega os próprios planos; o CSV e os zips ficam com quem tem papel de coordenação em algum curso e com os administradores; só os administradores (`ADMIN_EMAILS`) veem e usam **Validar agora**, ↻ Revalidar, envio e exclusão de quaisquer PDFs.
 
 ## Curso e período
 
@@ -111,8 +112,8 @@ Em `/meus-planos` cada servidor entrega os próprios planos: o PDF enviado vai p
 | GET | `/relatorio?arquivo=nome.pdf` | Relatório HTML do plano, com o painel de revisão; `404` se o plano não estiver na validação atual |
 | POST | `/revisao` | Parecer (`arquivo`, `status` = `OK`, `PENDENTE` ou `REPROVADO`, `comentario`) ou, com `acao=desfazer`, desfaz a revisão; volta ao relatório. `403` para quem não tem papel no curso do plano |
 | GET | `/validacoes` | Resumo da validação atual (lista com um item; vazia antes da primeira) |
-| GET | `/validacoes/ID/csv` | CSV da validação |
-| GET | `/validacoes/ID/pdfs.zip` | Zip com os PDFs validados. Com `?arquivo=a.pdf&arquivo=b.pdf`, só esses (zip de um grupo) e `?nome=` entra no nome do arquivo baixado |
+| GET | `/validacoes/ID/csv` | CSV da validação (coordenação e administração) |
+| GET | `/validacoes/ID/pdfs.zip` | Zip com os PDFs validados (coordenação e administração). Com `?arquivo=a.pdf&arquivo=b.pdf`, só esses (zip de um grupo) e `?nome=` entra no nome do arquivo baixado |
 | GET | `/validacoes/ID/pdf?arquivo=nome.pdf` | O PDF como estava na validação |
 | GET | `/pdf?arquivo=nome.pdf` | O PDF atual da pasta de planos |
 | GET | `/` | Página inicial pública: apresentação do projeto e botão **Entrar com Google** |

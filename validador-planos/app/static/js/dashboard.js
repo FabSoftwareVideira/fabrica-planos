@@ -43,9 +43,12 @@ function agrupar() {
         const n = s => g.cards.filter(c => c.dataset.status === s).length;
         const ok = n('OK'), pend = n('PENDENTE');
         resumo.textContent = `${g.cards.length} plano(s) · ${ok} OK · ${pend} pendente(s) · ${g.cards.length - ok - pend} com problemas`;
-        const zip = document.createElement('a'); zip.className = 'zip'; zip.innerHTML = '<i class="fas fa-file-archive" aria-hidden="true"></i> PDFs (zip)';
-        zip.dataset.titulo = g.titulo;
-        cab.append(g.titulo, resumo, zip);
+        cab.append(g.titulo, resumo);
+        if (EXPORTAR) {  // zip do grupo: só coordenação e administração
+          const zip = document.createElement('a'); zip.className = 'zip'; zip.innerHTML = '<i class="fas fa-file-archive" aria-hidden="true"></i> PDFs (zip)';
+          zip.dataset.titulo = g.titulo;
+          cab.append(zip);
+        }
         secao.append(cab);
       }
       secao.append(...g.cards);

@@ -17,22 +17,17 @@
 
 <main id="main">
   <div class="container-lg py-4">
-    {% if usuario and not admin %}
-    <p class="papel"><i class="fas fa-info-circle" aria-hidden="true"></i> Para entregar o seu plano de ensino, use <a href="/meus-planos">Meus planos</a>.</p>
-    {% endif %}
-
-    {% if execucao is none %}
-    <div class="cab-resultados"><h2>Resultados</h2></div>
-    {% else %}
+    {% if execucao is not none %}
     <div class="cab-resultados">
-      <h2>Resultados</h2>
+      <p class="meta-validacao">Validação concluída em {{ meta.finalizado_em|data_br }}
+        {%- if meta.modelo %} · modelo {{ meta.modelo }}{% endif %}
+        {%- if meta.erro %} · <span class="erro">interrompida após {{ meta.processados or 0 }} de {{ meta.total or 0 }} plano(s): {{ meta.erro }}</span>{% endif -%}
+      </p>
+      {% if exportar %}
       {% if tem_pdfs %}<a class="br-button secondary small" href="/validacoes/{{ execucao.id }}/pdfs.zip"><i class="fas fa-file-archive" aria-hidden="true"></i> PDFs (zip)</a>{% endif %}
       <a class="br-button secondary small" href="/validacoes/{{ execucao.id }}/csv"><i class="fas fa-file-csv" aria-hidden="true"></i> CSV</a>
+      {% endif %}
     </div>
-    <p class="meta-validacao">Concluída em {{ meta.finalizado_em|data_br }}
-      {%- if meta.modelo %} · modelo {{ meta.modelo }}{% endif %}
-      {%- if meta.erro %} · <span class="erro">interrompida após {{ meta.processados or 0 }} de {{ meta.total or 0 }} plano(s): {{ meta.erro }}</span>{% endif -%}
-    </p>
     {% endif %}
 
     <div class="resumo">
@@ -78,6 +73,7 @@
           <span class="acoes">
             {{ tag_status(c.status) }}
             {% if c.revisao %}<span class="selo-revisao" title="Revisado por {{ c.revisao.revisor }} ({{ c.revisao.papel }}) em {{ c.revisao.revisado_em|data_br }}"><i class="fas fa-user-check" aria-hidden="true"></i> Revisado</span>{% endif %}
+            {% if c.url_revisar %}<a class="revisar" href="{{ c.url_revisar }}" onclick="event.stopPropagation()" title="Abre o relatório no formulário do parecer"><i class="fas fa-{{ 'edit' if c.revisao else 'user-check' }}" aria-hidden="true"></i> {{ 'Alterar parecer' if c.revisao else 'Revisar' }}</a>{% endif %}
             <a href="{{ c.url_relatorio }}" onclick="event.stopPropagation()"><i class="fas fa-file-alt" aria-hidden="true"></i> Relatório</a>
             {% if c.url_pdf %}<a href="{{ c.url_pdf }}" target="_blank" rel="noopener" onclick="event.stopPropagation()"><i class="fas fa-file-pdf" aria-hidden="true"></i> PDF</a>{% endif %}
             {% if c.revalidar %}<button type="button" class="revalidar" data-arquivo="{{ c.arquivo }}" title="Valida de novo só este plano, com o PDF atual da pasta"><i class="fas fa-redo" aria-hidden="true"></i> Revalidar</button>{% endif %}
@@ -116,7 +112,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script>const MAX_MB = {{ max_mb }}, ADMIN = {{ 'true' if admin else 'false' }};</script>
+<script>const MAX_MB = {{ max_mb }}, ADMIN = {{ 'true' if admin else 'false' }}, EXPORTAR = {{ 'true' if exportar else 'false' }};</script>
 <script src="{{ estatico('js/status.js') }}"></script>
 <script src="{{ estatico('js/dashboard.js') }}"></script>
 {% endblock %}

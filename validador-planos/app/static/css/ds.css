@@ -21,6 +21,7 @@ main{flex:1}
   text-decoration:none;white-space:nowrap}
 .cabecalho .menu a:not(.br-button):hover{background:var(--blue-5)}
 .cabecalho .menu a.ativo{background:var(--interactive);color:var(--pure-0)}
+.cabecalho .menu a.ativo:hover{background:var(--blue-warm-vivid-80)}  /* o :hover acima clareava o fundo do texto branco */
 .cabecalho .conta{display:flex;align-items:center;gap:var(--spacing-scale-2x);padding-left:var(--spacing-scale-2x);
   border-left:1px solid var(--gray-10)}
 .cabecalho .usuario{display:flex;align-items:center;gap:var(--spacing-scale-base);color:var(--gray-70);min-width:0}

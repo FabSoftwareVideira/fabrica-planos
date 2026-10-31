@@ -1,11 +1,10 @@
 /* Dashboard (sobre o Design System gov.br e ds.css): resultados, resumo, filtros e cards dos planos. */
 h2{font-size:var(--font-size-scale-up-02);margin:0}
-.papel{margin:0 0 var(--spacing-scale-2x);font-size:var(--font-size-scale-down-01);color:var(--gray-60)}
 
-/* Cabeçalho dos resultados: título, validação exibida e downloads */
+/* Cabeçalho dos resultados: quando foi a validação e os downloads (coordenação e administração) */
 .cab-resultados{display:flex;align-items:center;gap:var(--spacing-scale-base) var(--spacing-scale-2x);flex-wrap:wrap;
-  margin:var(--spacing-scale-3x) 0 var(--spacing-scale-half)}
-.cab-resultados h2{margin-right:auto}
+  margin:0 0 var(--spacing-scale-2x)}
+.cab-resultados .meta-validacao{margin:0 auto 0 0}
 select,.busca input{font:inherit;font-size:var(--font-size-scale-base);height:40px;padding:0 var(--spacing-scale-2x);
   border:1px solid var(--gray-40);border-radius:var(--surface-rounder-sm);background:var(--pure-0);color:var(--gray-80);max-width:100%}
 select:focus,.busca input:focus{outline:2px solid var(--focus-color,#c2850c);outline-offset:2px}
@@ -49,6 +48,9 @@ select:focus,.busca input:focus{outline:2px solid var(--focus-color,#c2850c);out
 .plano .sub{display:block;font-size:var(--font-size-scale-down-01);color:var(--gray-60);margin-top:2px}
 .plano .acoes{display:flex;flex-wrap:wrap;align-items:center;gap:var(--spacing-scale-base) var(--spacing-scale-2x)}
 .plano .acoes a,.plano .revalidar{font-size:var(--font-size-scale-down-01);font-weight:var(--font-weight-semi-bold);white-space:nowrap}
+.plano .acoes a.revisar{display:inline-flex;align-items:center;gap:var(--spacing-scale-half);padding:2px var(--spacing-scale-base);
+  border-radius:var(--surface-rounder-pill);background:var(--interactive);color:var(--pure-0);text-decoration:none}
+.plano .acoes a.revisar:hover{background:var(--blue-warm-vivid-80)}
 .revalidar{border:0;background:none;color:var(--interactive);font:inherit;cursor:pointer;padding:0}
 .revalidar:disabled{color:var(--gray-20);cursor:not-allowed}
 .plano .seta{color:var(--gray-50);font-size:var(--font-size-scale-down-01);white-space:nowrap}
@@ -71,7 +73,7 @@ select:focus,.busca input:focus{outline:2px solid var(--focus-color,#c2850c);out
 
 /* Celular: campos ocupando a linha toda (fonte de 16px nos campos: o iOS dá zoom abaixo disso) */
 @media (max-width:600px){
-  .cab-resultados h2{flex-basis:100%}
+  .cab-resultados .meta-validacao{flex-basis:100%}
   .cab-resultados select,.filtros select,.agrupar{flex:1 1 100%}
   .agrupar select{flex:1;min-width:0}
   .busca{flex-basis:100%}
