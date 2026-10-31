@@ -44,9 +44,10 @@ Enquanto uma validação roda, envio e exclusão ficam bloqueados. O acesso exig
 | GET | `/validacoes/ID/pdfs.zip` | Zip com os PDFs validados; só para a última validação (`404` nas demais) |
 | GET | `/validacoes/ID/pdf?arquivo=nome.pdf` | O PDF como estava na validação (só a última) |
 | GET | `/pdf?arquivo=nome.pdf` | O PDF atual da pasta de planos |
+| GET | `/` | Página inicial pública: apresentação do projeto e botão **Entrar com Google** |
 | GET | `/health` | `{"status":"ok"}` |
 
-Com login exigido, toda rota (exceto `/health`) responde `401` sem o e-mail repassado pelo proxy, e `POST /validar`, `POST /planos`, `DELETE /planos` e `DELETE /planos/todos` respondem `403` para quem não está em `ADMIN_EMAILS`.
+Com login exigido, toda rota (exceto `/` e `/health`) responde `401` sem o e-mail repassado pelo proxy, e `POST /validar`, `POST /planos`, `DELETE /planos` e `DELETE /planos/todos` respondem `403` para quem não está em `ADMIN_EMAILS`.
 
 Validação automática todos os dias na hora `AGENDAMENTO_HORA` (padrão 5h, fuso `TZ`).
 

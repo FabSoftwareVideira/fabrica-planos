@@ -7,6 +7,12 @@
 		reverse_proxy oauth2-proxy:4180
 	}
 
+	# Página inicial, pública: apresenta o projeto e tem o botão de login
+	handle / {
+		request_header -X-Usuario-Email
+		reverse_proxy app:8000
+	}
+
 	handle {
 		# route mantém a ordem: o cabeçalho vindo do navegador é apagado antes de o oauth2-proxy
 		# preencher o e-mail de quem fez login; o app confia nele para saber quem é administrador.

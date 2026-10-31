@@ -262,12 +262,16 @@ ADMIN = {'X-Usuario-Email': 'Admin@ifc.edu.br'}
 SERVIDOR = {'X-Usuario-Email': 'fulano@ifc.edu.br'}
 
 
-def test_sem_login_so_responde_health(com_login):
+def test_sem_login_so_responde_inicio_e_health(com_login):
     c, _ = com_login
     assert c.get('/dashboard').status_code == 401
     assert c.get('/planos').status_code == 401
     assert c.post('/validar').status_code == 401
     assert c.get('/health').status_code == 200
+    inicio = c.get('/')
+    assert inicio.status_code == 200
+    html = inicio.get_data(as_text=True)
+    assert 'href="/dashboard"' in html and 'Entrar com Google' in html and 'Horário Atendimento' in html
 
 
 def test_servidor_consulta_mas_nao_administra(com_login):

@@ -10,7 +10,7 @@ from functools import wraps
 
 from flask import Flask, Response, jsonify, redirect, request, send_file, send_from_directory
 
-from . import csvsaida, dashboard, detalhes, historico, pipeline, relatorio
+from . import csvsaida, dashboard, detalhes, historico, inicio, pipeline, relatorio
 from .andamento import Andamento
 from .config import carregar
 from .extrator import PdfIlegivel, extrair_texto
@@ -47,10 +47,13 @@ def _eh_admin():
     return not cfg.exigir_login or _email() in cfg.admins
 
 
+PUBLICAS = {'/', '/health'}
+
+
 @app.before_request
 def _exigir_login():
     # O proxy só deixa passar quem fez login; isto barra quem chegar ao app sem passar por ele.
-    if cfg.exigir_login and not _email() and request.path != '/health':
+    if cfg.exigir_login and not _email() and request.path not in PUBLICAS:
         return _texto('Login necessário.', 401)
 
 
@@ -79,7 +82,8 @@ def _iniciar_se_livre():
 # Os caminhos /webhook/... mantêm compatíveis a página validacao.html e os links antigos do n8n.
 @app.get('/')
 def raiz():
-    return redirect('/dashboard')
+    """Página inicial pública, com o botão de login."""
+    return Response(inicio.gerar_html(), mimetype='text/html; charset=utf-8')
 
 
 def _revalidar_se_livre(nome):
