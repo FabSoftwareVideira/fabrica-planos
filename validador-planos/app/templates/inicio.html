@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+{#- Página pública (sem login): apresenta o projeto e leva ao login com a conta Google institucional. -#}
+
+{% block estilos %}
+  {#- Embutido em vez de /static: aqui ainda não há login, e /static passa pelo login do proxy. #}
+  <style>
+{% include 'inicio.css' %}
+  </style>
+{% endblock %}
+
+{% block corpo %}
+<main class="pagina">
+  <header class="topo">
+    <h1>📋 Validação de Planos de Ensino</h1>
+    <p>Conferência automática dos planos de ensino do IFC: cada plano é lido e avaliado seção por seção, apontando o que está completo e o que precisa de ajuste antes da publicação.</p>
+    {# /dashboard exige login: sem sessão, o proxy leva ao Google e volta para o painel. #}
+    <a class="google" href="/dashboard">
+      {%- include 'logo_google.svg' -%}
+      Entrar com Google</a>
+    <p class="restrito">Acesso restrito a servidores, com a conta institucional @ifc.edu.br.</p>
+  </header>
+
+  <section class="painel">
+    <h2>Como funciona</h2>
+    <ol class="passos">
+      {% for titulo, descricao in passos %}
+      <li><strong>{{ titulo }}</strong>{{ descricao }}</li>
+      {% endfor %}
+    </ol>
+  </section>
+
+  <section class="painel">
+    <h2>O que é verificado</h2>
+    <div class="campos">
+      {% for rotulo, _ in campos %}<span>{{ rotulo }}</span>{% endfor %}
+    </div>
+    <div class="status">
+      {% for status, cor_status, descricao in legenda %}
+      <span><b style="background:{{ cor_status }}">{{ status }}</b>{{ descricao }}</span>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="painel">
+    <h2>Privacidade</h2>
+    <p style="margin:0;color:#4b5563">A IA roda no próprio servidor do campus: o conteúdo dos planos não é enviado a serviços externos. O login com Google serve apenas para confirmar que quem acessa é servidor da instituição.</p>
+  </section>
+
+  <p class="rodape">Instituto Federal Catarinense</p>
+</main>
+{% endblock %}

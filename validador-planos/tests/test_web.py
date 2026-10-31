@@ -155,7 +155,8 @@ def test_relatorio_navega_entre_planos_e_volta_ao_card(cliente):
     html = c.get('/relatorio?arquivo=b.pdf').get_data(as_text=True)
     assert 'href="/dashboard#plano-1"' in html
     v = 'validacao=' + execucao.id
-    assert f'href="/relatorio?{v}&arquivo=a.pdf"' in html and f'href="/relatorio?{v}&arquivo=c.pdf"' in html
+    # No HTML o & do endereço vem escapado (&amp;), como manda a especificação
+    assert f'href="/relatorio?{v}&amp;arquivo=a.pdf"' in html and f'href="/relatorio?{v}&amp;arquivo=c.pdf"' in html
     assert 'Plano 2 de 3' in html
     primeiro = c.get('/relatorio?arquivo=a.pdf').get_data(as_text=True)
     assert '<span class="off">‹ Anterior</span>' in primeiro
@@ -425,3 +426,17 @@ def test_meus_planos_agrupados_por_curso_e_periodo(com_login, monkeypatch):
         ('outro.pdf', 'Sem identificação de curso e período'),
     ]
     assert planos[0]['componente'] == 'CCC0723 · Desenvolvimento Web I · Turma 01'
+
+
+def test_paginas_usam_css_e_js_de_static_com_versao(cliente):
+    import re
+    c, _ = cliente
+    for pagina in ('/dashboard', '/meus-planos'):
+        html = c.get(pagina).get_data(as_text=True)
+        arquivos = re.findall(r'(?:href|src)="(/static/[^"?]+)\?v=[0-9a-f]{10}"', html)
+        assert arquivos, pagina
+        for caminho in arquivos:
+            assert c.get(caminho).status_code == 200
+    # A página inicial é pública e /static passa pelo login: o CSS dela vem embutido.
+    inicio = c.get('/').get_data(as_text=True)
+    assert '<style>' in inicio and '/static/' not in inicio

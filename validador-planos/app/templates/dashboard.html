@@ -1,0 +1,143 @@
+{% extends 'base.html' %}
+{% from '_macros.html' import selo %}
+{#- Dashboard: painel de validação, gestão dos PDFs (administradores), histórico, resumo e um card por plano.
+    O andamento (/status), a lista de PDFs (/planos), os filtros e o agrupamento ficam em static/js/dashboard.js. -#}
+
+{% block estilos %}
+  <link rel="stylesheet" href="{{ estatico('css/painel.css') }}">
+{% endblock %}
+
+{% block corpo %}
+<div class="pagina">
+  <h1>📋 Validação de Planos de Ensino</h1>
+  {% if usuario %}
+  <p class="usuario">{{ usuario }} · {{ 'administrador' if admin else 'consulta' }} · <a href="/meus-planos">Meus planos</a> · <a href="/oauth2/sign_out">Sair</a></p>
+  {% endif %}
+
+  <section class="painel">
+    <h2>Validação</h2>
+    <div class="linha">
+      {% if admin %}<button class="botao" id="validar">▶ Validar agora</button>{% endif %}
+      <p class="msg" id="status-msg">Carregando…</p>
+    </div>
+    <div class="barra" id="barra" hidden><div></div></div>
+  </section>
+
+  {% if admin %}
+  {# Só para administradores: envio e exclusão dos PDFs. #}
+  <section class="painel">
+    <div class="cab-planos">
+      <h2>Planos (PDFs) <span class="msg" id="qtd-planos"></span></h2>
+      <button class="excluir" id="excluir-todos" type="button">Excluir todos</button>
+    </div>
+    <div class="soltar" id="soltar">Arraste PDFs para cá ou
+      <button class="botao leve" id="escolher" type="button">escolha arquivos</button>
+      <input type="file" id="arquivo" accept="application/pdf,.pdf" multiple hidden>
+      <p class="dica">Somente PDF com texto selecionável (não digitalizado), até {{ max_mb }} MB por arquivo.</p>
+    </div>
+    <p class="msg" id="envio-msg" hidden></p>
+    <ul class="arquivos" id="lista"></ul>
+  </section>
+  {% else %}
+  {# No lugar do painel de PDFs: leva o professor à entrega do próprio plano. #}
+  <section class="painel">
+    <h2>Entregar plano de ensino</h2>
+    <div class="linha">
+      <p class="msg">Envie o PDF do seu plano e acompanhe a avaliação automática.</p>
+      <a class="botao" href="/meus-planos">Meus planos</a>
+    </div>
+  </section>
+  {% endif %}
+
+  {% if execucao is none %}
+  <div class="cab-resultados"><h2>Resultados</h2></div>
+  {% else %}
+  <div class="cab-resultados">
+    <h2>Resultados</h2>
+    <select id="historico" aria-label="Validação exibida">
+      {% for id, rotulo, atual in historico %}
+      <option value="{{ id }}"{% if atual %} selected{% endif %}>{{ rotulo }}</option>
+      {% endfor %}
+    </select>
+    {% if tem_pdfs %}<a class="botao leve" href="/validacoes/{{ execucao.id }}/pdfs.zip">⬇ PDFs (zip)</a>{% endif %}
+    <a class="botao leve" href="/validacoes/{{ execucao.id }}/csv">⬇ CSV</a>
+  </div>
+  <p class="meta-validacao">Concluída em {{ meta.finalizado_em|data_br }}
+    {%- if meta.modelo %} · modelo {{ meta.modelo }}{% endif %}
+    {%- if meta.erro %} · <span style="color:#dc2626">interrompida após {{ meta.processados or 0 }} de {{ meta.total or 0 }} plano(s): {{ meta.erro }}</span>{% endif -%}
+  </p>
+  {% if antiga %}
+  <div class="antiga">Você está vendo uma validação anterior. Os PDFs dela não são guardados, só o resultado. <a href="/dashboard">Ver a última validação</a></div>
+  {% endif %}
+  {% endif %}
+
+  <div class="resumo">
+    <div class="cartao"><div class="rot">Total de planos</div><div class="num">{{ total }}</div></div>
+    {% for rotulo, valor, pct, cor_cartao in resumo %}
+    <div class="cartao" style="border-left:4px solid {{ cor_cartao }}"><div class="rot">{{ rotulo }}</div><div class="num" style="color:{{ cor_cartao }}">{{ valor }} <span>({{ pct }}%)</span></div></div>
+    {% endfor %}
+  </div>
+
+  {% if cards %}
+  {% set f = filtros %}
+  <div class="filtros" id="filtros">
+    <label class="agrupar">Agrupar por <select id="agrupar">
+      {% for valor, rotulo in f.agrupamentos %}<option value="{{ valor }}">{{ rotulo }}</option>{% endfor %}
+    </select></label>
+    <input type="search" id="busca" placeholder="Buscar por disciplina ou docente" aria-label="Buscar planos">
+    {% if f.grupos %}
+    <select id="grupo" aria-label="Curso e período"><option value="">Todos os cursos e períodos</option>
+      {% for chave, titulo in f.grupos %}<option value="{{ chave }}">{{ titulo }}</option>{% endfor %}
+    </select>
+    {% endif %}
+    <div class="chips" role="group" aria-label="Filtrar por status">
+      {% for status, rotulo, n in f.chips %}
+      <button type="button" class="chip" data-status="{{ status }}" aria-pressed="{{ 'true' if loop.first else 'false' }}">{{ rotulo }} ({{ n }})</button>
+      {% endfor %}
+    </div>
+    <select id="campo" aria-label="Campo com problema"><option value="">Qualquer campo</option>
+      {% for rotulo in f.campos %}<option value="{{ rotulo }}">{{ rotulo }}</option>{% endfor %}
+    </select>
+    <span class="contagem" id="contagem"></span>
+    <button type="button" class="limpar" id="limpar-filtros" hidden>Limpar filtros</button>
+  </div>
+
+  <div id="resultados" data-validacao="{{ execucao.id }}">
+    {% for c in cards %}
+    <details id="plano-{{ c.indice }}" class="plano" data-indice="{{ c.indice }}" data-arquivo="{{ c.arquivo }}" data-status="{{ c.status }}" data-problemas="{{ c.problemas }}"{% if c.url_pdf %} data-pdf="1"{% endif %}{% for nome, valor in c.dados %} data-{{ nome }}="{{ valor }}"{% endfor %}>
+      {# Título e ações quebram em duas linhas quando não cabem lado a lado (celular). #}
+      <summary>
+        <span class="titulo"><span class="nome">{{ c.nome }}</span>{% if c.sub %}<span class="sub">{{ c.sub }}</span>{% endif %}</span>
+        <span class="acoes">
+          {{ selo(c.status) }}
+          <a href="{{ c.url_relatorio }}" onclick="event.stopPropagation()">📝 Relatório</a>
+          {% if c.url_pdf %}<a href="{{ c.url_pdf }}" target="_blank" rel="noopener" onclick="event.stopPropagation()">📄 Abrir PDF</a>{% endif %}
+          {% if c.revalidar %}<button type="button" class="revalidar" data-arquivo="{{ c.arquivo }}" title="Valida de novo só este plano, com o PDF atual da pasta">↻ Revalidar</button>{% endif %}
+          <span class="seta">▼ detalhes</span>
+        </span>
+      </summary>
+      <div class="corpo">
+        {% if c.observacao %}<p class="obs-geral">{{ c.observacao }}</p>{% endif %}
+        <div class="topicos">
+          {% for rotulo, status, obs in c.topicos %}
+          <div class="topico" style="--cor:{{ cor(status) }}">
+            <div class="cab"><span class="rotulo">{{ rotulo }}</span>{{ selo(status) }}</div>
+            {% if obs %}<div class="obs">{{ obs }}</div>{% endif %}
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </details>
+    {% endfor %}
+  </div>
+  <p class="msg" id="sem-resultado" hidden>Nenhum plano corresponde aos filtros.</p>
+  {% else %}
+  <p style="color:#6b7280">Nenhuma validação concluída ainda.</p>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>const MAX_MB = {{ max_mb }}, ADMIN = {{ 'true' if admin else 'false' }};</script>
+<script src="{{ estatico('js/dashboard.js') }}"></script>
+{% endblock %}

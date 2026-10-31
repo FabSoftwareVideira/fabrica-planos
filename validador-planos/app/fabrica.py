@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from flask import Flask
 
 from . import rotas
+from .paginas import comum as paginas
 from .config import Config, carregar
 from .servicos.planos import PastaDePlanos
 from .servicos.validador import Validador
@@ -24,6 +25,7 @@ def criar_app(cfg=None, executar=None):
     app = Flask(__name__)
     app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # soma dos PDFs de um envio
     app.extensions['servicos'] = Servicos(cfg, validador, PastaDePlanos(cfg, validador))
+    paginas.registrar(app)
     rotas.registrar(app)
     validador.preparar_historico()
     if cfg.agendar:

@@ -41,9 +41,5 @@ def texto(mensagem, status):
     return Response(mensagem, status, mimetype='text/plain; charset=utf-8')
 
 
-def html(conteudo):
-    return Response(conteudo, mimetype='text/html; charset=utf-8')
-
-
 def ocupado():
     return json_({'status': 'ocupado', 'mensagem': 'Já existe uma validação em andamento'}, 409)

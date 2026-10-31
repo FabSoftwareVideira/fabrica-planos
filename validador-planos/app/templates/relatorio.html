@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+{% from '_macros.html' import selo %}
+{#- Relatório de um plano: avaliação de cada campo ao lado do texto que foi extraído para ele. -#}
+
+{% block titulo %}Relatório: {{ nome }}{% endblock %}
+
+{% block estilos %}
+  <link rel="stylesheet" href="{{ estatico('css/relatorio.css') }}">
+{% endblock %}
+
+{% macro link_plano(plano, texto, tecla) -%}
+  {% if plano %}<a href="{{ plano.url }}" title="{{ plano.nome }}" data-tecla="{{ tecla }}">{{ texto }}</a>
+  {%- else %}<span class="off">{{ texto }}</span>{% endif %}
+{%- endmacro %}
+
+{% macro bruto(titulo, texto) -%}
+  {% if texto %}<details class="caixa"><summary>{{ titulo }}</summary><pre>{{ texto }}</pre></details>{% endif %}
+{%- endmacro %}
+
+{% block corpo %}
+<nav class="nav"><div>
+  <a class="voltar" href="{{ url_dashboard }}" data-tecla="Escape">← <span class="longo">Voltar ao dashboard</span><span class="curto">Dashboard</span></a>
+  {{ link_plano(anterior, '‹ Anterior', 'ArrowLeft') }}
+  {{ link_plano(proximo, 'Próximo ›', 'ArrowRight') }}
+  <span class="pos">Plano {{ indice + 1 }} de {{ total }}{% if not eh_ultima %} · validação anterior de {{ data }}{% endif %}</span>
+  {% if pode_revalidar %}
+  <button type="button" class="revalidar" id="revalidar" data-arquivo="{{ nome }}">↻ Revalidar<span class="longo"> este plano</span></button>
+  {% endif %}
+</div></nav>
+
+<div class="pagina">
+  <h1>{{ nome.removesuffix('.pdf') }}</h1>
+  <div class="meta">
+    <span>{{ selo(linha['Status Geral']) }}</span>
+    <span>Validado em {{ linha['Data Validação'] }}</span>
+    {% if det and det.modelo %}<span>Modelo {{ det.modelo }}</span>{% endif %}
+    {% if url_pdf %}
+    <span><a href="{{ url_pdf }}" target="_blank" rel="noopener">📄 Abrir PDF</a></span>
+    {% else %}
+    <span>PDF não guardado (só a última validação guarda os PDFs)</span>
+    {% endif %}
+  </div>
+
+  {% if det is none %}
+  <div class="aviso">O texto extraído não está disponível: este plano foi validado antes de o relatório existir.</div>
+  {% elif det.erro %}
+  <div class="aviso">Falha ao validar: {{ det.erro }}</div>
+  {% endif %}
+
+  {% if linha['Observação Geral'] %}
+  <div class="caixa"><strong>Observação geral:</strong> {{ linha['Observação Geral'] }}</div>
+  {% endif %}
+
+  {% for campo in campos %}
+  <section class="caixa campo" style="--cor:{{ cor(campo.status) }}">
+    <div class="cab"><h2>{{ campo.rotulo }}</h2>{{ selo(campo.status) }}</div>
+    {% if campo.obs %}<p class="obs">{{ campo.obs }}</p>{% endif %}
+    {% if campo.explicacao %}<p class="nota">{{ campo.explicacao }}</p>{% endif %}
+    {% if campo.contagem %}
+    <p class="obs">Contagem: <strong>{{ campo.contagem[0] }}</strong> básica(s) e <strong>{{ campo.contagem[1] }}</strong> complementar(es).</p>
+    {% endif %}
+    {% if campo.mostrar_texto %}
+      {% if campo.texto.strip() %}
+    <pre>{{ campo.texto }}</pre>
+        {% if campo.texto|length > campo.limite %}
+    <p class="nota">A IA recebeu só os primeiros {{ campo.limite }} de {{ campo.texto|length }} caracteres.</p>
+        {% endif %}
+      {% else %}
+    <pre class="vazio">Nada foi extraído para este campo.</pre>
+      {% endif %}
+    {% endif %}
+  </section>
+  {% endfor %}
+
+  {{ bruto('Texto completo extraído do PDF', det.texto if det else '') }}
+  {{ bruto('Prompt enviado à IA', det.prompt if det else '') }}
+  {{ bruto('Resposta da IA (antes das regras automáticas)', resposta_ia) }}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ estatico('js/relatorio.js') }}"></script>
+{% endblock %}

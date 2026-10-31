@@ -1,0 +1,14 @@
+{#- Esqueleto comum a todas as páginas. As páginas preenchem: titulo, estilos, corpo e scripts. -#}
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block titulo %}Validação de Planos de Ensino{% endblock %}</title>
+  {% block estilos %}{% endblock %}
+</head>
+<body>
+{% block corpo %}{% endblock %}
+{% block scripts %}{% endblock %}
+</body>
+</html>

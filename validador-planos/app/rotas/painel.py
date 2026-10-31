@@ -1,9 +1,9 @@
-from flask import Blueprint, redirect, request, send_from_directory
+from flask import Blueprint, redirect, render_template, request, send_from_directory
 
 from ..armazenamento import csvsaida, detalhes, historico
 from ..avaliacao import identificacao, pipeline
 from ..paginas import dashboard, relatorio
-from .comum import eh_admin, email, html, json_, servicos, texto
+from .comum import eh_admin, email, json_, servicos, texto
 
 # Consulta (qualquer servidor logado): dashboard, relatório de um plano, andamento e PDFs da pasta.
 # Os caminhos /webhook/... mantêm compatíveis a página validacao.html e os links antigos do n8n.
@@ -31,8 +31,8 @@ def pagina_dashboard():
     dets = {l.get('Arquivo'): detalhes.ler(execucao.detalhes_dir, l.get('Arquivo')) for l in linhas}
     idents = {nome: identificacao.de_detalhes(det) for nome, det in dets.items()}
     docentes = {nome: identificacao.docentes((det or {}).get('texto', '')) for nome, det in dets.items()}
-    return html(dashboard.gerar_html(linhas, cfg.pdf_max_mb, execucoes, execucao, email(), eh_admin(), idents,
-                                     docentes))
+    return render_template('dashboard.html', **dashboard.contexto(linhas, cfg.pdf_max_mb, execucoes, execucao, email(),
+                                                                  eh_admin(), idents, docentes))
 
 
 @bp.get('/relatorio')
@@ -50,7 +50,8 @@ def pagina_relatorio():
     det = detalhes.ler(execucao.detalhes_dir, nome)
     eh_ultima = execucao.id == execucoes[0].id
     pode_revalidar = eh_ultima and eh_admin() and s.planos.existe(nome)
-    return html(relatorio.gerar_html(linhas, indice, det, execucao, eh_ultima, pode_revalidar))
+    return render_template('relatorio.html',
+                           **relatorio.contexto(linhas, indice, det, execucao, eh_ultima, pode_revalidar))
 
 
 @bp.get('/status')

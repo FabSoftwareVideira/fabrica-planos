@@ -1,0 +1,28 @@
+/* Página inicial (pública). Fica embutida no HTML: /static exige login. */
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,sans-serif;background:#f3f4f6;color:#111827;line-height:1.5}
+.pagina{max-width:880px;margin:0 auto;padding:48px 16px}
+.topo{text-align:center;margin-bottom:40px}
+.topo h1{margin:0 0 12px;font-size:clamp(28px,5vw,40px)}
+.topo p{margin:0 auto 28px;max-width:620px;color:#4b5563;font-size:18px}
+.google{display:inline-flex;align-items:center;gap:12px;background:#fff;color:#1f1f1f;text-decoration:none;border:1px solid #747775;border-radius:999px;padding:12px 24px;font-weight:600;font-size:16px;box-shadow:0 1px 3px rgba(0,0,0,.08);transition:box-shadow .2s}
+.google:hover{box-shadow:0 2px 8px rgba(0,0,0,.18)}
+.google svg{width:20px;height:20px}
+.topo .restrito{margin:14px auto 0;font-size:14px;color:#6b7280}
+.painel{background:#fff;border-radius:12px;padding:24px;box-shadow:0 1px 3px rgba(0,0,0,.1);margin-bottom:16px}
+.painel h2{margin:0 0 16px;font-size:20px}
+.passos{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin:0;padding:0;list-style:none;counter-reset:passo}
+.passos li{counter-increment:passo;font-size:14px;color:#4b5563}
+.passos li::before{content:counter(passo);display:flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:#eef2ff;color:#2563eb;font-weight:700;margin-bottom:8px}
+.passos strong{display:block;color:#111827;font-size:15px;margin-bottom:2px}
+.campos{display:flex;flex-wrap:wrap;gap:8px}
+.campos span{background:#f3f4f6;border-radius:999px;padding:4px 12px;font-size:13px}
+.status{display:flex;flex-wrap:wrap;gap:16px;margin-top:16px;font-size:14px;color:#4b5563}
+.status b{color:#fff;border-radius:10px;padding:2px 8px;font-size:11px;margin-right:6px}
+.rodape{text-align:center;font-size:13px;color:#9ca3af;margin-top:32px}
+@media (max-width:600px){
+  .pagina{padding:32px 16px}
+  .topo{margin-bottom:28px}
+  .topo p{font-size:16px}
+  .painel{padding:18px}
+}

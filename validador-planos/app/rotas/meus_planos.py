@@ -1,9 +1,9 @@
-from flask import Blueprint, request
+from flask import Blueprint, render_template, request
 
 from ..avaliacao import pipeline
 from ..paginas import meus_planos
 from ..servicos.planos import Ocupado, Proibido
-from .comum import email, html, json_, ocupado, servicos
+from .comum import email, json_, ocupado, servicos
 
 # "Meus planos": cada servidor entrega os próprios planos (a entrega oficial, que vai para a mesma pasta
 # do NDE), acompanha a avaliação e pode substituí-los ou excluí-los. Não mexe nos planos dos outros.
@@ -16,7 +16,7 @@ def _dono():
 
 @bp.get('')
 def pagina():
-    return html(meus_planos.gerar_html(email(), servicos().cfg.pdf_max_mb))
+    return render_template('meus_planos.html', **meus_planos.contexto(email(), servicos().cfg.pdf_max_mb))
 
 
 @bp.get('/lista')

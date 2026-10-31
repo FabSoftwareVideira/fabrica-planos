@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+{#- "Meus planos": o servidor envia os próprios PDFs (a entrega oficial) e acompanha a avaliação, que começa
+    logo após o envio ou espera a vez na fila. A lista vem de /meus-planos/lista (static/js/meus_planos.js). -#}
+
+{% block titulo %}Meus planos · Validação de Planos de Ensino{% endblock %}
+
+{% block estilos %}
+  <link rel="stylesheet" href="{{ estatico('css/painel.css') }}">
+  <link rel="stylesheet" href="{{ estatico('css/meus_planos.css') }}">
+{% endblock %}
+
+{% block corpo %}
+<div class="pagina" style="max-width:900px">
+  <h1>📋 Meus planos de ensino</h1>
+  <p class="usuario">
+    {%- if email %}{{ email }} · {% endif -%}
+    <a href="/dashboard">Painel geral</a>
+    {%- if email %} · <a href="/oauth2/sign_out">Sair</a>{% endif -%}
+  </p>
+
+  <section class="painel">
+    <h2>Enviar plano de ensino</h2>
+    <p class="aviso">O PDF enviado aqui é a entrega do plano ao NDE. A avaliação automática começa logo em seguida; se algo precisar de ajuste, corrija no SIGAA, gere o PDF de novo e envie com o mesmo nome para substituir.</p>
+    <div class="soltar" id="soltar">Arraste o PDF para cá ou
+      <button class="botao leve" id="escolher" type="button">escolha arquivos</button>
+      <input type="file" id="arquivo" accept="application/pdf,.pdf" multiple hidden>
+      <p class="dica">PDF gerado pelo SIGAA (com texto selecionável), até {{ max_mb }} MB. Use um nome que identifique a disciplina, por exemplo: <b>2026-1 - Banco de Dados II - Seu Nome.pdf</b></p>
+    </div>
+    <p class="msg" id="envio-msg" hidden></p>
+  </section>
+
+  <section class="painel">
+    <h2>Meus planos <span class="msg" id="qtd"></span></h2>
+    <ul class="meus" id="lista"><li><span class="msg">Carregando…</span></li></ul>
+  </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>const MAX_MB = {{ max_mb }};</script>
+<script src="{{ estatico('js/meus_planos.js') }}"></script>
+{% endblock %}

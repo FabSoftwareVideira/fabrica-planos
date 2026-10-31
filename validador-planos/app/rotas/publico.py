@@ -1,7 +1,7 @@
-from flask import Blueprint, current_app, request
+from flask import Blueprint, current_app, render_template, request
 
 from ..paginas import inicio
-from .comum import email, html, json_, servicos, texto
+from .comum import email, json_, servicos, texto
 
 # Rotas sem login e a barreira de login das demais.
 bp = Blueprint('publico', __name__)
@@ -25,7 +25,7 @@ def grande_demais(_erro):
 @bp.get('/')
 def raiz():
     """Página inicial pública, com o botão de login."""
-    return html(inicio.gerar_html())
+    return render_template('inicio.html', **inicio.contexto())
 
 
 @bp.get('/health')

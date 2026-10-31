@@ -14,13 +14,15 @@ app/
   armazenamento/    arquivos em resultados/: CSV, detalhes por plano, histórico e dono de cada PDF
   servicos/         casos de uso com estado: Validador (lote, fila, agendador) e PastaDePlanos (envio/exclusão)
   rotas/            Blueprints, um por área: publico, painel, validacoes, administracao, meus_planos
-  paginas/          HTML das páginas (inicio, dashboard, relatorio, meus_planos) e peças comuns
+  paginas/          dados de cada página (contexto do template) e funções comuns aos templates
+  templates/        HTML das páginas em Jinja: base.html (esqueleto), _macros.html e uma por página
+  static/           CSS e JavaScript das páginas (css/, js/), servidos em /static com versão no endereço
 tests/              testes unitários (regras, seções, extração, pipeline, rotas, CSV)
 resultados/         histórico das validações e cópia do CSV da última (criados automaticamente; ver "Histórico")
 docker-compose.yml, Dockerfile, .env.example, Caddyfile
 ```
 
-As camadas só dependem das de baixo: `rotas` → `servicos` → `avaliacao`/`armazenamento`, e `rotas` → `paginas`. As rotas só traduzem HTTP (parâmetros, códigos de resposta) e chamam os serviços, que guardam as regras de negócio (quem pode substituir um PDF, fila, bloqueio durante o lote) e avisam problemas com exceções (`Ocupado`, `NaoEncontrado`, `Proibido`). Os serviços são criados uma vez em `criar_app()` e ficam em `app.extensions['servicos']`; nos testes, `criar_app(cfg, executar=...)` roda as avaliações na hora, sem thread.
+As camadas só dependem das de baixo: `rotas` → `servicos` → `avaliacao`/`armazenamento`, e `rotas` → `paginas` → `templates`. Cada rota monta o contexto com a função `contexto()` do módulo da página e chama `render_template`; o Jinja escapa os valores automaticamente. A página inicial é pública e traz o CSS embutido (`templates/inicio.css`), porque `/static` passa pelo login do proxy. As rotas só traduzem HTTP (parâmetros, códigos de resposta) e chamam os serviços, que guardam as regras de negócio (quem pode substituir um PDF, fila, bloqueio durante o lote) e avisam problemas com exceções (`Ocupado`, `NaoEncontrado`, `Proibido`). Os serviços são criados uma vez em `criar_app()` e ficam em `app.extensions['servicos']`; nos testes, `criar_app(cfg, executar=...)` roda as avaliações na hora, sem thread.
 
 Os PDFs ficam na pasta indicada por `PLANOS_HOST_DIR`, montada no container com escrita (o dashboard envia e exclui PDFs). Eles não entram na imagem nem no git.
 
