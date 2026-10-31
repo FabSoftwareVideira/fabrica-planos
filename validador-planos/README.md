@@ -24,17 +24,25 @@ Em `/dashboard` é possível:
 - filtrar os resultados por texto (disciplina ou docente, sem diferenciar acentos), status e campo com problema; os filtros ficam guardados enquanto a aba estiver aberta;
 - consultar as últimas validações (seletor ao lado de **Resultados**) e baixar o CSV de cada uma e o **zip com os PDFs** da última.
 
-Enquanto uma validação roda, envio e exclusão ficam bloqueados. O acesso exige login com a conta Google `@ifc.edu.br` (ver "Login"). Qualquer servidor consulta resultados, relatórios, PDFs, CSV e zip; só os administradores (`ADMIN_EMAILS`) veem e usam **Validar agora**, ↻ Revalidar, envio e exclusão de PDFs.
+Enquanto uma validação geral roda, envio e exclusão pelo administrador ficam bloqueados; o envio pelo professor (em "Meus planos") é aceito e avaliado em seguida. O acesso exige login com a conta Google `@ifc.edu.br` (ver "Login"). Qualquer servidor consulta resultados, relatórios, PDFs, CSV e zip e entrega os próprios planos; só os administradores (`ADMIN_EMAILS`) veem e usam **Validar agora**, ↻ Revalidar, envio e exclusão de quaisquer PDFs.
+
+## Meus planos (entrega pelo professor)
+
+Em `/meus-planos` cada servidor entrega os próprios planos: o PDF enviado vai para a mesma pasta de planos do NDE (é a entrega oficial, no lugar da pasta do Drive) e a avaliação começa logo em seguida, só para ele. A página mostra a situação de cada plano (na fila, avaliando, resultado com os campos a verificar e link para o relatório). Para corrigir, o professor ajusta no SIGAA e envia o PDF de novo com o mesmo nome, que substitui o anterior.
+
+- O professor só substitui e exclui os planos que ele enviou; um nome já usado por outra pessoa (ou por um PDF que veio do Drive/administrador, sem dono) é recusado, pedindo para renomear.
+- Quem enviou cada PDF fica em `resultados/donos.json` e aparece para o administrador na lista de PDFs da dashboard.
+- As avaliações rodam uma por vez (a GPU é uma só): com outra em andamento, o plano espera na fila, que também vale para o ↻ Revalidar do administrador. A fila fica na memória; se o container reiniciar, os planos que esperavam são avaliados na próxima validação geral.
 
 ## Rotas
 
 | Método | Rota | Resposta |
 |---|---|---|
 | POST | `/validar` | `200 {"status":"iniciado"}`, `409` se já houver validação em andamento, `422` se a pasta não tiver PDFs |
-| POST | `/validar?arquivo=nome.pdf` | Revalida só esse plano e atualiza a última validação; `404` se o PDF não estiver na pasta, `409` se houver validação em andamento |
-| GET | `/status` | Andamento: `rodando`, `total`, `processados`, `atual`, `iniciado_em`, `finalizado_em`, `erro` e `unico` (plano, numa revalidação) |
+| POST | `/validar?arquivo=nome.pdf` | Revalida só esse plano e atualiza a última validação; com outra validação rodando, entra na fila (`{"status":"na_fila","posicao":N}`); `404` se o PDF não estiver na pasta |
+| GET | `/status` | Andamento: `rodando`, `total`, `processados`, `atual`, `iniciado_em`, `finalizado_em`, `erro`, `unico` (plano, numa revalidação) e `fila` (planos esperando) |
 | GET | `/dashboard?validacao=ID` | Página HTML com os controles e os resultados; sem `validacao`, a última |
-| GET | `/planos` | Lista dos PDFs da pasta (`nome`, `tamanho`, `modificado`) |
+| GET | `/planos` | Lista dos PDFs da pasta (`nome`, `dono`, `tamanho`, `modificado`) |
 | POST | `/planos` | Upload (multipart, campo `arquivos`, vários por vez, até `PDF_MAX_MB` por arquivo e 100 MB no total). Responde `salvos` e `recusados` (com o motivo); `409` durante a validação |
 | DELETE | `/planos?arquivo=nome.pdf` | Exclui o PDF; `409` durante a validação |
 | DELETE | `/planos/todos` | Exclui todos os PDFs da pasta (`{"excluidos": N}`); `409` durante a validação |
@@ -46,6 +54,10 @@ Enquanto uma validação roda, envio e exclusão ficam bloqueados. O acesso exig
 | GET | `/pdf?arquivo=nome.pdf` | O PDF atual da pasta de planos |
 | GET | `/` | Página inicial pública: apresentação do projeto e botão **Entrar com Google** |
 | GET | `/health` | `{"status":"ok"}` |
+| GET | `/meus-planos` | Página de entrega e acompanhamento dos planos de quem está logado |
+| GET | `/meus-planos/lista` | Planos de quem está logado: `nome`, `enviado_em`, `situacao` (`na_fila` com `posicao`, `validando`, `avaliado` com `status`, `obs` e `problemas`, ou `aguardando`) |
+| POST | `/meus-planos` | Entrega (multipart, campo `arquivos`); cada PDF salvo entra na fila de avaliação (`posicao`, 0 se já começou) |
+| DELETE | `/meus-planos?arquivo=nome.pdf` | Exclui um plano próprio; `403` se for de outra pessoa, `409` durante a validação geral |
 
 Com login exigido, toda rota (exceto `/` e `/health`) responde `401` sem o e-mail repassado pelo proxy, e `POST /validar`, `POST /planos`, `DELETE /planos` e `DELETE /planos/todos` respondem `403` para quem não está em `ADMIN_EMAILS`.
 

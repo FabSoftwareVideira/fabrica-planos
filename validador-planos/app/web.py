@@ -10,7 +10,7 @@ from functools import wraps
 
 from flask import Flask, Response, jsonify, redirect, request, send_file, send_from_directory
 
-from . import csvsaida, dashboard, detalhes, historico, inicio, pipeline, relatorio
+from . import csvsaida, dashboard, detalhes, donos, historico, inicio, meusplanos, pipeline, relatorio
 from .andamento import Andamento
 from .config import carregar
 from .extrator import PdfIlegivel, extrair_texto
@@ -25,6 +25,10 @@ app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # soma dos PDFs de um envi
 # Serializa o início da validação e as alterações na pasta de planos: não se mexe nos PDFs
 # enquanto um lote está sendo validado.
 _operacao = threading.Lock()
+
+# Planos esperando para ser (re)validados, na ordem de chegada. Uma validação roda por vez (a GPU é
+# uma só); ao terminar, a próxima da fila começa. Como o andamento, a fila vive na memória.
+_fila = []
 
 
 def _json(obj, status=200):
@@ -75,8 +79,42 @@ def _iniciar_se_livre():
             return 'sem_planos'
         if not andamento.iniciar(len(nomes)):
             return 'ocupado'
-        threading.Thread(target=pipeline.executar, args=(cfg, andamento, nomes), daemon=True).start()
+        _disparar(pipeline.executar, cfg, andamento, nomes)
         return None
+
+
+def _disparar(alvo, *args):
+    """Roda a validação numa thread e, ao terminar, começa o próximo plano da fila."""
+    def rodar():
+        try:
+            alvo(*args)
+        finally:
+            _proximo_da_fila()
+    threading.Thread(target=rodar, daemon=True).start()
+
+
+def _proximo_da_fila():
+    with _operacao:
+        while _fila:
+            nome = _fila[0]
+            if not os.path.isfile(os.path.join(cfg.planos_dir, nome)):  # excluído enquanto esperava
+                _fila.pop(0)
+                continue
+            if andamento.iniciar(1, unico=nome):
+                _fila.pop(0)
+                _disparar(pipeline.revalidar, cfg, andamento, nome)
+            return
+
+
+def _enfileirar(nome):
+    """Põe o plano na fila (uma vez só) e o começa se nada estiver rodando. Devolve a posição na fila
+    (0 se já começou)."""
+    with _operacao:
+        if nome not in _fila:
+            _fila.append(nome)
+    _proximo_da_fila()
+    with _operacao:
+        return _fila.index(nome) + 1 if nome in _fila else 0
 
 
 # Os caminhos /webhook/... mantêm compatíveis a página validacao.html e os links antigos do n8n.
@@ -84,16 +122,6 @@ def _iniciar_se_livre():
 def raiz():
     """Página inicial pública, com o botão de login."""
     return Response(inicio.gerar_html(), mimetype='text/html; charset=utf-8')
-
-
-def _revalidar_se_livre(nome):
-    with _operacao:
-        if not os.path.isfile(os.path.join(cfg.planos_dir, nome)):
-            return 'sem_arquivo'
-        if not andamento.iniciar(1, unico=nome):
-            return 'ocupado'
-        threading.Thread(target=pipeline.revalidar, args=(cfg, andamento, nome), daemon=True).start()
-        return None
 
 
 @app.post('/validar')
@@ -104,11 +132,11 @@ def validar():
     if nome is not None:  # revalidar só este plano, atualizando a última validação
         if not pipeline.nome_valido(nome):
             return _json({'erro': 'Arquivo inválido'}, 400)
-        motivo = _revalidar_se_livre(nome)
-        if motivo == 'sem_arquivo':
+        if not os.path.isfile(os.path.join(cfg.planos_dir, nome)):
             return _json({'status': 'sem_arquivo',
                           'mensagem': 'Esse PDF não está mais na pasta de planos; envie-o de novo para revalidar'}, 404)
-        return _ocupado() if motivo else _json({'status': 'iniciado', 'arquivo': nome})
+        posicao = _enfileirar(nome)  # com outra validação rodando, espera a vez em vez de recusar
+        return _json({'status': 'na_fila' if posicao else 'iniciado', 'arquivo': nome, 'posicao': posicao})
     motivo = _iniciar_se_livre()
     if motivo == 'ocupado':
         return _ocupado()
@@ -119,7 +147,9 @@ def validar():
 
 @app.get('/status')
 def status():
-    return _json(andamento.resumo())
+    with _operacao:
+        fila = list(_fila)
+    return _json({**andamento.resumo(), 'fila': fila})
 
 
 def _texto(mensagem, status):
@@ -226,10 +256,12 @@ def pdf():
 @app.get('/planos')
 def listar_planos():
     planos = []
+    dono_de = donos.ler(cfg.resultados_dir)
     for nome in pipeline.listar_pdfs(cfg.planos_dir):
         info = os.stat(os.path.join(cfg.planos_dir, nome))
         planos.append({
             'nome': nome,
+            'dono': dono_de.get(nome, {}).get('email', ''),
             'tamanho': info.st_size,
             'modificado': datetime.fromtimestamp(info.st_mtime).isoformat(timespec='seconds'),
         })
@@ -261,6 +293,21 @@ def _motivo_recusa(nome, arquivo):
     return None
 
 
+def _salvar(arquivo, nome):
+    """Grava o PDF na pasta de planos; devolve o motivo da recusa ou None."""
+    destino = os.path.join(cfg.planos_dir, nome)
+    temporario = destino + '.enviando'
+    arquivo.save(temporario)
+    # Só entra na pasta o PDF que abre e tem texto; digitalizados precisam de OCR antes.
+    try:
+        extrair_texto(temporario)
+    except PdfIlegivel as erro:
+        os.remove(temporario)
+        return str(erro)
+    os.replace(temporario, destino)
+    return None
+
+
 @app.post('/planos')
 @_somente_admin
 def enviar_planos():
@@ -273,22 +320,11 @@ def enviar_planos():
         salvos, recusados = [], []
         for arquivo in arquivos:
             nome = _nome_enviado(arquivo)
-            motivo = _motivo_recusa(nome, arquivo)
+            substituido = os.path.exists(os.path.join(cfg.planos_dir, nome))
+            motivo = _motivo_recusa(nome, arquivo) or _salvar(arquivo, nome)
             if motivo:
                 recusados.append({'nome': nome, 'motivo': motivo})
                 continue
-            destino = os.path.join(cfg.planos_dir, nome)
-            temporario = destino + '.enviando'
-            arquivo.save(temporario)
-            # Só entra na pasta o PDF que abre e tem texto; digitalizados precisam de OCR antes.
-            try:
-                extrair_texto(temporario)
-            except PdfIlegivel as erro:
-                os.remove(temporario)
-                recusados.append({'nome': nome, 'motivo': str(erro)})
-                continue
-            substituido = os.path.exists(destino)
-            os.replace(temporario, destino)
             salvos.append({'nome': nome, 'substituido': substituido})
     logging.getLogger(__name__).info('Upload: %d salvo(s), %d recusado(s)', len(salvos), len(recusados))
     return _json({'salvos': salvos, 'recusados': recusados}, 200 if salvos else 400)
@@ -307,6 +343,7 @@ def excluir_plano():
         if not os.path.isfile(caminho):
             return _json({'erro': 'Arquivo não encontrado'}, 404)
         os.remove(caminho)
+        donos.remover(cfg.resultados_dir, [nome])
     logging.getLogger(__name__).info('Plano excluído: %s', nome)
     return _json({'excluido': nome})
 
@@ -321,8 +358,102 @@ def excluir_todos():
         nomes = pipeline.listar_pdfs(cfg.planos_dir)
         for nome in nomes:
             os.remove(os.path.join(cfg.planos_dir, nome))
+        donos.remover(cfg.resultados_dir, nomes)
     logging.getLogger(__name__).info('Todos os planos excluídos: %d arquivo(s)', len(nomes))
     return _json({'excluidos': len(nomes)})
+
+
+# "Meus planos": cada servidor envia os próprios planos (a entrega oficial, que vai para a mesma pasta
+# do NDE), acompanha a avaliação e pode substituí-los ou excluí-los. Não mexe nos planos dos outros.
+def _dono():
+    return _email() or 'local'  # sem login (uso local), todos os envios ficam com o mesmo dono
+
+
+@app.get('/meus-planos')
+def pagina_meus_planos():
+    html = meusplanos.gerar_html(_email(), cfg.pdf_max_mb)
+    return Response(html, mimetype='text/html; charset=utf-8')
+
+
+@app.get('/meus-planos/lista')
+def listar_meus_planos():
+    email = _dono()
+    meus = {n: d for n, d in donos.ler(cfg.resultados_dir).items()
+            if d.get('email') == email and os.path.isfile(os.path.join(cfg.planos_dir, n))}
+    execucoes = historico.listar(cfg.historico_dir)
+    ultima = execucoes[0] if execucoes else None
+    linhas = {l.get('Arquivo'): l for l in csvsaida.ler_csv(ultima.csv_path)} if ultima else {}
+    estado = andamento.resumo()
+    with _operacao:
+        fila = list(_fila)
+    planos = []
+    for nome, dono in sorted(meus.items()):
+        item = {'nome': nome, 'enviado_em': dono['enviado_em']}
+        if nome in fila:
+            item.update(situacao='na_fila', posicao=fila.index(nome) + 1)
+        elif estado['rodando'] and nome in (estado['atual'], estado['unico']):
+            item['situacao'] = 'validando'
+        else:
+            linha = linhas.get(nome)
+            det = detalhes.ler(ultima.detalhes_dir, nome) if linha else None
+            # O resultado só vale se for do PDF atual, validado depois do envio.
+            if det and det.get('validado_em', '') >= dono['enviado_em']:
+                item.update(situacao='avaliado', status=linha.get('Status Geral', ''),
+                            obs=linha.get('Observação Geral', ''),
+                            problemas=[r for r, _ in csvsaida.CAMPOS_COLUNA if linha.get(r) != 'OK'])
+            else:
+                item['situacao'] = 'aguardando'
+        planos.append(item)
+    return _json({'planos': planos})
+
+
+@app.post('/meus-planos')
+def enviar_meus_planos():
+    arquivos = request.files.getlist('arquivos')
+    if not arquivos:
+        return _json({'erro': 'Nenhum arquivo enviado'}, 400)
+    email = _dono()
+    salvos, recusados = [], []
+    with _operacao:
+        dono_de = donos.ler(cfg.resultados_dir)
+        for arquivo in arquivos:
+            nome = _nome_enviado(arquivo)
+            motivo = _motivo_recusa(nome, arquivo)
+            existe = not motivo and os.path.exists(os.path.join(cfg.planos_dir, nome))
+            if existe and dono_de.get(nome, {}).get('email') != email:
+                motivo = ('Já existe na pasta um plano com esse nome, enviado por outra pessoa; renomeie o arquivo '
+                          '(ex.: 2026-1 - Disciplina - Seu nome.pdf)')
+            motivo = motivo or _salvar(arquivo, nome)
+            if motivo:
+                recusados.append({'nome': nome, 'motivo': motivo})
+                continue
+            donos.definir(cfg.resultados_dir, nome, email)
+            salvos.append({'nome': nome, 'substituido': existe})
+    for salvo in salvos:  # a avaliação começa já, ou espera a vez na fila
+        salvo['posicao'] = _enfileirar(salvo['nome'])
+    logging.getLogger(__name__).info('Meus planos (%s): %d salvo(s), %d recusado(s)', email, len(salvos), len(recusados))
+    return _json({'salvos': salvos, 'recusados': recusados}, 200 if salvos else 400)
+
+
+@app.delete('/meus-planos')
+def excluir_meu_plano():
+    nome = request.args.get('arquivo', '')
+    if not pipeline.nome_valido(nome):
+        return _json({'erro': 'Arquivo inválido'}, 400)
+    with _operacao:
+        if donos.ler(cfg.resultados_dir).get(nome, {}).get('email') != _dono():
+            return _json({'erro': 'Você só pode excluir os planos que enviou'}, 403)
+        estado = andamento.resumo()
+        if estado['rodando'] and (not estado['unico'] or estado['unico'] == nome):  # lote ou ele mesmo
+            return _ocupado()
+        caminho = os.path.join(cfg.planos_dir, nome)
+        if os.path.isfile(caminho):
+            os.remove(caminho)
+        donos.remover(cfg.resultados_dir, [nome])
+        if nome in _fila:
+            _fila.remove(nome)
+    logging.getLogger(__name__).info('Meus planos (%s): excluído %s', _dono(), nome)
+    return _json({'excluido': nome})
 
 
 @app.errorhandler(413)

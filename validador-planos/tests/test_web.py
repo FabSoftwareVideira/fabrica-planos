@@ -24,6 +24,7 @@ def cliente(tmp_path, monkeypatch):
     )
     monkeypatch.setattr(web, 'cfg', cfg)
     monkeypatch.setattr(web, 'andamento', Andamento())
+    monkeypatch.setattr(web, '_fila', [])
     return web.app.test_client(), planos
 
 
@@ -228,7 +229,7 @@ def test_revalidar_pela_rota(cliente, monkeypatch):
     assert c.post('/validar?arquivo=../x.pdf').status_code == 400
     (planos / 'a.pdf').write_bytes(PDF)
     r = c.post('/validar?arquivo=a.pdf')
-    assert r.json == {'status': 'iniciado', 'arquivo': 'a.pdf'}
+    assert r.json == {'status': 'iniciado', 'arquivo': 'a.pdf', 'posicao': 0}
     web.andamento.finalizar()
     assert chamadas == ['a.pdf']
     assert web.andamento.resumo()['unico'] == 'a.pdf'
@@ -281,7 +282,7 @@ def test_servidor_consulta_mas_nao_administra(com_login):
     html = c.get('/dashboard', headers=SERVIDOR).get_data(as_text=True)
     assert 'fulano@ifc.edu.br · consulta' in html and 'href="/oauth2/sign_out"' in html
     assert 'id="validar"' not in html and 'id="soltar"' not in html and 'class="revalidar"' not in html
-    assert 'ADMIN = false;' in html
+    assert 'ADMIN = false;' in html and 'href="/meus-planos"' in html
     assert 'id="revalidar"' not in c.get('/relatorio?arquivo=a.pdf', headers=SERVIDOR).get_data(as_text=True)
     assert c.get('/pdf?arquivo=a.pdf', headers=SERVIDOR).status_code == 200
 
@@ -301,3 +302,64 @@ def test_admin_administra(com_login):
     r = c.post('/planos', headers=ADMIN, data=_envio(('b.pdf', PDF)), content_type='multipart/form-data')
     assert r.status_code == 200
     assert c.delete('/planos?arquivo=b.pdf', headers=ADMIN).status_code == 200
+
+
+def test_revalidacoes_esperam_na_fila(cliente, monkeypatch):
+    from app import pipeline
+    c, planos = cliente
+    chamadas = []
+    monkeypatch.setattr(pipeline, 'revalidar', lambda cfg, andamento, nome: chamadas.append(nome))
+    monkeypatch.setattr(web, '_disparar', lambda alvo, *args: alvo(*args))  # sem thread
+    for nome in ('a.pdf', 'b.pdf'):
+        (planos / nome).write_bytes(PDF)
+    web.andamento.iniciar(1)  # outra validação rodando
+    assert c.post('/validar?arquivo=a.pdf').json == {'status': 'na_fila', 'arquivo': 'a.pdf', 'posicao': 1}
+    assert c.post('/validar?arquivo=b.pdf').json['posicao'] == 2
+    assert c.post('/validar?arquivo=a.pdf').json['posicao'] == 1  # não entra duas vezes
+    assert c.get('/status').json['fila'] == ['a.pdf', 'b.pdf']
+    (planos / 'a.pdf').unlink()  # excluído enquanto esperava: é pulado
+    web.andamento.finalizar()
+    web._proximo_da_fila()
+    assert chamadas == ['b.pdf'] and c.get('/status').json['fila'] == []
+
+
+def test_professor_entrega_e_acompanha_o_proprio_plano(com_login, monkeypatch):
+    from app import detalhes, pipeline
+    c, planos = com_login
+    chamadas = []
+    monkeypatch.setattr(pipeline, 'revalidar', lambda cfg, andamento, nome: (chamadas.append(nome), andamento.finalizar()))
+    monkeypatch.setattr(web, '_disparar', lambda alvo, *args: alvo(*args))
+    assert 'id="soltar"' in c.get('/meus-planos', headers=SERVIDOR).get_data(as_text=True)
+
+    r = c.post('/meus-planos', headers=SERVIDOR, data=_envio(('meu.pdf', PDF)), content_type='multipart/form-data')
+    assert r.json['salvos'] == [{'nome': 'meu.pdf', 'substituido': False, 'posicao': 0}]
+    assert chamadas == ['meu.pdf'] and (planos / 'meu.pdf').exists()
+    [plano] = c.get('/meus-planos/lista', headers=SERVIDOR).json['planos']
+    assert plano['situacao'] == 'aguardando'  # a avaliação falsa não gravou resultado
+
+    execucao = _execucao(['meu.pdf'], 23, {'status_geral': 'PENDENTE'})
+    detalhes.salvar(execucao.detalhes_dir, 'meu.pdf', {'validado_em': '2099-01-01T00:00:00'})
+    [plano] = c.get('/meus-planos/lista', headers=SERVIDOR).json['planos']
+    assert plano['situacao'] == 'avaliado' and plano['status'] == 'PENDENTE' and 'Ementa' in plano['problemas']
+
+    # Outra pessoa não vê o plano na lista dela, nem o substitui ou exclui
+    assert c.get('/meus-planos/lista', headers=ADMIN).json['planos'] == []
+    r = c.post('/meus-planos', headers=ADMIN, data=_envio(('meu.pdf', PDF)), content_type='multipart/form-data')
+    assert r.status_code == 400 and 'outra pessoa' in r.json['recusados'][0]['motivo']
+    assert c.delete('/meus-planos?arquivo=meu.pdf', headers=ADMIN).status_code == 403
+    assert c.get('/planos', headers=ADMIN).json['planos'][0]['dono'] == 'fulano@ifc.edu.br'
+
+    # O dono substitui e exclui
+    r = c.post('/meus-planos', headers=SERVIDOR, data=_envio(('meu.pdf', PDF)), content_type='multipart/form-data')
+    assert r.json['salvos'][0]['substituido'] and chamadas == ['meu.pdf', 'meu.pdf']
+    assert c.delete('/meus-planos?arquivo=meu.pdf', headers=SERVIDOR).status_code == 200
+    assert not (planos / 'meu.pdf').exists()
+    assert c.get('/meus-planos/lista', headers=SERVIDOR).json['planos'] == []
+
+
+def test_professor_nao_assume_plano_sem_dono(com_login):
+    c, planos = com_login
+    (planos / 'antigo.pdf').write_bytes(PDF)  # veio do Drive ou do administrador
+    r = c.post('/meus-planos', headers=SERVIDOR, data=_envio(('antigo.pdf', PDF)), content_type='multipart/form-data')
+    assert r.status_code == 400
+    assert c.delete('/meus-planos?arquivo=antigo.pdf', headers=SERVIDOR).status_code == 403

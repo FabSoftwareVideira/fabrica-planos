@@ -168,7 +168,8 @@ async function atualizarStatus() {
   if (rodando) {
     barra.hidden = false;
     barra.firstChild.style.width = (s.total ? s.processados / s.total * 100 : 0) + '%';
-    msg($('status-msg'), `Validando ${Math.min(s.processados + 1, s.total)} de ${s.total}: ${s.atual || '…'}`);
+    const fila = s.fila && s.fila.length ? ` · ${s.fila.length} na fila` : '';
+    msg($('status-msg'), `Validando ${Math.min(s.processados + 1, s.total)} de ${s.total}: ${s.atual || '…'}${fila}`);
   } else {
     barra.hidden = true;
     if (s.erro) msg($('status-msg'), `Última validação falhou (${hora(s.finalizado_em)}): ${s.erro}`, 'erro');
@@ -194,7 +195,7 @@ async function carregarPlanos() {
     a.href = '/pdf?arquivo=' + encodeURIComponent(p.nome); a.target = '_blank'; a.rel = 'noopener';
     a.textContent = '📄 ' + p.nome;
     const info = document.createElement('span');
-    info.textContent = kb(p.tamanho) + ' · ' + hora(p.modificado);
+    info.textContent = kb(p.tamanho) + ' · ' + hora(p.modificado) + (p.dono ? ' · ' + p.dono : '');
     const val = document.createElement('button');
     val.className = 'revalidar'; val.textContent = '↻ Validar'; val.disabled = rodando; val.dataset.arquivo = p.nome;
     val.title = 'Valida só este PDF e atualiza a última validação';
@@ -433,7 +434,15 @@ def _usuario(email, admin):
     if not email:
         return ''
     return ('<p class="usuario">' + escape(email) + ' · ' + ('administrador' if admin else 'consulta')
-            + ' · <a href="/oauth2/sign_out">Sair</a></p>')
+            + ' · <a href="/meus-planos">Meus planos</a> · <a href="/oauth2/sign_out">Sair</a></p>')
+
+
+# No lugar do painel de PDFs (só do administrador): leva o professor à entrega do próprio plano.
+PAINEL_ENTREGA = (
+    '<section class="painel"><h2>Entregar plano de ensino</h2><div class="linha">'
+    '<p class="msg">Envie o PDF do seu plano e acompanhe a avaliação automática.</p>'
+    '<a class="botao" href="/meus-planos">Meus planos</a></div></section>'
+)
 
 
 def gerar_html(linhas, max_mb=10, execucoes=(), execucao=None, usuario='', admin=True):
@@ -475,7 +484,7 @@ def gerar_html(linhas, max_mb=10, execucoes=(), execucao=None, usuario='', admin
         '<div style="max-width:1100px;margin:0 auto;padding:32px 16px">'
         '<h1 style="margin:0 0 24px">📋 Validação de Planos de Ensino</h1>' + _usuario(usuario, admin)
         + PAINEL_VALIDACAO.replace('{BOTAO}', '<button class="botao" id="validar">▶ Validar agora</button>' if admin else '')
-        + (PAINEL_PLANOS.replace('{MAX_MB}', str(max_mb)) if admin else '')
+        + (PAINEL_PLANOS.replace('{MAX_MB}', str(max_mb)) if admin else PAINEL_ENTREGA)
         + _cabecalho_resultados(list(execucoes), execucao) +
         '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:24px">'
         + cartoes + '</div>' + corpo +
