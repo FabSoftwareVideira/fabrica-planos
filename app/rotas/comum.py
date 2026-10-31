@@ -84,7 +84,6 @@ def somente_exportadores(rota):
 def json_(obj, status=200):
     resp = jsonify(obj)
     resp.status_code = status
-    resp.headers['Access-Control-Allow-Origin'] = '*'
     return resp
 
 

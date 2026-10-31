@@ -30,6 +30,10 @@ jobs:
 
       - run: pytest -q
 
+      # Vulnerabilidades conhecidas nas dependências Python: falha aqui e o deploy não acontece
+      - name: Auditar dependências
+        run: pip install pip-audit && pip-audit -r requirements.txt
+
       # Garante que a imagem de produção ainda constrói antes de chegar ao servidor
       - run: docker build --target producao -t validador-planos:ci .
 

@@ -1,0 +1,24 @@
+# Pull requests semanais com atualizações das dependências: pacotes Python, imagem base do Dockerfile e
+# actions do GitHub. Cada PR passa pelos testes do CI/CD antes de você aceitar.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: "/"
+    schedule:
+      interval: weekly
+    groups:
+      python:
+        patterns: ["*"]
+
+  - package-ecosystem: docker
+    directory: "/"
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]

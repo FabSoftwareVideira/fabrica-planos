@@ -277,6 +277,14 @@ O Traefik do Dokploy repassa as requisições ao Caddy do projeto, que consulta 
 - Para mudar os administradores, edite `ADMIN_EMAILS` no Environment do Dokploy e faça um novo deploy.
 - O oauth2-proxy também devolve o ID token do Google (`OAUTH2_PROXY_SET_AUTHORIZATION_HEADER`), que o Caddy repassa em `X-Usuario-Token`; o app lê dele o nome da conta.
 
+## Segurança
+
+- **Login e identidade:** só o Caddy alcança o app; ele apaga os cabeçalhos de identidade vindos do navegador antes de o oauth2-proxy preencher o e-mail e o token (ver "Login").
+- **Origem das ações:** envio, exclusão, validação, revisão e qualquer outra requisição que altera dados (métodos diferentes de GET/HEAD/OPTIONS) só são aceitos vindos das páginas do próprio sistema (cabeçalho `Origin`); de outro site, `403`. O cookie de login também é `SameSite=Lax` e não vai em envios de outros sites.
+- **Cabeçalhos:** todas as respostas levam `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy` e `Permissions-Policy`; as páginas, uma `Content-Security-Policy` que só aceita recursos da própria aplicação e proíbe exibi-la em iframe (`app/rotas/publico.py`). O Caddy acrescenta `Strict-Transport-Security` e não anuncia o software do servidor. As páginas ainda usam scripts e eventos embutidos (`onclick`), por isso a CSP permite `'unsafe-inline'` nos scripts.
+- **Containers:** sem ganhar privilégios depois de iniciar (`no-new-privileges`), sem as capacidades de root que não usam (`cap_drop: ALL`; o Caddy mantém só a de escutar na porta 80) e com limite de processos; o oauth2-proxy roda com o sistema de arquivos somente leitura. O Ollama mantém as capacidades, porque o acesso à GPU depende delas.
+- **Dependências:** o CI roda `pip-audit` e falha (sem deploy) se houver vulnerabilidade conhecida nos pacotes Python; o Dependabot (`.github/dependabot.yml`) abre pull requests semanais com atualizações de pacotes, da imagem base e das actions, que passam pelos testes antes de serem aceitos.
+
 ## Usuários
 
 Todo servidor entra no cadastro (`resultados/usuarios.sqlite3`) no primeiro acesso, com o nome da conta Google; o nome e o último acesso são atualizados nos acessos seguintes. Em **Administração → Usuários** os administradores veem a tabela, buscam por nome ou e-mail, filtram por situação e papel (inclusive "Coordenação/NDE/NDB"), ativam ou desativam contas e, na coluna **Revisão**, dão ou tiram os papéis de coordenação, NDE e NDB em cada curso (ver "Revisão manual"). Os cursos oferecidos são os de `CURSOS` em `identificacao.py` e os que aparecem nos planos. Quem é desativado recebe "Acesso desativado" em qualquer página (403) até ser reativado; nada do que enviou é apagado. Os administradores de `ADMIN_EMAILS` aparecem como protegidos e não podem ser desativados.

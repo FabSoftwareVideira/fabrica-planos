@@ -41,12 +41,18 @@ services:
       timeout: 5s
       retries: 3
       start_period: 20s
+    # Sem ganhar privilégios depois de iniciar (setuid) e sem as capacidades de root que não usa
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     # Extrair o texto de 23 planos reais chegou a 340 MB; o teto deixa folga para um envio e uma validação ao mesmo tempo
     deploy:
       resources:
         limits:
           memory: ${APP_MEMORIA:-1500m}
           cpus: "${APP_CPUS:-1.5}"
+          pids: 256
     # Logs do Docker giram em até 3 arquivos de 10 MB (sem isso crescem até encher o disco)
     logging:
       driver: json-file
@@ -79,12 +85,20 @@ services:
         condition: service_healthy
       oauth2-proxy:
         condition: service_started
+    # Sem ganhar privilégios depois de iniciar (setuid) e sem as capacidades de root que não usa
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE  # escutar na porta 80
     # Só repassa requisições: bem menos que isto
     deploy:
       resources:
         limits:
           memory: 256m
           cpus: "0.5"
+          pids: 128
     # Logs do Docker giram em até 3 arquivos de 10 MB (sem isso crescem até encher o disco)
     logging:
       driver: json-file
@@ -116,12 +130,21 @@ services:
       # Um cookie CSRF por tentativa de login: duas abas fazendo login ao mesmo tempo não se atrapalham
       - OAUTH2_PROXY_COOKIE_CSRF_PER_REQUEST=true
       - OAUTH2_PROXY_COOKIE_CSRF_EXPIRE=15m
+      # Cookie de login não vai em envios vindos de outros sites (proteção contra CSRF)
+      - OAUTH2_PROXY_COOKIE_SAMESITE=lax
+    # Sem ganhar privilégios depois de iniciar (setuid) e sem as capacidades de root que não usa
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
     # Só confere a sessão de login a cada requisição
     deploy:
       resources:
         limits:
           memory: 128m
           cpus: "0.25"
+          pids: 64
     # Logs do Docker giram em até 3 arquivos de 10 MB (sem isso crescem até encher o disco)
     logging:
       driver: json-file
@@ -141,6 +164,9 @@ services:
       # Um modelo carregado e uma geração por vez (o validador avalia um plano por vez): menos memória na GPU
       - OLLAMA_MAX_LOADED_MODELS=1
       - OLLAMA_NUM_PARALLEL=1
+    # Sem ganhar privilégios depois de iniciar; as capacidades ficam, porque o acesso à GPU depende delas
+    security_opt:
+      - no-new-privileges:true
     volumes:
       # Modelos baixados persistem entre recriações do container
       - ollama-data:/root/.ollama

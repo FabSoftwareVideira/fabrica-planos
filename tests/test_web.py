@@ -745,3 +745,28 @@ def test_visao_da_coordenacao_por_curso(com_login):
     adm = c.get('/coordenacao', headers=ADMIN).get_data(as_text=True)  # administração escolhe o curso
     assert '<option value="CC" selected>' in adm and '<option value="IN">' in adm
     assert 'Web Design' in c.get('/coordenacao?curso=IN', headers=ADMIN).get_data(as_text=True)
+
+
+def test_cabecalhos_de_seguranca(cliente):
+    c, planos = cliente
+    (planos / 'a.pdf').write_bytes(PDF)
+    pagina = c.get('/dashboard')
+    assert "frame-ancestors 'none'" in pagina.headers['Content-Security-Policy']
+    assert pagina.headers['X-Frame-Options'] == 'DENY' and pagina.headers['X-Content-Type-Options'] == 'nosniff'
+    assert 'Access-Control-Allow-Origin' not in c.get('/status').headers  # JSON não é lido por outros sites
+    pdf = c.get('/pdf?arquivo=a.pdf')
+    assert pdf.status_code == 200 and 'Content-Security-Policy' not in pdf.headers  # visualizador do navegador
+    assert pdf.headers['X-Content-Type-Options'] == 'nosniff'
+
+
+def test_acoes_vindas_de_outro_site_sao_recusadas(cliente):
+    c, planos = cliente
+    (planos / 'a.pdf').write_bytes(PDF)
+    fora = {'Origin': 'https://site-malicioso.example'}
+    assert c.post('/validar', headers=fora).status_code == 403
+    assert c.delete('/planos?arquivo=a.pdf', headers=fora).status_code == 403
+    assert c.post('/planos', headers=fora, data=_envio(('b.pdf', PDF)),
+                  content_type='multipart/form-data').status_code == 403
+    assert (planos / 'a.pdf').exists() and not (planos / 'b.pdf').exists()
+    # A própria página (mesma origem) continua podendo
+    assert c.delete('/planos?arquivo=a.pdf', headers={'Origin': 'http://localhost'}).status_code == 200

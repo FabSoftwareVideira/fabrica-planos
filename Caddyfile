@@ -15,6 +15,13 @@
 	# Compressão: o CSS do Design System gov.br cai de ~570 KB para ~70 KB
 	encode zstd gzip
 
+	header {
+		# O site só é acessado por HTTPS (Traefik): o navegador passa a recusar HTTP por um ano
+		Strict-Transport-Security "max-age=31536000"
+		# Não anuncia o software do servidor (Caddy, gunicorn)
+		-Server
+	}
+
 	# Telas de login, retorno do Google e saída
 	handle /oauth2/* {
 		reverse_proxy oauth2-proxy:4180
