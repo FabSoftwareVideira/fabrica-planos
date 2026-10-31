@@ -1,17 +1,15 @@
-# Produção (servidor, deploy pelo CI/CD): app com gunicorn atrás do Caddy (HTTPS) e do oauth2-proxy
-# (login com Google), e o Ollama com GPU. Para desenvolver na sua máquina, use docker-compose.dev.yml.
-# Nome fixo do projeto: mantém os containers e os volumes (modelos do Ollama, certificados do Caddy) de quando
-# o compose ficava na pasta validador-planos/.
-name: validador-planos
-
+# Produção no Dokploy (recurso do tipo Docker Compose): app com gunicorn atrás do Caddy interno e do
+# oauth2-proxy (login com Google), e o Ollama com GPU. O domínio e o HTTPS ficam com o Traefik do Dokploy,
+# configurados na tela do Dokploy para o serviço caddy (porta 80). As variáveis vêm da aba Environment
+# (modelo em .env.example). Para desenvolver na sua máquina, use docker-compose.dev.yml.
 services:
   app:
     build:
       context: .
       target: producao
     restart: unless-stopped
-    # Sem "ports": o acesso de fora passa pelo serviço caddy (HTTPS e login), que repassa o e-mail
-    # de quem entrou; só os e-mails de ADMIN_EMAILS enviam/excluem PDFs e disparam validações.
+    # Sem "ports" e fora da rede do Dokploy: só o caddy (login) alcança o app e repassa o e-mail de quem
+    # entrou; só os e-mails de ADMIN_EMAILS enviam/excluem PDFs e disparam validações.
     environment:
       - PLANOS_DIR=/data/planos
       - RESULTADOS_DIR=/data/resultados
@@ -26,29 +24,26 @@ services:
       - ADMIN_EMAILS=${ADMIN_EMAILS}
       - TZ=${TZ}
     volumes:
-      # PDFs de entrada ficam fora do container, na pasta indicada em PLANOS_HOST_DIR.
-      # Gravável porque o dashboard envia e exclui PDFs.
-      - "${PLANOS_HOST_DIR}:/data/planos"
-      - "./resultados:/data/resultados"
+      # Pastas fixas do servidor, fora do código: o Dokploy clona o repositório de novo a cada deploy, e
+      # uma pasta relativa a ele (./resultados) seria perdida. Planos gravável: o dashboard envia e exclui PDFs.
+      - "${PLANOS_HOST_DIR:-/srv/validador-planos/planos}:/data/planos"
+      - "${RESULTADOS_HOST_DIR:-/srv/validador-planos/resultados}:/data/resultados"
     depends_on:
       ollama:
         condition: service_healthy
 
   caddy:
+    # Porta de entrada: o Traefik do Dokploy repassa o domínio para cá (porta 80, na rede dokploy-network).
+    # Sem "ports" no host; o HTTPS é do Traefik.
     image: caddy:2
     restart: unless-stopped
-    ports:
-      # 80 é usada pelo Let's Encrypt para emitir e renovar o certificado
-      - "80:80"
-      - "${APP_PORT}:${APP_PORT}"
-    environment:
-      - APP_HOST=${APP_HOST:-}
-      - APP_PORT=${APP_PORT}
+    expose:
+      - "80"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      # Certificados persistem entre recriações do container
-      - caddy-data:/data
-      - caddy-config:/config
+    networks:
+      - default
+      - dokploy-network
     depends_on:
       - app
       - oauth2-proxy
@@ -104,7 +99,13 @@ services:
               count: all
               capabilities: [gpu]
 
+networks:
+  # Rede do Traefik do Dokploy (criada na instalação do Dokploy)
+  dokploy-network:
+    external: true
+
 volumes:
+  # Modelos baixados. Nome fixo: reaproveita o volume do deploy anterior (validador-planos_ollama-data)
+  # e não depende do nome que o Dokploy dá ao projeto.
   ollama-data:
-  caddy-data:
-  caddy-config:
+    name: ${OLLAMA_VOLUME:-validador-planos_ollama-data}

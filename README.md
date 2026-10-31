@@ -177,52 +177,91 @@ docker compose -f docker-compose.dev.yml logs -f app           # acompanhar o lo
 docker compose -f docker-compose.dev.yml down                  # parar
 ```
 
-## Subir no servidor
+## Subir no servidor (Dokploy)
 
-O `docker-compose.yml` é o de produção e é o padrão do `docker compose`: no servidor (e no deploy automático) basta `docker compose up -d --build`, que constrói o estágio `producao` da imagem (gunicorn com o código copiado).
+Em produção o validador roda no [Dokploy](https://dokploy.com), que gerencia os projetos e domínios da VPS. O `docker-compose.yml` é o de produção, cadastrado no Dokploy como recurso do tipo **Docker Compose**:
 
-1. Crie o cliente OAuth no Google (uma vez), com a sua conta `@ifc.edu.br`, em [console.cloud.google.com](https://console.cloud.google.com): crie um projeto; em **Tela de permissão OAuth**, escolha o tipo **Interno** se estiver disponível (só contas da instituição conseguem entrar); em **Credenciais > Criar credenciais > ID do cliente OAuth**, tipo **Aplicativo da Web**, com o URI de redirecionamento `https://APP_HOST/oauth2/callback` (acrescente `:APP_PORT` se não for 443). Guarde o ID e a chave secreta do cliente.
+- o **Traefik do Dokploy** recebe o domínio, cuida do HTTPS (Let's Encrypt) e repassa ao serviço `caddy`, na porta 80, pela rede `dokploy-network`;
+- o **Caddy** do projeto é interno, sem porta publicada no host: faz o login (`forward_auth` no `oauth2-proxy`) e repassa ao `app`, que fica só na rede do compose;
+- os **PDFs e resultados** ficam em pastas fixas do servidor (`PLANOS_HOST_DIR` e `RESULTADOS_HOST_DIR`, padrão `/srv/validador-planos/...`), porque o Dokploy clona o repositório de novo a cada deploy;
+- os **modelos do Ollama** ficam no volume `OLLAMA_VOLUME` (padrão `validador-planos_ollama-data`, o mesmo do deploy anterior ao Dokploy).
 
-2. Copie a configuração e ajuste os valores (caminho dos PDFs, portas, `APP_HOST`, cliente OAuth, administradores):
+### Instalar e configurar (uma vez)
 
-```bash
-cp .env.example .env
-```
+1. **Cliente OAuth no Google**, com a sua conta `@ifc.edu.br`, em [console.cloud.google.com](https://console.cloud.google.com): crie um projeto; em **Tela de permissão OAuth**, escolha o tipo **Interno** se estiver disponível (só contas da instituição conseguem entrar); em **Credenciais > Criar credenciais > ID do cliente OAuth**, tipo **Aplicativo da Web**, com o URI de redirecionamento `https://SEU_DOMINIO/oauth2/callback`. Guarde o ID e a chave secreta. Se o cliente já existe, só confira o URI (sem porta, se antes havia uma).
 
-Gere a chave do cookie de sessão e cole em `COOKIE_SECRET`:
-
-```bash
-openssl rand -hex 16
-```
-
-3. Suba o validador, o Ollama, o Caddy e o oauth2-proxy:
+2. **Pastas de dados** no servidor (o container do app roda como root e grava nelas):
 
 ```bash
-docker compose up -d --build
+sudo mkdir -p /srv/validador-planos/planos /srv/validador-planos/resultados
 ```
 
-4. Baixe o modelo no Ollama (uma vez; fica no volume `ollama-data`):
+3. **Instalar o Dokploy** (como root; ele precisa das portas 80, 443 e 3000 livres):
 
 ```bash
-docker compose exec ollama ollama pull qwen2.5:7b
+curl -sSL https://dokploy.com/install.sh | sh
 ```
 
-5. Abra `https://APP_HOST/dashboard` (ex.: `https://planos.200-135-55-29.sslip.io/dashboard`), entre com a conta Google institucional, envie os PDFs (se a pasta estiver vazia) e clique em **Validar agora**.
+Abra `http://IP_DO_SERVIDOR:3000`, crie a conta de administrador e ative a autenticação em dois fatores. Em **Settings > Web Server**, dê um domínio com HTTPS ao painel e, depois, bloqueie o acesso direto à porta 3000 (regras do `ufw` não valem para portas publicadas pelo Docker; veja a documentação do Dokploy).
 
-## Acesso externo
+4. **Criar o recurso**: em um projeto, **Create Service > Compose**, tipo **Docker Compose** (não **Stack**: no modo Swarm a reserva de GPU do Ollama não funciona). Em **Provider**, conecte o GitHub (GitHub App, o repositório é privado), escolha `FabSoftwareVideira/fabrica-planos`, branch `master` e o arquivo `./docker-compose.yml`. **Desligue o Autodeploy**: quem dispara o deploy é o GitHub Actions, depois dos testes (ver "Deploy automático").
 
-Só o serviço `caddy` publica portas: `APP_PORT` (a aplicação, com HTTPS e login) e 80 (usada pelo Let's Encrypt para emitir e renovar o certificado; nela o Caddy só responde ao desafio e redireciona para HTTPS). O `app` e o Ollama ficam na rede interna do compose; o Ollama também em `127.0.0.1:OLLAMA_PORT` no host.
+5. **Environment**: cole o `.env.example` e ajuste os valores (cliente OAuth, `COOKIE_SECRET` gerado com `openssl rand -hex 16`, `ADMIN_EMAILS`, pastas, modelo).
 
-- `APP_HOST` é o nome que resolve para o IP público. Sem domínio próprio, `qualquer-nome.200-135-55-29.sslip.io` resolve para 200.135.55.29.
-- O firewall da frente precisa encaminhar as portas 80 e `APP_PORT` para a máquina. Sem a 80 o certificado não é emitido; nesse caso, ou para testar localmente, deixe `APP_HOST` vazio e o Caddy serve HTTP puro em `APP_PORT`.
-- Os certificados ficam no volume `caddy-data`.
+6. **Domains**: adicione o domínio no serviço `caddy`, porta `80`, com HTTPS e certificado Let's Encrypt. Sem domínio próprio, `qualquer-nome.200-135-55-29.sslip.io` resolve para 200.135.55.29.
+
+7. **Deploy** e, se o volume de modelos for novo, baixe o modelo uma vez (pelo terminal do container `ollama` no Dokploy, ou no servidor):
+
+```bash
+docker exec -it $(docker ps -qf name=ollama) ollama pull qwen2.5:7b
+```
+
+8. Abra `https://SEU_DOMINIO/dashboard`, entre com a conta Google institucional, envie os PDFs (se a pasta estiver vazia) e clique em **Validar agora**.
+
+### Migrar do deploy anterior (Caddy com portas próprias e runner self-hosted)
+
+O site fica fora do ar entre os passos 2 e 5, por alguns minutos.
+
+1. **Backup** do clone antigo (`.env`, PDFs e resultados), na pasta onde está o `docker-compose.yml` em uso:
+
+```bash
+cd /home/fbizotto/projetos/fabrica-planos/validador-planos   # ou a raiz do clone, se o compose já estiver lá
+tar czf ~/backup-validador-$(date +%F).tgz .env resultados ../planos
+```
+
+2. **Parar o deploy antigo**, liberando as portas 80 e 443 para o Dokploy (o volume com os modelos do Ollama não é apagado):
+
+```bash
+docker compose down
+```
+
+3. **Copiar os dados** para as pastas fixas (ajuste a origem dos PDFs se o `PLANOS_HOST_DIR` antigo apontava para outro lugar):
+
+```bash
+sudo mkdir -p /srv/validador-planos
+sudo cp -a resultados ../planos /srv/validador-planos/
+```
+
+4. **Instalar o Dokploy e criar o recurso** (passos 3 a 6 acima). No Environment, reaproveite os valores do `.env` antigo; `APP_HOST` e `APP_PORT` não são mais usados (o domínio vai na aba Domains). Se o domínio antigo usava uma porta (ex.: `:8443`), atualize o URI de redirecionamento no Google para o domínio sem porta.
+
+5. **Deploy** no Dokploy e teste o login, o dashboard e um relatório.
+
+6. **Desligar o runner self-hosted**, que não é mais usado:
+
+```bash
+cd ~/actions-runner
+sudo ./svc.sh stop && sudo ./svc.sh uninstall
+./config.sh remove --token <TOKEN_DE_REMOCAO>   # token em Settings > Actions > Runners > o runner > Remove
+```
+
+Apague também a variável `DEPLOY_DIR` em **Settings > Secrets and variables > Actions > Variables**. O clone antigo pode ser apagado quando tudo estiver funcionando (o backup do passo 1 fica em `~`).
 
 ## Login
 
-O Caddy consulta o `oauth2-proxy` a cada requisição (`forward_auth`). Sem sessão, o navegador vai para o login do Google; só entram contas de `EMAIL_DOMINIO` (padrão `ifc.edu.br`; alunos usam `@estudantes.ifc.edu.br` e são recusados). Com sessão, o Caddy repassa o e-mail ao app no cabeçalho `X-Usuario-Email`, depois de apagar qualquer valor vindo do navegador; o app só é alcançável pelo Caddy, na rede interna do compose.
+O Traefik do Dokploy repassa as requisições ao Caddy do projeto, que consulta o `oauth2-proxy` a cada uma (`forward_auth`). Sem sessão, o navegador vai para o login do Google; só entram contas de `EMAIL_DOMINIO` (padrão `ifc.edu.br`; alunos usam `@estudantes.ifc.edu.br` e são recusados). Com sessão, o Caddy repassa o e-mail ao app no cabeçalho `X-Usuario-Email`, depois de apagar qualquer valor vindo do navegador; o app só é alcançável pelo Caddy, na rede interna do compose.
 
 - A sessão dura 7 dias (cookie `_planos_login`). **Sair**, no topo da dashboard, encerra a sessão no validador, não na conta Google.
-- Para mudar os administradores, edite `ADMIN_EMAILS` e rode `docker compose up -d app`.
+- Para mudar os administradores, edite `ADMIN_EMAILS` no Environment do Dokploy e faça um novo deploy.
 - O oauth2-proxy também devolve o ID token do Google (`OAUTH2_PROXY_SET_AUTHORIZATION_HEADER`), que o Caddy repassa em `X-Usuario-Token`; o app lê dele o nome da conta.
 
 ## Usuários
@@ -235,8 +274,10 @@ Todo servidor entra no cadastro (`resultados/usuarios.sqlite3`) no primeiro aces
 Mostra o texto extraído do PDF e como ele foi separado em seções (com `--prompt`, também o prompt enviado ao Ollama), sem chamar a IA:
 
 ```bash
-docker compose exec app python -m app.depurar "2026-2 - Banco Dados II - Leila.pdf" --prompt
+docker compose -f docker-compose.dev.yml exec app python -m app.depurar "2026-2 - Banco Dados II - Leila.pdf" --prompt
 ```
+
+Em produção, rode `python -m app.depurar ...` no terminal do container `app`, pelo Dokploy.
 
 ## Testes
 
@@ -249,58 +290,32 @@ Sem Python instalado, rode dentro do container de desenvolvimento: `docker compo
 
 ## Observações
 
-- O Ollama roda como serviço `ollama` do próprio compose; o validador o alcança pela rede interna em `http://ollama:11434`. No host, ele fica em `OLLAMA_PORT` (padrão 11434), aceitando só conexões locais; para liberar na rede, use `OLLAMA_BIND=0.0.0.0` (o Ollama não tem autenticação). Não altere `OLLAMA_URL` ao trocar a porta. Os modelos ficam no volume `ollama-data` e sobrevivem a `docker compose down` (só `down -v` os apaga). Para usar GPU NVIDIA, descomente o bloco `deploy` do serviço no `docker-compose.yml`.
+- O Ollama roda como serviço `ollama` do próprio compose; o validador o alcança pela rede interna em `http://ollama:11434`. No host, ele fica em `OLLAMA_PORT` (padrão 11434), aceitando só conexões locais; para liberar na rede, use `OLLAMA_BIND=0.0.0.0` (o Ollama não tem autenticação). Não altere `OLLAMA_URL` ao trocar a porta. Os modelos ficam no volume `OLLAMA_VOLUME` e sobrevivem a recriações dos containers. A GPU NVIDIA é reservada pelo bloco `deploy` do serviço no `docker-compose.yml`.
 - O texto extraído é limpo antes da separação em seções: saem o rodapé do SIGAA ("Este documento foi emitido…", endereço, telefone), o cabeçalho institucional repetido a partir da 2ª página, títulos de bloco e cabeçalhos de tabela, e o bloco "Matrícula Docente(s)" de dentro da ementa (ele vai para a identificação).
 - Horário de atendimento é decidido por regra, sem a IA: OK se a seção informa dia ou hora; INCOMPLETO se só indica onde consultar (quadro de horários, Planus, PTD, site); AUSENTE se vazia.
 - A extração usa `pdfplumber`, que lê só a camada de texto. PDFs escaneados precisam de OCR antes de entrar na pasta: o upload os recusa e, se um deles for copiado direto para a pasta, a validação o marca como `ERRO` ("precisa passar por OCR") sem chamar a IA.
-- Para trocar o modelo, altere `OLLAMA_MODEL` (e, se quiser, `OLLAMA_NUM_CTX`) no `.env`, baixe o modelo com `docker compose exec ollama ollama pull <modelo>` e rode `docker compose up -d`. Um `docker compose restart` não recarrega o `.env`.
+- Para trocar o modelo, baixe-o (`ollama pull <modelo>` no terminal do container `ollama`), altere `OLLAMA_MODEL` (e, se quiser, `OLLAMA_NUM_CTX`) no Environment do Dokploy e faça um novo deploy.
 
-## Deploy automático (GitHub Actions)
+## Deploy automático (GitHub Actions + Dokploy)
 
-O workflow `.github/workflows/ci-cd.yml` roda os testes (e constrói a imagem de produção e confere o `docker-compose.dev.yml`) em todo push e pull request. Em push na `master` que passe nos testes, o job de deploy roda **no próprio servidor**, num runner self-hosted: atualiza o clone para o commit testado, executa `docker compose up -d --build` e confere se o app respondeu. Para reimplantar sem commit, use **Actions > CI/CD > Run workflow**.
+O workflow `.github/workflows/ci-cd.yml` roda os testes (e constrói a imagem de produção e confere os dois compose) em todo push e pull request. Em push na `master` que passe nos testes, o job de deploy chama a API do Dokploy (`POST /api/compose.deploy`), que baixa o código, reconstrói as imagens e sobe os containers. O Autodeploy do próprio Dokploy fica desligado, para que só código testado vá para o ar. Para reimplantar sem commit, use **Actions > CI/CD > Run workflow** ou o botão **Deploy** no Dokploy.
 
 O deploy reinicia o container `app`: uma validação em andamento naquele momento é perdida (ver "Controle de execução") e precisa ser iniciada de novo.
 
-### Configurar uma vez no servidor
+### Configurar uma vez
 
-O runner roda como o usuário `fbizotto`, dono do clone em `/home/fbizotto/projetos/fabrica-planos`, onde já estão `.env`, `planos/` e `resultados/` (na raiz do clone). Assim não é preciso mudar dono de pastas nem permissões da home.
+1. No Dokploy, gere uma chave da API em **Settings > Profile > API/CLI** (o nome do menu pode variar entre versões).
+2. Copie o id do recurso: é o trecho final da URL da página do recurso no painel (`.../compose/<ID>`).
+3. No GitHub, em **Settings > Secrets and variables > Actions > Secrets**, crie:
+   - `DOKPLOY_URL`: endereço do painel, com `https://` (ex.: `https://painel.200-135-55-29.sslip.io`);
+   - `DOKPLOY_API_KEY`: a chave do passo 1;
+   - `DOKPLOY_COMPOSE_ID`: o id do passo 2.
+4. Faça um push na `master` (ou **Run workflow**) e acompanhe o job em **Actions** e o build em **Deployments**, no Dokploy.
 
-O projeto ficava antes na pasta `validador-planos/` do repositório, ao lado do projeto antigo com n8n e do TCC. No primeiro deploy depois da mudança para a raiz, o workflow move sozinho o `.env` e `resultados/` de `validador-planos/` para a raiz (um `.env` do n8n que já estivesse na raiz vira `.env.n8n-antigo`) e troca `PLANOS_HOST_DIR=../planos` por `./planos`. O compose tem nome fixo (`validador-planos`), então os containers e os volumes (modelos do Ollama, certificados do Caddy) continuam os mesmos.
-
-1. **Conferir o acesso ao Docker** sem `sudo` (o runner não usa sudo):
-
-```bash
-docker ps
-# se der "permission denied":
-sudo usermod -aG docker fbizotto   # depois saia e entre de novo na sessão SSH
-```
-
-2. **Conferir o clone**: precisa estar limpo, sem alterações em arquivos versionados.
-
-```bash
-cd /home/fbizotto/projetos/fabrica-planos
-git status --short --untracked-files=no   # não deve listar nada
-```
-
-3. **Instalar o runner**: no GitHub, **Settings > Actions > Runners > New self-hosted runner**, escolha **Linux / x64** e copie os comandos exibidos (a versão e o token mudam). No servidor:
-
-```bash
-mkdir -p ~/actions-runner && cd ~/actions-runner
-# cole aqui o curl de download e o tar xzf exibidos pelo GitHub
-./config.sh --url https://github.com/FabSoftwareVideira/fabrica-planos \
-  --token <TOKEN_EXIBIDO> --name servidor-ifc --labels planos --unattended
-sudo ./svc.sh install fbizotto
-sudo ./svc.sh start
-sudo ./svc.sh status   # deve aparecer "active (running)"
-```
-
-Como serviço, o runner volta sozinho depois de reiniciar o servidor. Em **Settings > Actions > Runners** ele deve aparecer como **Idle**.
-
-4. **Variável do repositório**: em **Settings > Secrets and variables > Actions > Variables > New repository variable**, crie `DEPLOY_DIR` = `/home/fbizotto/projetos/fabrica-planos`.
-
-5. Faça um push na `master` (ou **Actions > CI/CD > Run workflow**) e acompanhe em **Actions**.
+O painel do Dokploy precisa estar acessível pela internet (pelo domínio com HTTPS) para o GitHub Actions chamar a API.
 
 ### Cuidados
 
-- Não edite arquivos versionados direto no servidor: o deploy para com erro se encontrar alterações locais, para não apagá-las. Configuração do servidor fica no `.env`, fora do git.
-- Se o repositório virar público, restrinja o runner: em **Settings > Actions > General**, exija aprovação para workflows de forks, e nunca rode jobs de `pull_request` no runner self-hosted (o workflow já roda os testes de PR só nos runners do GitHub).
+- A configuração do servidor fica no Environment do recurso, no Dokploy; não edite arquivos no servidor. Mudou uma variável (ex.: `ADMIN_EMAILS`)? Salve e faça um novo deploy.
+- A chave da API dá controle sobre o Dokploy: guarde-a só nos secrets do GitHub e gere outra se ela vazar.
+- Faça backup de `/srv/validador-planos/resultados` (usuários, revisões e a validação atual): o backup do Dokploy cobre os bancos que ele gerencia, não essas pastas.

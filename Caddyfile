@@ -1,7 +1,17 @@
-# Proxy na frente do validador: HTTPS (Let's Encrypt) e login com a conta Google institucional.
-# Com APP_HOST vazio o endereço vira ":APP_PORT" e o Caddy serve HTTP puro, sem certificado
-# (uso local). Com um nome (ex.: planos.200-135-55-29.sslip.io) emite o certificado pela porta 80.
-{$APP_HOST}:{$APP_PORT} {
+# Proxy interno do validador: login com a conta Google institucional (oauth2-proxy) e repasse ao app.
+# Fica atrás do Traefik do Dokploy, que recebe o domínio e cuida do HTTPS; aqui é HTTP puro na porta 80,
+# sem porta publicada no host (ver docker-compose.yml).
+{
+	# Certificados são do Traefik
+	auto_https off
+	servers {
+		# O Traefik (rede interna do Docker) informa o esquema e o host originais em X-Forwarded-*:
+		# o oauth2-proxy precisa deles para montar o endereço https de retorno do Google.
+		trusted_proxies static private_ranges
+	}
+}
+
+:80 {
 	# Compressão: o CSS do Design System gov.br cai de ~570 KB para ~70 KB
 	encode zstd gzip
 
