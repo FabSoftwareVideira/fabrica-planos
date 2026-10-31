@@ -1,0 +1,9 @@
+# Proxy na frente do validador: HTTPS (Let's Encrypt) e senha.
+# Com APP_HOST vazio o endereço vira ":APP_PORT" e o Caddy serve HTTP puro, sem certificado
+# (uso local). Com um nome (ex.: planos.200-135-55-29.sslip.io) emite o certificado pela porta 80.
+{$APP_HOST}:{$APP_PORT} {
+	basic_auth {
+		{$APP_USUARIO} {$APP_SENHA_HASH}
+	}
+	reverse_proxy app:8000
+}

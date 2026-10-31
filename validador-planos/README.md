@@ -24,7 +24,7 @@ Em `/dashboard` é possível:
 - filtrar os resultados por texto (disciplina ou docente, sem diferenciar acentos), status e campo com problema; os filtros ficam guardados enquanto a aba estiver aberta;
 - consultar as últimas validações (seletor ao lado de **Resultados**) e baixar o CSV de cada uma e o **zip com os PDFs** da última.
 
-Enquanto uma validação roda, envio e exclusão ficam bloqueados. Não há autenticação: qualquer um que alcance a porta `APP_PORT` pode enviar e excluir PDFs.
+Enquanto uma validação roda, envio e exclusão ficam bloqueados. A aplicação não tem autenticação própria: o acesso passa pelo Caddy (ver "Acesso externo"), que pede usuário e senha.
 
 ## Rotas
 
@@ -60,13 +60,19 @@ O estado da validação fica em memória no processo do gunicorn (`app/andamento
 
 ## Subir no servidor
 
-1. Copie a configuração e ajuste os valores (caminho dos PDFs, portas):
+1. Copie a configuração e ajuste os valores (caminho dos PDFs, portas, `APP_HOST`, login):
 
 ```bash
 cp .env.example .env
 ```
 
-2. Suba o validador e o Ollama:
+Gere o hash da senha e cole em `APP_SENHA_HASH`, entre aspas simples:
+
+```bash
+docker run --rm caddy:2 caddy hash-password --plaintext 'sua-senha'
+```
+
+2. Suba o validador, o Ollama e o Caddy:
 
 ```bash
 docker compose up -d --build
@@ -78,7 +84,15 @@ docker compose up -d --build
 docker compose exec ollama ollama pull qwen2.5:7b
 ```
 
-4. Abra `http://IP_DO_SERVIDOR:8080/dashboard`, envie os PDFs (se a pasta estiver vazia) e clique em **Validar agora**.
+4. Abra `https://APP_HOST:APP_PORT/dashboard` (ex.: `https://planos.200-135-55-29.sslip.io:9090/dashboard`), entre com o login, envie os PDFs (se a pasta estiver vazia) e clique em **Validar agora**.
+
+## Acesso externo
+
+Só o serviço `caddy` publica portas: `APP_PORT` (a aplicação, com HTTPS e senha) e 80 (usada pelo Let's Encrypt para emitir e renovar o certificado; nela o Caddy só responde ao desafio e redireciona para HTTPS). O `app` e o Ollama ficam na rede interna do compose; o Ollama também em `127.0.0.1:OLLAMA_PORT` no host.
+
+- `APP_HOST` é o nome que resolve para o IP público. Sem domínio próprio, `qualquer-nome.200-135-55-29.sslip.io` resolve para 200.135.55.29.
+- O firewall da frente precisa encaminhar as portas 80 e `APP_PORT` para a máquina. Sem a 80 o certificado não é emitido; nesse caso, ou para testar localmente, deixe `APP_HOST` vazio e o Caddy serve HTTP puro em `APP_PORT`.
+- Os certificados ficam no volume `caddy-data`. Ao trocar a senha, rode `docker compose up -d caddy`.
 
 ## Conferir a extração de um plano
 

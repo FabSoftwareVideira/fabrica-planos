@@ -2,8 +2,7 @@ services:
   app:
     build: .
     restart: unless-stopped
-    ports:
-      - "${APP_PORT}:8000"
+    # Sem "ports": o acesso de fora passa pelo serviço caddy (HTTPS e senha).
     environment:
       - PLANOS_DIR=/data/planos
       - RESULTADOS_DIR=/data/resultados
@@ -24,6 +23,26 @@ services:
     depends_on:
       ollama:
         condition: service_healthy
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      # 80 é usada pelo Let's Encrypt para emitir e renovar o certificado
+      - "80:80"
+      - "${APP_PORT}:${APP_PORT}"
+    environment:
+      - APP_HOST=${APP_HOST:-}
+      - APP_PORT=${APP_PORT}
+      - APP_USUARIO=${APP_USUARIO}
+      - APP_SENHA_HASH=${APP_SENHA_HASH}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Certificados persistem entre recriações do container
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - app
 
   ollama:
     image: ollama/ollama:latest
@@ -53,3 +72,5 @@ services:
 
 volumes:
   ollama-data:
+  caddy-data:
+  caddy-config:
