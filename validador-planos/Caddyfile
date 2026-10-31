@@ -1,9 +1,26 @@
-# Proxy na frente do validador: HTTPS (Let's Encrypt) e senha.
+# Proxy na frente do validador: HTTPS (Let's Encrypt) e login com a conta Google institucional.
 # Com APP_HOST vazio o endereço vira ":APP_PORT" e o Caddy serve HTTP puro, sem certificado
 # (uso local). Com um nome (ex.: planos.200-135-55-29.sslip.io) emite o certificado pela porta 80.
 {$APP_HOST}:{$APP_PORT} {
-	basic_auth {
-		{$APP_USUARIO} {$APP_SENHA_HASH}
+	# Telas de login, retorno do Google e saída
+	handle /oauth2/* {
+		reverse_proxy oauth2-proxy:4180
 	}
-	reverse_proxy app:8000
+
+	handle {
+		# route mantém a ordem: o cabeçalho vindo do navegador é apagado antes de o oauth2-proxy
+		# preencher o e-mail de quem fez login; o app confia nele para saber quem é administrador.
+		route {
+			request_header -X-Usuario-Email
+			forward_auth oauth2-proxy:4180 {
+				uri /oauth2/auth
+				copy_headers X-Auth-Request-Email>X-Usuario-Email
+				@sem_login status 401
+				handle_response @sem_login {
+					redir * /oauth2/start?rd={uri}
+				}
+			}
+			reverse_proxy app:8000
+		}
+	}
 }

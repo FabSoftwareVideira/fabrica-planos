@@ -6,6 +6,7 @@ import time
 import unicodedata
 import zipfile
 from datetime import datetime, timedelta
+from functools import wraps
 
 from flask import Flask, Response, jsonify, redirect, request, send_file, send_from_directory
 
@@ -35,6 +36,32 @@ def _json(obj, status=200):
 
 def _ocupado():
     return _json({'status': 'ocupado', 'mensagem': 'Já existe uma validação em andamento'}, 409)
+
+
+def _email():
+    """E-mail de quem fez login, repassado pelo proxy; vazio sem login."""
+    return (request.headers.get('X-Usuario-Email') or '').strip().lower()
+
+
+def _eh_admin():
+    return not cfg.exigir_login or _email() in cfg.admins
+
+
+@app.before_request
+def _exigir_login():
+    # O proxy só deixa passar quem fez login; isto barra quem chegar ao app sem passar por ele.
+    if cfg.exigir_login and not _email() and request.path != '/health':
+        return _texto('Login necessário.', 401)
+
+
+def _somente_admin(rota):
+    """Envio, exclusão e validação ficam com os e-mails de ADMIN_EMAILS; os demais só consultam."""
+    @wraps(rota)
+    def verificar(*args, **kwargs):
+        if not _eh_admin():
+            return _json({'erro': 'Apenas administradores podem fazer isso'}, 403)
+        return rota(*args, **kwargs)
+    return verificar
 
 
 def _iniciar_se_livre():
@@ -67,6 +94,7 @@ def _revalidar_se_livre(nome):
 
 @app.post('/validar')
 @app.post('/webhook/validar')
+@_somente_admin
 def validar():
     nome = request.args.get('arquivo')
     if nome is not None:  # revalidar só este plano, atualizando a última validação
@@ -110,7 +138,7 @@ def pagina_dashboard():
     if request.args.get('validacao') and execucao is None:
         return redirect('/dashboard')  # validação que saiu do histórico
     linhas = csvsaida.ler_csv(execucao.csv_path) if execucao else []
-    html = dashboard.gerar_html(linhas, cfg.pdf_max_mb, execucoes, execucao)
+    html = dashboard.gerar_html(linhas, cfg.pdf_max_mb, execucoes, execucao, _email(), _eh_admin())
     return Response(html, mimetype='text/html; charset=utf-8')
 
 
@@ -127,7 +155,7 @@ def pagina_relatorio():
         return _texto('Plano não encontrado nessa validação.', 404)
     det = detalhes.ler(execucao.detalhes_dir, nome)
     eh_ultima = execucao.id == execucoes[0].id
-    pode_revalidar = eh_ultima and os.path.isfile(os.path.join(cfg.planos_dir, nome))
+    pode_revalidar = eh_ultima and _eh_admin() and os.path.isfile(os.path.join(cfg.planos_dir, nome))
     html = relatorio.gerar_html(linhas, indice, det, execucao, eh_ultima, pode_revalidar)
     return Response(html, mimetype='text/html; charset=utf-8')
 
@@ -230,6 +258,7 @@ def _motivo_recusa(nome, arquivo):
 
 
 @app.post('/planos')
+@_somente_admin
 def enviar_planos():
     arquivos = request.files.getlist('arquivos')
     if not arquivos:
@@ -262,6 +291,7 @@ def enviar_planos():
 
 
 @app.delete('/planos')
+@_somente_admin
 def excluir_plano():
     nome = request.args.get('arquivo', '')
     if not pipeline.nome_valido(nome):
@@ -278,6 +308,7 @@ def excluir_plano():
 
 
 @app.delete('/planos/todos')
+@_somente_admin
 def excluir_todos():
     """Esvazia a pasta de planos. O histórico (e os PDFs da última validação, para o zip) continuam."""
     with _operacao:

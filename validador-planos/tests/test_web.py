@@ -154,7 +154,7 @@ def test_relatorio_navega_entre_planos_e_volta_ao_card(cliente):
     assert '<span class="off">‹ Anterior</span>' in primeiro
 
     dashboard = c.get('/dashboard').get_data(as_text=True)
-    assert 'id="plano-1"' in dashboard and 'const MAX_MB = 1;' in dashboard
+    assert 'id="plano-1"' in dashboard and 'const MAX_MB = 1, ADMIN = true;' in dashboard
 
 
 def test_relatorio_de_plano_desconhecido(cliente):
@@ -248,3 +248,52 @@ def test_dashboard_tem_filtros_e_revalidar_so_na_ultima(cliente):
     (planos / 'a.pdf').write_bytes(PDF)
     assert 'id="revalidar"' in c.get('/relatorio?arquivo=a.pdf').get_data(as_text=True)
     assert 'id="revalidar"' not in c.get('/relatorio?arquivo=b.pdf').get_data(as_text=True)  # não está na pasta
+
+
+@pytest.fixture
+def com_login(cliente, monkeypatch):
+    """Login exigido, com admin@ifc.edu.br como único administrador."""
+    from dataclasses import replace
+    monkeypatch.setattr(web, 'cfg', replace(web.cfg, exigir_login=True, admins=frozenset({'admin@ifc.edu.br'})))
+    return cliente
+
+
+ADMIN = {'X-Usuario-Email': 'Admin@ifc.edu.br'}
+SERVIDOR = {'X-Usuario-Email': 'fulano@ifc.edu.br'}
+
+
+def test_sem_login_so_responde_health(com_login):
+    c, _ = com_login
+    assert c.get('/dashboard').status_code == 401
+    assert c.get('/planos').status_code == 401
+    assert c.post('/validar').status_code == 401
+    assert c.get('/health').status_code == 200
+
+
+def test_servidor_consulta_mas_nao_administra(com_login):
+    c, planos = com_login
+    (planos / 'a.pdf').write_bytes(PDF)
+    _execucao(['a.pdf'], 10)
+    html = c.get('/dashboard', headers=SERVIDOR).get_data(as_text=True)
+    assert 'fulano@ifc.edu.br · consulta' in html and 'href="/oauth2/sign_out"' in html
+    assert 'id="validar"' not in html and 'id="soltar"' not in html and 'class="revalidar"' not in html
+    assert 'ADMIN = false;' in html
+    assert 'id="revalidar"' not in c.get('/relatorio?arquivo=a.pdf', headers=SERVIDOR).get_data(as_text=True)
+    assert c.get('/pdf?arquivo=a.pdf', headers=SERVIDOR).status_code == 200
+
+    assert c.post('/validar', headers=SERVIDOR).status_code == 403
+    assert c.post('/validar?arquivo=a.pdf', headers=SERVIDOR).status_code == 403
+    assert c.post('/planos', headers=SERVIDOR, data=_envio(('b.pdf', PDF)),
+                  content_type='multipart/form-data').status_code == 403
+    assert c.delete('/planos?arquivo=a.pdf', headers=SERVIDOR).status_code == 403
+    assert c.delete('/planos/todos', headers=SERVIDOR).status_code == 403
+    assert (planos / 'a.pdf').exists()
+
+
+def test_admin_administra(com_login):
+    c, planos = com_login
+    html = c.get('/dashboard', headers=ADMIN).get_data(as_text=True)
+    assert 'admin@ifc.edu.br · administrador' in html and 'id="validar"' in html and 'id="soltar"' in html
+    r = c.post('/planos', headers=ADMIN, data=_envio(('b.pdf', PDF)), content_type='multipart/form-data')
+    assert r.status_code == 200
+    assert c.delete('/planos?arquivo=b.pdf', headers=ADMIN).status_code == 200

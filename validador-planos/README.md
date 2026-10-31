@@ -24,7 +24,7 @@ Em `/dashboard` é possível:
 - filtrar os resultados por texto (disciplina ou docente, sem diferenciar acentos), status e campo com problema; os filtros ficam guardados enquanto a aba estiver aberta;
 - consultar as últimas validações (seletor ao lado de **Resultados**) e baixar o CSV de cada uma e o **zip com os PDFs** da última.
 
-Enquanto uma validação roda, envio e exclusão ficam bloqueados. A aplicação não tem autenticação própria: o acesso passa pelo Caddy (ver "Acesso externo"), que pede usuário e senha.
+Enquanto uma validação roda, envio e exclusão ficam bloqueados. O acesso exige login com a conta Google `@ifc.edu.br` (ver "Login"). Qualquer servidor consulta resultados, relatórios, PDFs, CSV e zip; só os administradores (`ADMIN_EMAILS`) veem e usam **Validar agora**, ↻ Revalidar, envio e exclusão de PDFs.
 
 ## Rotas
 
@@ -46,6 +46,8 @@ Enquanto uma validação roda, envio e exclusão ficam bloqueados. A aplicação
 | GET | `/pdf?arquivo=nome.pdf` | O PDF atual da pasta de planos |
 | GET | `/health` | `{"status":"ok"}` |
 
+Com login exigido, toda rota (exceto `/health`) responde `401` sem o e-mail repassado pelo proxy, e `POST /validar`, `POST /planos`, `DELETE /planos` e `DELETE /planos/todos` respondem `403` para quem não está em `ADMIN_EMAILS`.
+
 Validação automática todos os dias na hora `AGENDAMENTO_HORA` (padrão 5h, fuso `TZ`).
 
 ## Histórico
@@ -60,39 +62,49 @@ O estado da validação fica em memória no processo do gunicorn (`app/andamento
 
 ## Subir no servidor
 
-1. Copie a configuração e ajuste os valores (caminho dos PDFs, portas, `APP_HOST`, login):
+1. Crie o cliente OAuth no Google (uma vez), com a sua conta `@ifc.edu.br`, em [console.cloud.google.com](https://console.cloud.google.com): crie um projeto; em **Tela de permissão OAuth**, escolha o tipo **Interno** se estiver disponível (só contas da instituição conseguem entrar); em **Credenciais > Criar credenciais > ID do cliente OAuth**, tipo **Aplicativo da Web**, com o URI de redirecionamento `https://APP_HOST/oauth2/callback` (acrescente `:APP_PORT` se não for 443). Guarde o ID e a chave secreta do cliente.
+
+2. Copie a configuração e ajuste os valores (caminho dos PDFs, portas, `APP_HOST`, cliente OAuth, administradores):
 
 ```bash
 cp .env.example .env
 ```
 
-Gere o hash da senha e cole em `APP_SENHA_HASH`, entre aspas simples:
+Gere a chave do cookie de sessão e cole em `COOKIE_SECRET`:
 
 ```bash
-docker run --rm caddy:2 caddy hash-password --plaintext 'sua-senha'
+openssl rand -hex 16
 ```
 
-2. Suba o validador, o Ollama e o Caddy:
+3. Suba o validador, o Ollama, o Caddy e o oauth2-proxy:
 
 ```bash
 docker compose up -d --build
 ```
 
-3. Baixe o modelo no Ollama (uma vez; fica no volume `ollama-data`):
+4. Baixe o modelo no Ollama (uma vez; fica no volume `ollama-data`):
 
 ```bash
 docker compose exec ollama ollama pull qwen2.5:7b
 ```
 
-4. Abra `https://APP_HOST:APP_PORT/dashboard` (ex.: `https://planos.200-135-55-29.sslip.io:9090/dashboard`), entre com o login, envie os PDFs (se a pasta estiver vazia) e clique em **Validar agora**.
+5. Abra `https://APP_HOST/dashboard` (ex.: `https://planos.200-135-55-29.sslip.io/dashboard`), entre com a conta Google institucional, envie os PDFs (se a pasta estiver vazia) e clique em **Validar agora**.
 
 ## Acesso externo
 
-Só o serviço `caddy` publica portas: `APP_PORT` (a aplicação, com HTTPS e senha) e 80 (usada pelo Let's Encrypt para emitir e renovar o certificado; nela o Caddy só responde ao desafio e redireciona para HTTPS). O `app` e o Ollama ficam na rede interna do compose; o Ollama também em `127.0.0.1:OLLAMA_PORT` no host.
+Só o serviço `caddy` publica portas: `APP_PORT` (a aplicação, com HTTPS e login) e 80 (usada pelo Let's Encrypt para emitir e renovar o certificado; nela o Caddy só responde ao desafio e redireciona para HTTPS). O `app` e o Ollama ficam na rede interna do compose; o Ollama também em `127.0.0.1:OLLAMA_PORT` no host.
 
 - `APP_HOST` é o nome que resolve para o IP público. Sem domínio próprio, `qualquer-nome.200-135-55-29.sslip.io` resolve para 200.135.55.29.
 - O firewall da frente precisa encaminhar as portas 80 e `APP_PORT` para a máquina. Sem a 80 o certificado não é emitido; nesse caso, ou para testar localmente, deixe `APP_HOST` vazio e o Caddy serve HTTP puro em `APP_PORT`.
-- Os certificados ficam no volume `caddy-data`. Ao trocar a senha, rode `docker compose up -d caddy`.
+- Os certificados ficam no volume `caddy-data`.
+
+## Login
+
+O Caddy consulta o `oauth2-proxy` a cada requisição (`forward_auth`). Sem sessão, o navegador vai para o login do Google; só entram contas de `EMAIL_DOMINIO` (padrão `ifc.edu.br`; alunos usam `@estudantes.ifc.edu.br` e são recusados). Com sessão, o Caddy repassa o e-mail ao app no cabeçalho `X-Usuario-Email`, depois de apagar qualquer valor vindo do navegador; o app só é alcançável pelo Caddy, na rede interna do compose.
+
+- A sessão dura 7 dias (cookie `_planos_login`). **Sair**, no topo da dashboard, encerra a sessão no validador, não na conta Google.
+- Para mudar os administradores, edite `ADMIN_EMAILS` e rode `docker compose up -d app`.
+- Fora do Docker (ex.: `flask --app app.web run` para desenvolver), use `EXIGIR_LOGIN=0`: sem login, todo acesso conta como administrador.
 
 ## Conferir a extração de um plano
 

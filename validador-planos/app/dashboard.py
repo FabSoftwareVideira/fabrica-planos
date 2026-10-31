@@ -116,13 +116,17 @@ ESTILO = (
     '.plano[hidden]{display:none}'
     '.plano{scroll-margin-top:16px;transition:box-shadow .3s}'
     '.plano.destaque{box-shadow:0 0 0 3px #93c5fd !important}'
+    '.usuario{margin:-16px 0 24px;font-size:14px;color:#6b7280}.usuario a{color:#2563eb}'
 )
 
-PAINEIS = (
-    '<section class="painel"><h2>Validação</h2><div class="linha">'
-    '<button class="botao" id="validar">▶ Validar agora</button>'
+PAINEL_VALIDACAO = (
+    '<section class="painel"><h2>Validação</h2><div class="linha">{BOTAO}'
     '<p class="msg" id="status-msg">Carregando…</p></div>'
     '<div class="barra" id="barra" hidden><div></div></div></section>'
+)
+
+# Só para administradores: envio e exclusão dos PDFs.
+PAINEL_PLANOS = (
     '<section class="painel"><div class="cab-planos"><h2>Planos (PDFs) <span class="msg" id="qtd-planos"></span></h2>'
     '<button class="excluir" id="excluir-todos" type="button">Excluir todos</button></div>'
     '<div class="soltar" id="soltar">Arraste PDFs para cá ou '
@@ -143,8 +147,7 @@ function kb(n) { return n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.ma
 async function corpo(resp) { try { return await resp.json(); } catch { return {}; } }
 
 function bloquear() {
-  $('validar').disabled = rodando;
-  $('escolher').disabled = rodando;
+  for (const b of [$('validar'), $('escolher')]) if (b) b.disabled = rodando;
   document.querySelectorAll('.excluir, .revalidar').forEach(b => b.disabled = rodando);
 }
 
@@ -320,25 +323,30 @@ function focarPlano() {
   setTimeout(() => alvo.classList.remove('destaque'), 2000);
 }
 
-$('validar').onclick = async () => {
+async function validarTodos() {
   $('validar').disabled = true;
   let r, d;
   try { r = await fetch('/validar', { method: 'POST' }); d = await corpo(r); }
   catch { msg($('status-msg'), 'Sem conexão com o servidor; tente de novo', 'erro'); $('validar').disabled = false; return; }
   if (r.ok || d.status === 'ocupado') { estavaRodando = true; atualizarStatus(); }
   else { msg($('status-msg'), d.mensagem || 'Não foi possível iniciar', 'erro'); $('validar').disabled = false; }
-};
-$('excluir-todos').onclick = excluirTodos;
+}
+
 if ($('historico')) $('historico').onchange = e => trocarValidacao(e.target.value);
-$('escolher').onclick = () => $('arquivo').click();
-$('arquivo').onchange = e => { enviar([...e.target.files]); e.target.value = ''; };
-const zona = $('soltar');
-['dragenter', 'dragover'].forEach(t => zona.addEventListener(t, e => { e.preventDefault(); if (!rodando) zona.classList.add('ativo'); }));
-['dragleave', 'drop'].forEach(t => zona.addEventListener(t, e => { e.preventDefault(); zona.classList.remove('ativo'); }));
-zona.addEventListener('drop', e => enviar([...e.dataTransfer.files]));
+// Quem só consulta não recebe os controles de validação e de PDFs.
+if (ADMIN) {
+  $('validar').onclick = validarTodos;
+  $('excluir-todos').onclick = excluirTodos;
+  $('escolher').onclick = () => $('arquivo').click();
+  $('arquivo').onchange = e => { enviar([...e.target.files]); e.target.value = ''; };
+  const zona = $('soltar');
+  ['dragenter', 'dragover'].forEach(t => zona.addEventListener(t, e => { e.preventDefault(); if (!rodando) zona.classList.add('ativo'); }));
+  ['dragleave', 'drop'].forEach(t => zona.addEventListener(t, e => { e.preventDefault(); zona.classList.remove('ativo'); }));
+  zona.addEventListener('drop', e => enviar([...e.dataTransfer.files]));
+  carregarPlanos();
+}
 
 atualizarStatus();
-carregarPlanos();
 iniciarFiltros();
 focarPlano();
 """
@@ -417,7 +425,14 @@ def _cabecalho_resultados(execucoes, execucao):
     )
 
 
-def gerar_html(linhas, max_mb=10, execucoes=(), execucao=None):
+def _usuario(email, admin):
+    if not email:
+        return ''
+    return ('<p class="usuario">' + escape(email) + ' · ' + ('administrador' if admin else 'consulta')
+            + ' · <a href="/oauth2/sign_out">Sair</a></p>')
+
+
+def gerar_html(linhas, max_mb=10, execucoes=(), execucao=None, usuario='', admin=True):
     total = len(linhas)
     ok = sum(1 for l in linhas if l.get('Status Geral') == 'OK')
     pendente = sum(1 for l in linhas if l.get('Status Geral') == 'PENDENTE')
@@ -442,7 +457,7 @@ def gerar_html(linhas, max_mb=10, execucoes=(), execucao=None):
 
     if execucao is not None and linhas:
         pdfs = set(execucao.pdfs())
-        ultima = execucao.id == execucoes[0].id
+        ultima = execucao.id == execucoes[0].id and admin  # revalidar é coisa de administrador
         corpo = _filtros(linhas) + ''.join(_card(i, l, execucao.id, pdfs, ultima) for i, l in enumerate(linhas))
         corpo += '<p class="msg" id="sem-resultado" hidden>Nenhum plano corresponde aos filtros.</p>'
     else:
@@ -454,10 +469,11 @@ def gerar_html(linhas, max_mb=10, execucoes=(), execucao=None):
         '<style>details summary::-webkit-details-marker{display:none}' + ESTILO + '</style></head>'
         '<body style="margin:0;font-family:system-ui,-apple-system,sans-serif;background:#f3f4f6;color:#111827">'
         '<div style="max-width:1100px;margin:0 auto;padding:32px 16px">'
-        '<h1 style="margin:0 0 24px">📋 Validação de Planos de Ensino</h1>'
-        + PAINEIS.replace('{MAX_MB}', str(max_mb))
+        '<h1 style="margin:0 0 24px">📋 Validação de Planos de Ensino</h1>' + _usuario(usuario, admin)
+        + PAINEL_VALIDACAO.replace('{BOTAO}', '<button class="botao" id="validar">▶ Validar agora</button>' if admin else '')
+        + (PAINEL_PLANOS.replace('{MAX_MB}', str(max_mb)) if admin else '')
         + _cabecalho_resultados(list(execucoes), execucao) +
         '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:24px">'
         + cartoes + '</div>' + corpo +
-        '</div><script>const MAX_MB = ' + str(int(max_mb)) + ';' + SCRIPT + '</script></body></html>'
+        '</div><script>const MAX_MB = ' + str(int(max_mb)) + ', ADMIN = ' + ('true' if admin else 'false') + ';' + SCRIPT + '</script></body></html>'
     )

@@ -2,7 +2,8 @@ services:
   app:
     build: .
     restart: unless-stopped
-    # Sem "ports": o acesso de fora passa pelo serviço caddy (HTTPS e senha).
+    # Sem "ports": o acesso de fora passa pelo serviço caddy (HTTPS e login), que repassa o e-mail
+    # de quem entrou; só os e-mails de ADMIN_EMAILS enviam/excluem PDFs e disparam validações.
     environment:
       - PLANOS_DIR=/data/planos
       - RESULTADOS_DIR=/data/resultados
@@ -14,6 +15,8 @@ services:
       - PDF_MAX_MB=${PDF_MAX_MB:-10}
       - HISTORICO_MAX=${HISTORICO_MAX:-3}
       - AGENDAR=1
+      - EXIGIR_LOGIN=1
+      - ADMIN_EMAILS=${ADMIN_EMAILS}
       - TZ=${TZ}
     volumes:
       # PDFs de entrada ficam fora do container, na pasta indicada em PLANOS_HOST_DIR.
@@ -34,8 +37,6 @@ services:
     environment:
       - APP_HOST=${APP_HOST:-}
       - APP_PORT=${APP_PORT}
-      - APP_USUARIO=${APP_USUARIO}
-      - APP_SENHA_HASH=${APP_SENHA_HASH}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       # Certificados persistem entre recriações do container
@@ -43,6 +44,27 @@ services:
       - caddy-config:/config
     depends_on:
       - app
+      - oauth2-proxy
+
+  oauth2-proxy:
+    # Login com Google; só aceita contas @ifc.edu.br (alunos usam @estudantes.ifc.edu.br e ficam de fora)
+    image: quay.io/oauth2-proxy/oauth2-proxy:v7.12.0
+    restart: unless-stopped
+    environment:
+      - OAUTH2_PROXY_PROVIDER=google
+      - OAUTH2_PROXY_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - OAUTH2_PROXY_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - OAUTH2_PROXY_COOKIE_SECRET=${COOKIE_SECRET}
+      - OAUTH2_PROXY_EMAIL_DOMAINS=${EMAIL_DOMINIO:-ifc.edu.br}
+      - OAUTH2_PROXY_HTTP_ADDRESS=0.0.0.0:4180
+      # Responde ao forward_auth do Caddy (/oauth2/auth) com o e-mail em X-Auth-Request-Email
+      - OAUTH2_PROXY_UPSTREAMS=static://202
+      - OAUTH2_PROXY_SET_XAUTHREQUEST=true
+      # Atrás do Caddy: monta o endereço de retorno do Google a partir do host pedido
+      - OAUTH2_PROXY_REVERSE_PROXY=true
+      - OAUTH2_PROXY_SKIP_PROVIDER_BUTTON=true
+      - OAUTH2_PROXY_COOKIE_SECURE=${COOKIE_SECURE:-true}
+      - OAUTH2_PROXY_COOKIE_NAME=_planos_login
 
   ollama:
     image: ollama/ollama:latest
