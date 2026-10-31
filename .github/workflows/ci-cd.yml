@@ -1,0 +1,109 @@
+# Testes em todo push/PR; deploy no servidor do IFC a cada push na master que passe nos testes.
+# O deploy roda num runner self-hosted instalado no próprio servidor (ver "Deploy automático"
+# no README do validador): ele só abre conexões de saída para o GitHub, sem porta exposta.
+name: CI/CD
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "validador-planos/**"
+      - ".github/workflows/ci-cd.yml"
+  pull_request:
+    paths:
+      - "validador-planos/**"
+      - ".github/workflows/ci-cd.yml"
+  # Botão "Run workflow" na aba Actions, para reimplantar sem novo commit
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  testes:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: validador-planos
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"   # a mesma do Dockerfile
+          cache: pip
+          cache-dependency-path: validador-planos/requirements*.txt
+
+      - run: pip install -r requirements-dev.txt
+
+      - run: pytest -q
+
+      # Garante que a imagem ainda constrói antes de chegar ao servidor
+      - run: docker build -t validador-planos:ci .
+
+  deploy:
+    needs: testes
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
+    runs-on: [self-hosted, linux, planos]
+    # Um deploy por vez; um novo push espera o anterior terminar em vez de cancelá-lo no meio
+    concurrency:
+      group: deploy-producao
+      cancel-in-progress: false
+    env:
+      # Clone do repositório no servidor, onde ficam .env, planos/ e resultados/ (fora do git).
+      # Defina em Settings > Secrets and variables > Actions > Variables.
+      DEPLOY_DIR: ${{ vars.DEPLOY_DIR }}
+    steps:
+      - name: Conferir pasta de deploy
+        run: |
+          if [ -z "$DEPLOY_DIR" ]; then
+            echo "::error::Defina a variável DEPLOY_DIR (caminho do clone no servidor)."
+            exit 1
+          fi
+          test -f "$DEPLOY_DIR/validador-planos/.env" || {
+            echo "::error::$DEPLOY_DIR/validador-planos/.env não existe."; exit 1; }
+
+      - name: Atualizar o código
+        working-directory: ${{ env.DEPLOY_DIR }}
+        env:
+          TOKEN: ${{ github.token }}
+        run: |
+          # Alteração feita à mão no servidor em arquivo versionado seria apagada pelo reset:
+          # para o deploy e avisa, em vez de perder o trabalho.
+          if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+            echo "::error::Há alterações locais em arquivos versionados no servidor:"
+            git status --short --untracked-files=no
+            exit 1
+          fi
+          # Token temporário do próprio workflow (repositório privado), sem chave fixa no servidor.
+          # Arquivos fora do git (.env, planos/, resultados/) não são tocados.
+          AUTH=$(printf 'x-access-token:%s' "$TOKEN" | base64 -w0)
+          git -c http.extraheader="AUTHORIZATION: basic $AUTH" \
+            fetch --quiet origin "$GITHUB_SHA"
+          git reset --hard "$GITHUB_SHA"
+          git log -1 --oneline
+
+      - name: Reconstruir e subir os containers
+        working-directory: ${{ env.DEPLOY_DIR }}/validador-planos
+        run: docker compose up -d --build --remove-orphans
+
+      - name: Verificar se o app respondeu
+        working-directory: ${{ env.DEPLOY_DIR }}/validador-planos
+        run: |
+          for i in $(seq 1 30); do
+            if docker compose exec -T app python -c \
+                "import urllib.request; urllib.request.urlopen('http://localhost:8000/', timeout=3)"; then
+              echo "App no ar."
+              docker compose ps
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::O app não respondeu em 60 s."
+          docker compose ps
+          docker compose logs --tail=80 app
+          exit 1
+
+      - name: Limpar imagens antigas
+        if: always()
+        run: docker image prune -f

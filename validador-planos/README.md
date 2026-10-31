@@ -167,3 +167,51 @@ pytest
 - Horário de atendimento é decidido por regra, sem a IA: OK se a seção informa dia ou hora; INCOMPLETO se só indica onde consultar (quadro de horários, Planus, PTD, site); AUSENTE se vazia.
 - A extração usa `pdfplumber`, que lê só a camada de texto. PDFs escaneados precisam de OCR antes de entrar na pasta: o upload os recusa e, se um deles for copiado direto para a pasta, a validação o marca como `ERRO` ("precisa passar por OCR") sem chamar a IA.
 - Para trocar o modelo, altere `OLLAMA_MODEL` (e, se quiser, `OLLAMA_NUM_CTX`) no `.env`, baixe o modelo com `docker compose exec ollama ollama pull <modelo>` e rode `docker compose up -d`. Um `docker compose restart` não recarrega o `.env`.
+
+## Deploy automático (GitHub Actions)
+
+O workflow `.github/workflows/ci-cd.yml` roda os testes (e um `docker build`) em todo push e pull request que mexa em `validador-planos/`. Em push na `master` que passe nos testes, o job de deploy roda **no próprio servidor**, num runner self-hosted: atualiza o clone para o commit testado, executa `docker compose up -d --build` e confere se o app respondeu. Commits que só mexem no TCC ou nos workflows do n8n não disparam deploy. Para reimplantar sem commit, use **Actions > CI/CD > Run workflow**.
+
+O deploy reinicia o container `app`: uma validação em andamento naquele momento é perdida (ver "Controle de execução") e precisa ser iniciada de novo.
+
+### Configurar uma vez no servidor
+
+O runner roda como o usuário `fbizotto`, dono do clone em `/home/fbizotto/projetos/fabrica-planos`, onde já estão `.env`, `planos/` e `resultados/`. Assim não é preciso mudar dono de pastas nem permissões da home.
+
+1. **Conferir o acesso ao Docker** sem `sudo` (o runner não usa sudo):
+
+```bash
+docker ps
+# se der "permission denied":
+sudo usermod -aG docker fbizotto   # depois saia e entre de novo na sessão SSH
+```
+
+2. **Conferir o clone**: precisa estar limpo, sem alterações em arquivos versionados.
+
+```bash
+cd /home/fbizotto/projetos/fabrica-planos
+git status --short --untracked-files=no   # não deve listar nada
+```
+
+3. **Instalar o runner**: no GitHub, **Settings > Actions > Runners > New self-hosted runner**, escolha **Linux / x64** e copie os comandos exibidos (a versão e o token mudam). No servidor:
+
+```bash
+mkdir -p ~/actions-runner && cd ~/actions-runner
+# cole aqui o curl de download e o tar xzf exibidos pelo GitHub
+./config.sh --url https://github.com/FabSoftwareVideira/fabrica-planos \
+  --token <TOKEN_EXIBIDO> --name servidor-ifc --labels planos --unattended
+sudo ./svc.sh install fbizotto
+sudo ./svc.sh start
+sudo ./svc.sh status   # deve aparecer "active (running)"
+```
+
+Como serviço, o runner volta sozinho depois de reiniciar o servidor. Em **Settings > Actions > Runners** ele deve aparecer como **Idle**.
+
+4. **Variável do repositório**: em **Settings > Secrets and variables > Actions > Variables > New repository variable**, crie `DEPLOY_DIR` = `/home/fbizotto/projetos/fabrica-planos`.
+
+5. Faça um push na `master` (ou **Actions > CI/CD > Run workflow**) e acompanhe em **Actions**.
+
+### Cuidados
+
+- Não edite arquivos versionados direto no servidor: o deploy para com erro se encontrar alterações locais, para não apagá-las. Configuração do servidor fica no `.env`, fora do git.
+- Se o repositório virar público, restrinja o runner: em **Settings > Actions > General**, exija aprovação para workflows de forks, e nunca rode jobs de `pull_request` no runner self-hosted (o workflow já roda os testes de PR só nos runners do GitHub).
