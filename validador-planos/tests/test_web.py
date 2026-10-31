@@ -184,7 +184,8 @@ def test_dashboard_mostra_historico_e_validacao_anterior(cliente):
 
     html = c.get('/dashboard?validacao=' + antiga.id).get_data(as_text=True)
     assert 'Você está vendo uma validação anterior' in html
-    assert 'pdfs.zip' not in html  # PDFs antigos não são guardados
+    assert f'/validacoes/{antiga.id}/pdfs.zip' not in html  # PDFs antigos não são guardados
+    assert 'data-pdf=' not in html  # nem o zip de cada grupo aparece
     assert '>📄 Abrir PDF<' not in html
     relatorio = c.get(f'/relatorio?validacao={antiga.id}&arquivo=velho.pdf').get_data(as_text=True)
     assert f'href="/dashboard?validacao={antiga.id}#plano-0"' in relatorio
@@ -368,23 +369,59 @@ def test_professor_nao_assume_plano_sem_dono(com_login):
     assert c.delete('/meus-planos?arquivo=antigo.pdf', headers=SERVIDOR).status_code == 403
 
 
-def test_dashboard_agrupa_por_curso_e_periodo(cliente):
+def test_dashboard_traz_dados_para_agrupar(cliente):
     from app.armazenamento import detalhes
     c, _ = cliente
-    execucao = _execucao(c, ['web.pdf', 'algebra.pdf', 'design.pdf', 'avulso.pdf'], 10)
+    execucao = _execucao(c, ['web.pdf', 'design.pdf', 'avulso.pdf'], 10, pdfs=['web.pdf', 'design.pdf'])
     textos = {
-        'web.pdf': 'CCC0723 - DESENVOLVIMENTO WEB I (60h) - Turma: 01 (2026.2)',
-        'algebra.pdf': 'CCC0707 - ÁLGEBRA LINEAR (60h) - Turma: 01 (2026.1)',
+        'web.pdf': 'CCC0723 - DESENVOLVIMENTO WEB I (60h) - Turma: 01 (2026.2)\n'
+                   'Matrícula Docente(s)\n1773245 FULANO DE TAL - 60h\n',
         'design.pdf': 'INC0713-1 - WEB DESIGN (60h) - Turma: 03 (2026)\n'
                       'Turma: [TÉCNICO EM INFORMÁTICA INTEGRADO AO ENSINO MÉDIO - IN07 (MT) - A (2026)]',
     }
     for nome, texto in textos.items():  # sem 'identificacao_plano': como uma validação antiga
         detalhes.salvar(execucao.detalhes_dir, nome, {'texto': texto})
     html = c.get('/dashboard').get_data(as_text=True)
-    titulos = ['Ciência da Computação · 2º semestre de 2026', 'Ciência da Computação · 1º semestre de 2026',
-               'Técnico em Informática Integrado ao Ensino Médio · 2026 (anual)', 'Sem identificação de curso e período']
-    posicoes = [html.index('class="cab-grupo">' + t) for t in titulos]
-    assert posicoes == sorted(posicoes)  # mais recente primeiro; os sem identificação no fim
-    assert 'data-grupo="CC|2026.2"' in html and '<option value="IN|2026">' in html
-    assert 'CCC0723 · Desenvolvimento Web I · Turma 01 · 60h' in html
-    assert '1 plano(s) · 1 OK' in html
+    assert '<select id="agrupar">' in html and '<option value="docente">Docente</option>' in html
+    assert f'id="resultados" data-validacao="{execucao.id}"' in html
+    assert ('data-pdf="1" data-cp="CC|2026.2" data-cp-titulo="Ciência da Computação · 2º semestre de 2026"'
+            in html)
+    assert 'data-periodo="2026" data-periodo-titulo="2026 (anual)"' in html
+    assert 'data-docente="Fulano de Tal"' in html and 'data-cp="-"' in html
+    assert 'CCC0723 · Desenvolvimento Web I · Turma 01 · 60h · Fulano de Tal' in html
+    # Filtro de curso e período na ordem dos grupos; os sem identificação no fim
+    opcoes = [html.index(f'<option value="{v}">') for v in ('CC|2026.2', 'IN|2026', '-')]
+    assert opcoes == sorted(opcoes)
+
+
+def test_zip_de_um_grupo(cliente):
+    import zipfile
+    c, _ = cliente
+    execucao = _execucao(c, ['a.pdf', 'b.pdf', 'c.pdf'], 10, pdfs=['a.pdf', 'b.pdf', 'c.pdf'])
+    r = c.get(f'/validacoes/{execucao.id}/pdfs.zip?arquivo=a.pdf&arquivo=c.pdf&arquivo=fora.pdf'
+              '&nome=Ciência da Computação · 2º semestre de 2026')
+    assert r.status_code == 200
+    assert sorted(zipfile.ZipFile(io.BytesIO(r.data)).namelist()) == ['a.pdf', 'c.pdf']
+    assert f'planos-ciencia-da-computacao-2o-semestre-de-2026-validacao-{execucao.id}.zip' in r.headers[
+        'Content-Disposition']
+    assert c.get(f'/validacoes/{execucao.id}/pdfs.zip?arquivo=fora.pdf').status_code == 404
+
+
+def test_meus_planos_agrupados_por_curso_e_periodo(com_login, monkeypatch):
+    from app.avaliacao import pipeline
+    from conftest import gerar_pdf
+    c, _ = com_login
+    monkeypatch.setattr(pipeline, 'revalidar', lambda cfg, andamento, nome: andamento.finalizar())
+    def plano(cabecalho):
+        return gerar_pdf([cabecalho] + ['Linha de texto do plano de ensino numero %d.' % i for i in range(6)])
+    envio = _envio(('web.pdf', plano('CCC0723 - DESENVOLVIMENTO WEB I (60h) - Turma: 01 (2026.2)')),
+                   ('algebra.pdf', plano('CCC0707 - ALGEBRA LINEAR (60h) - Turma: 01 (2026.1)')),
+                   ('outro.pdf', PDF))
+    assert c.post('/meus-planos', headers=SERVIDOR, data=envio, content_type='multipart/form-data').status_code == 200
+    planos = c.get('/meus-planos/lista', headers=SERVIDOR).json['planos']
+    assert [(p['nome'], p['grupo_titulo']) for p in planos] == [
+        ('web.pdf', 'Ciência da Computação · 2º semestre de 2026'),
+        ('algebra.pdf', 'Ciência da Computação · 1º semestre de 2026'),
+        ('outro.pdf', 'Sem identificação de curso e período'),
+    ]
+    assert planos[0]['componente'] == 'CCC0723 · Desenvolvimento Web I · Turma 01'

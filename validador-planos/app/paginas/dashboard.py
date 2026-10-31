@@ -2,26 +2,29 @@ from html import escape
 from urllib.parse import quote
 
 from ..armazenamento.csvsaida import CAMPOS_COLUNA
+from ..avaliacao import identificacao
 from .comum import cor, data_br, selo
 
 
-def grupo(ident):
-    """Chave e título do grupo (curso e período) de um plano; planos sem identificação ficam juntos."""
-    if not ident or not ident.get('periodo'):
-        return '-', 'Sem identificação de curso e período'
-    if ident['oferta'] == 'semestral':
-        periodo = f"{ident['semestre']}º semestre de {ident['ano']}"
-    else:
-        periodo = f"{ident['ano']} (anual)"
-    return ident['sigla_curso'] + '|' + ident['periodo'], ident['curso'] + ' · ' + periodo
+def _atributos_grupo(ident, docentes):
+    """Atributos data-* com a chave, o título e a ordem de cada forma de agrupar (usados pelo script)."""
+    attrs = {}
+    for nome, funcao in (('cp', identificacao.grupo_curso_periodo), ('periodo', identificacao.grupo_periodo),
+                         ('curso', identificacao.grupo_curso)):
+        chave, titulo, ordem = funcao(ident)
+        attrs.update({nome: chave, nome + '-titulo': titulo, nome + '-ordem': ordem})
+    attrs['docente'] = ', '.join(docentes)
+    return ''.join(' data-' + k + '="' + escape(v, quote=True) + '"' for k, v in attrs.items())
 
 
-def _card(indice, linha, validacao, pdfs_guardados, ultima, ident=None):
+def _card(indice, linha, validacao, pdfs_guardados, ultima, ident=None, docentes=()):
     nome = (linha.get('Arquivo') or '').replace('2024-1 - ', '').replace('.pdf', '')
-    sub = ''
+    partes = []
     if ident:
         partes = [ident['codigo'], ident['disciplina']] + (['Turma ' + ident['turma']] if ident['turma'] else [])
-        sub = '<span class="sub">' + escape(' · '.join(partes + [str(ident['carga_horaria']) + 'h'])) + '</span>'
+        partes.append(str(ident['carga_horaria']) + 'h')
+    partes += list(docentes)
+    sub = '<span class="sub">' + escape(' · '.join(partes)) + '</span>' if partes else ''
     problemas = [rotulo for rotulo, _ in CAMPOS_COLUNA if linha.get(rotulo) != 'OK']
     topicos = []
     for rotulo, _ in CAMPOS_COLUNA:
@@ -50,10 +53,11 @@ def _card(indice, linha, validacao, pdfs_guardados, ultima, ident=None):
                  + '" title="Valida de novo só este plano, com o PDF atual da pasta">↻ Revalidar</button>')
     observacao = linha.get('Observação Geral', '')
     return (
-        '<details id="plano-' + str(indice) + '" class="plano" data-arquivo="'
+        '<details id="plano-' + str(indice) + '" class="plano" data-indice="' + str(indice) + '" data-arquivo="'
         + escape(linha.get('Arquivo', ''), quote=True) + '" data-status="' + escape(linha.get('Status Geral', ''))
-        + '" data-problemas="' + escape('|'.join(problemas), quote=True)
-        + '" data-grupo="' + escape(grupo(ident)[0], quote=True) + '" '
+        + '" data-problemas="' + escape('|'.join(problemas), quote=True) + '"'
+        + (' data-pdf="1"' if linha.get('Arquivo') in pdfs_guardados else '')
+        + _atributos_grupo(ident, docentes) + ' '
         'style="background:#fff;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.1);margin-bottom:12px">'
         '<summary style="display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer;list-style:none">'
         '<span style="flex:1;min-width:0"><span style="font-weight:600">' + escape(nome) + '</span>' + sub + '</span>'
@@ -107,6 +111,7 @@ ESTILO = (
     '.filtros input,.filtros select{font:inherit;font-size:14px;padding:7px 10px;border:1px solid #cbd5e1;'
     'border-radius:8px;background:#fff}'
     '.filtros input{flex:1 1 220px;min-width:0}'
+    '.agrupar{display:flex;align-items:center;gap:6px;font-size:14px;color:#374151;white-space:nowrap}'
     '.chips{display:flex;gap:6px;flex-wrap:wrap}'
     '.chip{border:1px solid #cbd5e1;background:#fff;border-radius:999px;padding:5px 12px;font:inherit;font-size:13px;'
     'cursor:pointer;color:#374151}'
@@ -117,6 +122,7 @@ ESTILO = (
     '.sub{display:block;font-size:12px;color:#6b7280;font-weight:400;margin-top:2px}'
     '.cab-grupo{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin:24px 0 10px;font-size:17px}'
     '.cab-grupo span{font-size:13px;font-weight:400;color:#6b7280}'
+    '.cab-grupo a{font-size:13px;font-weight:600;color:#2563eb;text-decoration:none;margin-left:auto}'
     '.plano{scroll-margin-top:16px;transition:box-shadow .3s}'
     '.plano.destaque{box-shadow:0 0 0 3px #93c5fd !important}'
     '.usuario{margin:-16px 0 24px;font-size:14px;color:#6b7280}.usuario a{color:#2563eb}'
@@ -280,17 +286,78 @@ document.addEventListener('click', e => {
 const semAcento = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 let filtro = { busca: '', grupo: '', status: '', campo: '' };
 
+// Agrupamento dos cards, feito aqui com os data-* de cada card (chave, título e ordem de cada forma).
+const SITUACOES = { OK: 'Aprovados', PENDENTE: 'Pendentes', REPROVADO: 'Reprovados', ERRO: 'Com erro' };
+const CRITERIOS = {
+  cp: c => [c.dataset.cp, c.dataset.cpTitulo, c.dataset.cpOrdem],
+  periodo: c => [c.dataset.periodo, c.dataset.periodoTitulo, c.dataset.periodoOrdem],
+  curso: c => [c.dataset.curso, c.dataset.cursoTitulo, c.dataset.cursoOrdem],
+  docente: c => c.dataset.docente ? [c.dataset.docente, c.dataset.docente, '0' + semAcento(c.dataset.docente)]
+    : ['-', 'Sem docente identificado', '1'],
+  status: c => [c.dataset.status, SITUACOES[c.dataset.status] || c.dataset.status,
+    String(Object.keys(SITUACOES).indexOf(c.dataset.status) + 10)],
+  '': () => ['', '', ''],
+};
+let agruparPor = 'cp';
+
+function agrupar() {
+  const area = $('resultados');
+  if (!area) return;
+  const cards = [...area.querySelectorAll('.plano')].sort((a, b) => a.dataset.indice - b.dataset.indice);
+  const grupos = new Map();
+  for (const c of cards) {
+    const [chave, titulo, ordem] = (CRITERIOS[agruparPor] || CRITERIOS.cp)(c);
+    if (!grupos.has(chave)) grupos.set(chave, { titulo, ordem, cards: [] });
+    grupos.get(chave).cards.push(c);
+  }
+  const secoes = [...grupos.entries()]
+    .sort(([, a], [, b]) => a.ordem.localeCompare(b.ordem) || a.titulo.localeCompare(b.titulo, 'pt-BR'))
+    .map(([chave, g]) => {
+      const secao = document.createElement('section');
+      secao.className = 'grupo';
+      if (agruparPor) {
+        const cab = document.createElement('h3'); cab.className = 'cab-grupo';
+        const resumo = document.createElement('span');
+        const n = s => g.cards.filter(c => c.dataset.status === s).length;
+        const ok = n('OK'), pend = n('PENDENTE');
+        resumo.textContent = `${g.cards.length} plano(s) · ${ok} OK · ${pend} pendente(s) · ${g.cards.length - ok - pend} com problemas`;
+        const zip = document.createElement('a'); zip.className = 'zip'; zip.textContent = '⬇ PDFs (zip)';
+        zip.dataset.titulo = g.titulo;
+        cab.append(g.titulo, resumo, zip);
+        secao.append(cab);
+      }
+      secao.append(...g.cards);
+      return secao;
+    });
+  area.replaceChildren(...secoes);
+  try { localStorage.setItem('agrupar', agruparPor); } catch {}
+  aplicarFiltros();
+}
+
+// Link do zip de cada grupo: os PDFs dos planos visíveis nele (só a última validação guarda os PDFs).
+function atualizarZips() {
+  const validacao = $('resultados') && $('resultados').dataset.validacao;
+  document.querySelectorAll('.grupo').forEach(g => {
+    const zip = g.querySelector('.zip');
+    if (!zip) return;
+    const nomes = [...g.querySelectorAll('.plano[data-pdf]:not([hidden])')].map(c => c.dataset.arquivo);
+    zip.hidden = !nomes.length;
+    zip.href = `/validacoes/${encodeURIComponent(validacao)}/pdfs.zip?` + new URLSearchParams(
+      [['nome', zip.dataset.titulo], ...nomes.map(n => ['arquivo', n])]);
+  });
+}
+
 function aplicarFiltros() {
   if (!$('filtros')) return;
   const termos = semAcento(filtro.busca).split(/\s+/).filter(Boolean);
   const cards = [...document.querySelectorAll('.plano')];
   let visiveis = 0;
   for (const c of cards) {
-    const nome = semAcento(c.dataset.arquivo);
+    const nome = semAcento(c.dataset.arquivo + ' ' + (c.dataset.docente || ''));
     const ok = termos.every(t => nome.includes(t))
       && (!filtro.status || c.dataset.status === filtro.status)
       && (!filtro.campo || c.dataset.problemas.split('|').includes(filtro.campo))
-      && (!filtro.grupo || c.dataset.grupo === filtro.grupo);
+      && (!filtro.grupo || c.dataset.cp === filtro.grupo);
     c.hidden = !ok;
     if (ok) visiveis++;
   }
@@ -299,6 +366,7 @@ function aplicarFiltros() {
   $('campo').value = filtro.campo;
   if ($('grupo')) $('grupo').value = filtro.grupo;
   document.querySelectorAll('.grupo').forEach(g => g.hidden = !g.querySelector('.plano:not([hidden])'));
+  atualizarZips();
   const ativo = filtro.busca || filtro.status || filtro.campo || filtro.grupo;
   $('contagem').textContent = ativo ? `${visiveis} de ${cards.length} plano(s)` : `${cards.length} plano(s)`;
   $('limpar-filtros').hidden = !ativo;
@@ -315,9 +383,12 @@ function iniciarFiltros() {
   $('campo').onchange = e => { filtro.campo = e.target.value; aplicarFiltros(); };
   if (filtro.grupo && !($('grupo') && [...$('grupo').options].some(o => o.value === filtro.grupo))) filtro.grupo = '';
   if ($('grupo')) $('grupo').onchange = e => { filtro.grupo = e.target.value; aplicarFiltros(); };
+  try { const salvo = localStorage.getItem('agrupar'); if (salvo !== null && salvo in CRITERIOS) agruparPor = salvo; } catch {}
+  $('agrupar').value = agruparPor;
+  $('agrupar').onchange = e => { agruparPor = e.target.value; agrupar(); };
   document.querySelectorAll('.chip').forEach(ch => ch.onclick = () => { filtro.status = ch.dataset.status; aplicarFiltros(); });
   $('limpar-filtros').onclick = () => { filtro = { busca: '', grupo: '', status: '', campo: '' }; aplicarFiltros(); };
-  aplicarFiltros();
+  agrupar();  // monta os grupos e aplica os filtros
 }
 
 // Ao voltar do relatório (#plano-N) ou depois de revalidar (#arquivo=nome), abre e destaca o plano.
@@ -368,9 +439,13 @@ focarPlano();
 STATUS_FILTRO = [('OK', 'Aprovados'), ('PENDENTE', 'Pendentes'), ('REPROVADO', 'Reprovados'), ('ERRO', 'Com erro')]
 
 
+AGRUPAMENTOS = [('cp', 'Curso e período'), ('periodo', 'Período'), ('curso', 'Curso'), ('docente', 'Docente'),
+                ('status', 'Situação'), ('', 'Sem agrupar')]
+
+
 def _filtros(linhas, grupos=()):
-    """Barra de filtros dos cards (busca, curso/período, status e campo com problema); a filtragem é feita
-    no navegador. `grupos` são os (chave, título) presentes; com um só, o seletor não aparece."""
+    """Barra de filtros dos cards (agrupar por, busca, curso/período, status e campo com problema); tudo é
+    feito no navegador. `grupos` são os (chave, título) de curso e período; com um só, o filtro não aparece."""
     chips = '<button type="button" class="chip" data-status="" aria-pressed="true">Todos (' + str(len(linhas)) + ')</button>'
     for status, rotulo in STATUS_FILTRO:
         n = sum(1 for l in linhas if l.get('Status Geral') == status)
@@ -384,6 +459,9 @@ def _filtros(linhas, grupos=()):
     )
     return (
         '<div class="filtros" id="filtros">'
+        '<label class="agrupar">Agrupar por <select id="agrupar">'
+        + ''.join('<option value="' + valor + '">' + rotulo + '</option>' for valor, rotulo in AGRUPAMENTOS)
+        + '</select></label>'
         '<input type="search" id="busca" placeholder="Buscar por disciplina ou docente" aria-label="Buscar planos">'
         + ('<select id="grupo" aria-label="Curso e período"><option value="">Todos os cursos e períodos</option>'
            + ''.join('<option value="' + escape(chave, quote=True) + '">' + escape(titulo) + '</option>'
@@ -450,32 +528,7 @@ PAINEL_ENTREGA = (
 )
 
 
-def _grupos(linhas, idents, execucao_id, pdfs, ultima):
-    """Cards agrupados por curso e período (mais recente primeiro), com o resumo de cada grupo."""
-    grupos = {}
-    for i, linha in enumerate(linhas):
-        ident = idents.get(linha.get('Arquivo'))
-        grupos.setdefault(grupo(ident), []).append((i, linha, ident))
-
-    def ordem(item):
-        # Ano mais recente primeiro; no mesmo ano, 2º semestre, 1º e por último os anuais.
-        (chave, titulo), _ = item
-        ano, _, semestre = (chave.split('|')[1] if '|' in chave else '').partition('.')
-        return (chave == '-', -int(ano or 0), -int(semestre or 0), titulo)
-
-    html = ''
-    for (chave, titulo), itens in sorted(grupos.items(), key=ordem):
-        status = [l.get('Status Geral') for _, l, _ in itens]
-        ok, pendentes = status.count('OK'), status.count('PENDENTE')
-        resumo = (f'{len(itens)} plano(s) · {ok} OK · {pendentes} pendente(s) · '
-                  f'{len(itens) - ok - pendentes} com problemas')
-        html += ('<section class="grupo" data-grupo="' + escape(chave, quote=True) + '">'
-                 '<h3 class="cab-grupo">' + escape(titulo) + '<span>' + resumo + '</span></h3>'
-                 + ''.join(_card(i, l, execucao_id, pdfs, ultima, ident) for i, l, ident in itens) + '</section>')
-    return html, [g for g, _ in sorted(grupos.items(), key=ordem)]
-
-
-def gerar_html(linhas, max_mb=10, execucoes=(), execucao=None, usuario='', admin=True, idents=None):
+def gerar_html(linhas, max_mb=10, execucoes=(), execucao=None, usuario='', admin=True, idents=None, docentes=None):
     total = len(linhas)
     ok = sum(1 for l in linhas if l.get('Status Geral') == 'OK')
     pendente = sum(1 for l in linhas if l.get('Status Geral') == 'PENDENTE')
@@ -501,8 +554,14 @@ def gerar_html(linhas, max_mb=10, execucoes=(), execucao=None, usuario='', admin
     if execucao is not None and linhas:
         pdfs = set(execucao.pdfs())
         ultima = execucao.id == execucoes[0].id and admin  # revalidar é coisa de administrador
-        cards, grupos = _grupos(linhas, idents or {}, execucao.id, pdfs, ultima)
-        corpo = _filtros(linhas, grupos) + cards
+        idents, docentes = idents or {}, docentes or {}
+        cards = ''.join(_card(i, l, execucao.id, pdfs, ultima, idents.get(l.get('Arquivo')),
+                              docentes.get(l.get('Arquivo'), ())) for i, l in enumerate(linhas))
+        grupos = sorted({identificacao.grupo_curso_periodo(idents.get(l.get('Arquivo'))) for l in linhas},
+                        key=lambda g: (g[2], g[1]))
+        # O zip por grupo só existe na última validação, a única que guarda os PDFs.
+        corpo = (_filtros(linhas, [(chave, titulo) for chave, titulo, _ in grupos])
+                 + '<div id="resultados" data-validacao="' + escape(execucao.id, quote=True) + '">' + cards + '</div>')
         corpo += '<p class="msg" id="sem-resultado" hidden>Nenhum plano corresponde aos filtros.</p>'
     else:
         corpo = '<p style="color:#6b7280">Nenhuma validação concluída ainda.</p>'

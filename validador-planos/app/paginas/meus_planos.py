@@ -10,6 +10,9 @@ ESTILO = ESTILO_DASHBOARD + (
     'align-items:center}'
     '.meus li:first-child{border-top:0}'
     '.meus .nome{flex:1 1 240px;font-weight:600;overflow-wrap:anywhere}'
+    '.meus .sub{display:block;font-size:12px;font-weight:400;color:#6b7280;margin-top:2px}'
+    '.meus li.cab-grupo{display:block;border-top:0;padding:18px 4px 6px;font-size:15px;font-weight:700;color:#374151}'
+    '.meus li.cab-grupo:first-child{padding-top:0}'
     '.meus .info{flex-basis:100%;font-size:13px;color:#6b7280;overflow-wrap:anywhere}'
     '.meus .acoes{display:flex;flex-wrap:wrap;gap:12px;align-items:center;font-size:13px}'
     '.meus .acoes a{color:#2563eb;font-weight:600;text-decoration:none}'
@@ -52,17 +55,13 @@ function situacao(p) {
   return [selo(p.status, CORES[p.status] || '#ef4444'), detalhe];
 }
 
-async function carregar() {
-  clearTimeout(timer);
-  let r;
-  try { r = await fetch('/meus-planos/lista'); }
-  catch { timer = setTimeout(carregar, 10000); return; }
-  if (r.status === 401) { location.reload(); return; }  // sessão expirou: recarregar leva ao login
-  const { planos = [] } = await corpo(r);
-  $('qtd').textContent = `(${planos.length})`;
-  const itens = planos.map(p => {
+function item(p) {
     const li = document.createElement('li');
     const nome = document.createElement('span'); nome.className = 'nome'; nome.textContent = p.nome;
+    if (p.componente) {
+      const sub = document.createElement('span'); sub.className = 'sub'; sub.textContent = p.componente;
+      nome.append(sub);
+    }
     const [marca, detalhe] = situacao(p);
     const acoes = document.createElement('span'); acoes.className = 'acoes';
     acoes.append(marca);
@@ -79,7 +78,27 @@ async function carregar() {
     info.textContent = `Enviado em ${hora(p.enviado_em)} · ${detalhe}`;
     li.append(nome, acoes, info);
     return li;
-  });
+}
+
+async function carregar() {
+  clearTimeout(timer);
+  let r;
+  try { r = await fetch('/meus-planos/lista'); }
+  catch { timer = setTimeout(carregar, 10000); return; }
+  if (r.status === 401) { location.reload(); return; }  // sessão expirou: recarregar leva ao login
+  const { planos = [] } = await corpo(r);
+  $('qtd').textContent = `(${planos.length})`;
+  // Lista agrupada por curso e período: o servidor já manda na ordem dos grupos.
+  const itens = [];
+  let grupo = null;
+  for (const p of planos) {
+    if (p.grupo !== grupo) {
+      grupo = p.grupo;
+      const cab = document.createElement('li'); cab.className = 'cab-grupo'; cab.textContent = p.grupo_titulo;
+      itens.push(cab);
+    }
+    itens.push(item(p));
+  }
   if (!itens.length) { const li = document.createElement('li'); li.innerHTML = '<span class="msg">Você ainda não enviou planos.</span>'; itens.push(li); }
   $('lista').replaceChildren(...itens);
   const andamento = planos.some(p => p.situacao === 'na_fila' || p.situacao === 'validando');

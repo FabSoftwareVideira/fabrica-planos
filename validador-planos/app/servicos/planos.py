@@ -4,7 +4,7 @@ import unicodedata
 from datetime import datetime
 
 from ..armazenamento import csvsaida, detalhes, donos, historico
-from ..avaliacao import pipeline
+from ..avaliacao import identificacao, pipeline
 from ..avaliacao.extrator import PdfIlegivel, extrair_texto
 
 log = logging.getLogger(__name__)
@@ -64,7 +64,7 @@ class PastaDePlanos:
             for arquivo in arquivos:
                 nome = nome_enviado(arquivo)
                 substituido = self.existe(nome)
-                motivo = self._motivo_recusa(nome, arquivo) or self._salvar(arquivo, nome)
+                motivo = self._motivo_recusa(nome, arquivo) or self._salvar(arquivo, nome)[0]
                 if motivo:
                     recusados.append({'nome': nome, 'motivo': motivo})
                     continue
@@ -85,11 +85,14 @@ class PastaDePlanos:
                 if existe and dono_de.get(nome, {}).get('email') != email:
                     motivo = ('Já existe na pasta um plano com esse nome, enviado por outra pessoa; renomeie o '
                               'arquivo (ex.: 2026-1 - Disciplina - Seu nome.pdf)')
-                motivo = motivo or self._salvar(arquivo, nome)
+                texto = None
+                if not motivo:
+                    motivo, texto = self._salvar(arquivo, nome)
                 if motivo:
                     recusados.append({'nome': nome, 'motivo': motivo})
                     continue
-                donos.definir(self.cfg.resultados_dir, nome, email)
+                # Curso e período já no envio: o plano aparece no grupo certo antes de ser avaliado.
+                donos.definir(self.cfg.resultados_dir, nome, email, identificacao.extrair(texto))
                 salvos.append({'nome': nome, 'substituido': existe})
         for salvo in salvos:  # a avaliação começa já, ou espera a vez na fila
             salvo['posicao'] = self.validador.enfileirar(salvo['nome'])
@@ -108,18 +111,18 @@ class PastaDePlanos:
         return None
 
     def _salvar(self, arquivo, nome):
-        """Grava o PDF na pasta de planos; devolve o motivo da recusa ou None."""
+        """Grava o PDF na pasta de planos; devolve (motivo da recusa ou None, texto extraído)."""
         destino = self.caminho(nome)
         temporario = destino + '.enviando'
         arquivo.save(temporario)
         # Só entra na pasta o PDF que abre e tem texto; digitalizados precisam de OCR antes.
         try:
-            extrair_texto(temporario)
+            texto = extrair_texto(temporario)
         except PdfIlegivel as erro:
             os.remove(temporario)
-            return str(erro)
+            return str(erro), None
         os.replace(temporario, destino)
-        return None
+        return None, texto
 
     # Exclusão -----------------------------------------------------------------------------------
 
@@ -160,8 +163,9 @@ class PastaDePlanos:
     # Situação dos planos do professor -----------------------------------------------------------
 
     def do_professor(self, email):
-        """Planos que o professor enviou, com a situação de cada um: na fila (com a posição), sendo
-        avaliado, avaliado (com o resultado) ou aguardando a próxima validação geral."""
+        """Planos que o professor enviou, com a situação de cada um (na fila, com a posição; sendo avaliado;
+        avaliado, com o resultado; ou aguardando a próxima validação geral) e o grupo de curso e período,
+        na ordem dos grupos (o período mais recente primeiro)."""
         meus = {n: d for n, d in donos.ler(self.cfg.resultados_dir).items()
                 if d.get('email') == email and self.existe(n)}
         execucoes = historico.listar(self.cfg.historico_dir)
@@ -170,24 +174,37 @@ class PastaDePlanos:
         estado = self.validador.andamento.resumo()
         fila = self.validador.fila()
         planos = []
-        for nome, dono in sorted(meus.items()):
-            item = {'nome': nome, 'enviado_em': dono['enviado_em']}
+        for nome, dono in meus.items():
+            det = detalhes.ler(ultima.detalhes_dir, nome) if ultima and nome in linhas else None
+            atual = det and det.get('validado_em', '') >= dono['enviado_em']  # avaliação do PDF enviado agora
+            # Curso e período: do texto avaliado, se for do PDF atual; senão, os lidos no envio.
+            ident = ((identificacao.de_detalhes(det) if atual else None) or dono.get('identificacao')
+                     or identificacao.de_detalhes(det))
+            chave, titulo, ordem = identificacao.grupo_curso_periodo(ident)
+            item = {'nome': nome, 'enviado_em': dono['enviado_em'], 'grupo': chave, 'grupo_titulo': titulo,
+                    'ordem': ordem, 'componente': _descricao(ident)}
             if nome in fila:
                 item.update(situacao='na_fila', posicao=fila.index(nome) + 1)
             elif estado['rodando'] and nome in (estado['atual'], estado['unico']):
                 item['situacao'] = 'validando'
             else:
                 linha = linhas.get(nome)
-                det = detalhes.ler(ultima.detalhes_dir, nome) if linha else None
-                # O resultado só vale se for do PDF atual, validado depois do envio.
-                if det and det.get('validado_em', '') >= dono['enviado_em']:
+                if atual:  # o resultado só vale se for do PDF atual, validado depois do envio
                     item.update(situacao='avaliado', status=linha.get('Status Geral', ''),
                                 obs=linha.get('Observação Geral', ''),
                                 problemas=[r for r, _ in csvsaida.CAMPOS_COLUNA if linha.get(r) != 'OK'])
                 else:
                     item['situacao'] = 'aguardando'
             planos.append(item)
+        planos.sort(key=lambda p: (p['ordem'], p['grupo_titulo'], p['nome']))
         return planos
+
+
+def _descricao(ident):
+    """'CCC0723 · Desenvolvimento Web I · Turma 01', ou vazio sem identificação."""
+    if not ident:
+        return ''
+    return ' · '.join([ident['codigo'], ident['disciplina']] + (['Turma ' + ident['turma']] if ident['turma'] else []))
 
 
 def nome_enviado(arquivo):

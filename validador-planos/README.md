@@ -32,7 +32,8 @@ Em `/dashboard` é possível:
 - enviar PDFs (arrastando ou escolhendo arquivos; um PDF com o mesmo nome é substituído), abrir e excluir os da pasta, um a um ou todos de uma vez (**Excluir todos**, que não apaga o histórico). Só entram arquivos `.pdf` de até `PDF_MAX_MB` MB (padrão 10) que abram e tenham texto selecionável; digitalizados (só imagem) são recusados com o aviso de que precisam de OCR;
 - abrir o **Relatório** de cada plano avaliado: a avaliação de cada campo ao lado do texto extraído para ele, o texto completo do PDF, o prompt enviado e a resposta da IA. A barra do topo volta ao dashboard já no card do plano (ou `Esc`) e passa para o plano anterior/próximo (ou `←`/`→`). Planos validados antes desta versão só mostram o texto depois de uma nova validação;
 - **revalidar um plano só** (botão ↻ no card, no relatório ou na lista de PDFs, útil depois que o docente corrige o PDF): a linha dele na última validação é substituída (ou acrescentada, se for um PDF novo), sem rodar o lote;
-- ver os resultados agrupados por curso e período (ver "Curso e período"), com o resumo de cada grupo;
+- ver os resultados agrupados, com o resumo de cada grupo, escolhendo em **Agrupar por**: curso e período (padrão; ver "Curso e período"), só período, só curso, docente, situação (aprovados, pendentes…) ou sem agrupar. O agrupamento é feito no navegador e a escolha fica guardada nele;
+- baixar o **zip com os PDFs de um grupo** (link no cabeçalho do grupo): leva os planos visíveis nele, respeitando os filtros. Como o zip geral, só existe para a última validação;
 - filtrar os resultados por texto (disciplina ou docente, sem diferenciar acentos), curso e período, status e campo com problema; os filtros ficam guardados enquanto a aba estiver aberta;
 - consultar as últimas validações (seletor ao lado de **Resultados**) e baixar o CSV de cada uma e o **zip com os PDFs** da última.
 
@@ -47,11 +48,13 @@ O cabeçalho do plano gerado pelo SIGAA identifica o componente, o curso e o per
 | Graduação (semestral) | `CCC0723 - DESENVOLVIMENTO WEB I (60h) - Turma: 01 (2026.2)` | `CC` (2 primeiras letras do código) → Ciência da Computação | 2º semestre de 2026 |
 | Técnico (anual) | `INC0713-1 - WEB DESIGN (60h) - Turma: 03 (2026)` e `Turma: [TÉCNICO EM INFORMÁTICA INTEGRADO AO ENSINO MÉDIO - IN07 (MT) - A (2026)]` | nome que vem entre colchetes | 2026 (anual) |
 
+O docente vem do bloco "Matrícula Docente(s)" (`1773245 LUCILENE DAL MEDICO BAERLE - 60h`) e é usado no agrupamento por docente e na busca.
+
 A dashboard agrupa os planos por curso e período (o mais recente primeiro; no mesmo ano, 2º semestre, 1º e os anuais) e mostra em cada card o código, a disciplina, a turma e a carga horária. Planos cujo cabeçalho não é reconhecido ficam em "Sem identificação de curso e período". O nome dos cursos de graduação vem da sigla, no dicionário `CURSOS` de `identificacao.py`: para outro curso, acrescente a sigla lá (sem ela, o grupo mostra só a sigla). A identificação é gravada nos detalhes de cada plano (`identificacao_plano`), mas a dashboard a lê de novo do texto já extraído: validações antigas e correções no leitor valem sem validar outra vez.
 
 ## Meus planos (entrega pelo professor)
 
-Em `/meus-planos` cada servidor entrega os próprios planos: o PDF enviado vai para a mesma pasta de planos do NDE (é a entrega oficial, no lugar da pasta do Drive) e a avaliação começa logo em seguida, só para ele. A página mostra a situação de cada plano (na fila, avaliando, resultado com os campos a verificar e link para o relatório). Para corrigir, o professor ajusta no SIGAA e envia o PDF de novo com o mesmo nome, que substitui o anterior.
+Em `/meus-planos` cada servidor entrega os próprios planos: o PDF enviado vai para a mesma pasta de planos do NDE (é a entrega oficial, no lugar da pasta do Drive) e a avaliação começa logo em seguida, só para ele. A página mostra os planos agrupados por curso e período, com a situação de cada um (na fila, avaliando, resultado com os campos a verificar e link para o relatório); o curso e o período são lidos já no envio, então o plano aparece no grupo certo antes mesmo de ser avaliado. Para corrigir, o professor ajusta no SIGAA e envia o PDF de novo com o mesmo nome, que substitui o anterior.
 
 - O professor só substitui e exclui os planos que ele enviou; um nome já usado por outra pessoa (ou por um PDF que veio do Drive/administrador, sem dono) é recusado, pedindo para renomear.
 - Quem enviou cada PDF fica em `resultados/donos.json` e aparece para o administrador na lista de PDFs da dashboard.
@@ -72,7 +75,7 @@ Em `/meus-planos` cada servidor entrega os próprios planos: o PDF enviado vai p
 | GET | `/relatorio?validacao=ID&arquivo=nome.pdf` | Relatório HTML do plano; sem `validacao`, a última; `404` se o plano não estiver nela |
 | GET | `/validacoes` | Histórico: resumo de cada validação guardada, da mais recente para a mais antiga |
 | GET | `/validacoes/ID/csv` | CSV da validação |
-| GET | `/validacoes/ID/pdfs.zip` | Zip com os PDFs validados; só para a última validação (`404` nas demais) |
+| GET | `/validacoes/ID/pdfs.zip` | Zip com os PDFs validados; só para a última validação (`404` nas demais). Com `?arquivo=a.pdf&arquivo=b.pdf`, só esses (zip de um grupo) e `?nome=` entra no nome do arquivo baixado |
 | GET | `/validacoes/ID/pdf?arquivo=nome.pdf` | O PDF como estava na validação (só a última) |
 | GET | `/pdf?arquivo=nome.pdf` | O PDF atual da pasta de planos |
 | GET | `/` | Página inicial pública: apresentação do projeto e botão **Entrar com Google** |

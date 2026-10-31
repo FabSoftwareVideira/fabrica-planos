@@ -27,9 +27,12 @@ def pagina_dashboard():
     if request.args.get('validacao') and execucao is None:
         return redirect('/dashboard')  # validação que saiu do histórico
     linhas = csvsaida.ler_csv(execucao.csv_path) if execucao else []
-    idents = {l.get('Arquivo'): identificacao.de_detalhes(detalhes.ler(execucao.detalhes_dir, l.get('Arquivo')))
-              for l in linhas}  # curso e período de cada plano, para agrupar
-    return html(dashboard.gerar_html(linhas, cfg.pdf_max_mb, execucoes, execucao, email(), eh_admin(), idents))
+    # Curso, período e docentes de cada plano, lidos do texto guardado nos detalhes, para agrupar.
+    dets = {l.get('Arquivo'): detalhes.ler(execucao.detalhes_dir, l.get('Arquivo')) for l in linhas}
+    idents = {nome: identificacao.de_detalhes(det) for nome, det in dets.items()}
+    docentes = {nome: identificacao.docentes((det or {}).get('texto', '')) for nome, det in dets.items()}
+    return html(dashboard.gerar_html(linhas, cfg.pdf_max_mb, execucoes, execucao, email(), eh_admin(), idents,
+                                     docentes))
 
 
 @bp.get('/relatorio')

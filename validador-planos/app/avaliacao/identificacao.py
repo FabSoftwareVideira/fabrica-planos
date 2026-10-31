@@ -1,5 +1,7 @@
 import re
 
+from .secoes import DOCENTES
+
 # Dados de identificação do cabeçalho do plano (SIGAA), usados para agrupar os resultados:
 #   graduação (semestral): "CCC0723 - DESENVOLVIMENTO WEB I (60h) - Turma: 01 (2026.2)"
 #   técnico (anual):       "INC0713-1 - WEB DESIGN (60h) - Turma: 03 (2026)"
@@ -73,3 +75,50 @@ def de_detalhes(det):
     if not det:
         return None
     return extrair(det.get('texto', '')) or det.get('identificacao_plano')
+
+
+# Docentes: bloco "Matrícula Docente(s)", com uma linha por docente ("1773245 LUCILENE DAL MEDICO - 60h").
+DOCENTE = re.compile(r'^[ \t]*\d+[ \t]+(?P<nome>\S.*?)(?:[ \t]+-[ \t]+\d+\s*h)?[ \t]*$', re.MULTILINE)
+
+
+def docentes(texto):
+    """Nomes dos docentes do plano, na ordem do PDF (vazio se o bloco não for encontrado)."""
+    bloco = DOCENTES.search(texto or '')
+    return [_titulo(m['nome']) for m in DOCENTE.finditer(bloco.group(0))] if bloco else []
+
+
+# Grupos -------------------------------------------------------------------------------------------
+# Chave, título e ordem de cada grupo. A ordem é um texto que, em ordem alfabética, põe o ano mais
+# recente primeiro e, no mesmo ano, o 2º semestre, o 1º e por último os anuais; os sem identificação no fim.
+
+SEM_IDENTIFICACAO = '-'
+
+
+def titulo_periodo(ident):
+    if ident['oferta'] == 'semestral':
+        return f"{ident['semestre']}º semestre de {ident['ano']}"
+    return f"{ident['ano']} (anual)"
+
+
+def _ordem_periodo(ident):
+    return f"0{9999 - int(ident['ano']):04d}{9 - (ident['semestre'] or 0)}"
+
+
+def grupo_curso_periodo(ident):
+    """(chave, título, ordem) do grupo curso e período do plano."""
+    if not ident or not ident.get('periodo'):
+        return SEM_IDENTIFICACAO, 'Sem identificação de curso e período', '1'
+    return (ident['sigla_curso'] + '|' + ident['periodo'], ident['curso'] + ' · ' + titulo_periodo(ident),
+            _ordem_periodo(ident) + ident['curso'])
+
+
+def grupo_periodo(ident):
+    if not ident or not ident.get('periodo'):
+        return SEM_IDENTIFICACAO, 'Sem identificação de período', '1'
+    return ident['periodo'], titulo_periodo(ident), _ordem_periodo(ident)
+
+
+def grupo_curso(ident):
+    if not ident:
+        return SEM_IDENTIFICACAO, 'Sem identificação de curso', '1'
+    return ident['sigla_curso'], ident['curso'], '0' + ident['curso']

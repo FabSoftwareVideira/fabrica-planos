@@ -1,4 +1,5 @@
-from app.avaliacao.identificacao import de_detalhes, extrair
+from app.avaliacao.identificacao import (de_detalhes, docentes, extrair, grupo_curso, grupo_curso_periodo,
+                                         grupo_periodo)
 
 CABECALHO = 'Ministério da Educação\nInstituto Federal Catarinense\nPlano de Ensino\n'
 
@@ -56,3 +57,21 @@ def test_de_detalhes_le_o_texto_de_novo():
     assert de_detalhes(det)['periodo'] == '2026.2'
     assert de_detalhes({'texto': 'CCC0707 - X (60h) - Turma: 01 (2026.2)'})['periodo'] == '2026.2'  # validação antiga
     assert de_detalhes({'identificacao_plano': {'periodo': '2026.1'}})['periodo'] == '2026.1'  # sem texto guardado
+
+
+def test_docentes():
+    texto = ('Ementa: ...\nMatrícula Docente(s)\n1773245 LUCILENE DAL MEDICO BAERLE - 60h\n'
+             '3890760 TIAGO HEINECK - 30h\nObjetivos')
+    assert docentes(texto) == ['Lucilene Dal Medico Baerle', 'Tiago Heineck']
+    assert docentes('sem o bloco') == [] and docentes(None) == []
+
+
+def test_ordem_dos_grupos():
+    def ident(periodo, sigla='CC'):
+        return extrair(f'{sigla}C0101 - X (60h) - Turma: 01 ({periodo})')
+    idents = [None, ident('2026'), ident('2025.2'), ident('2026.1'), ident('2026.2')]
+    ordenados = sorted(idents, key=lambda i: grupo_curso_periodo(i)[2])
+    assert [i and i['periodo'] for i in ordenados] == ['2026.2', '2026.1', '2026', '2025.2', None]
+    assert grupo_periodo(ident('2026.1'))[:2] == ('2026.1', '1º semestre de 2026')
+    assert grupo_curso(ident('2026.1'))[:2] == ('CC', 'Ciência da Computação')
+    assert grupo_curso(None)[0] == grupo_periodo(None)[0] == '-'

@@ -29,10 +29,12 @@ def _gravar(resultados_dir, donos):
     os.replace(temporario, _caminho(resultados_dir))
 
 
-def definir(resultados_dir, nome, email):
+def definir(resultados_dir, nome, email, identificacao=None):
+    """Registra quem enviou o PDF e, se conhecida, a identificação (curso e período) lida no envio."""
     with _trava:
         donos = ler(resultados_dir)
-        donos[nome] = {'email': email, 'enviado_em': datetime.now().isoformat(timespec='seconds')}
+        donos[nome] = {'email': email, 'enviado_em': datetime.now().isoformat(timespec='seconds'),
+                       'identificacao': identificacao}
         _gravar(resultados_dir, donos)
 
 
