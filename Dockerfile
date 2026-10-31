@@ -2,7 +2,7 @@
 #   desenvolvimento  servidor do Flask com recarga automática; o código vem montado do host
 #   producao         gunicorn com o código copiado na imagem (último estágio: o padrão do docker build)
 
-FROM python:3.12-slim AS base
+FROM python:3.10-slim AS base
 
 ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1
