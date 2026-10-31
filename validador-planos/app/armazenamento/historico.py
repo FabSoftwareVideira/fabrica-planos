@@ -4,12 +4,14 @@ import re
 import shutil
 from datetime import datetime
 
-# Histórico das validações: cada execução fica em resultados/historico/<id>/ com
+# Resultado das validações: cada execução fica em resultados/historico/<id>/ com
 #   meta.json                resumo (datas, modelo, contagens, erro)
 #   validacao_planos.csv     resultado, no mesmo formato de sempre
 #   detalhes/<arquivo>.json  texto extraído, prompt e resposta da IA por plano
-#   pdfs/                    cópia dos PDFs validados, mantida só na execução mais recente
-# O id é a data/hora de início (AAAAMMDD-HHMMSS), então a ordem alfabética é a cronológica.
+#   pdfs/                    cópia dos PDFs validados
+# Só a execução mais recente é mantida (ver podar): uma validação geral nova substitui a anterior, e a
+# anterior só é apagada depois que a nova termina. O id é a data/hora de início (AAAAMMDD-HHMMSS), então
+# a ordem alfabética é a cronológica.
 
 META = 'meta.json'
 CSV = 'validacao_planos.csv'
@@ -91,9 +93,9 @@ def listar(raiz):
     return [e for e in (obter(raiz, i) for i in ids) if e is not None]
 
 
-def podar(raiz, manter):
-    """Mantém as `manter` execuções mais recentes e os PDFs só da mais recente; apaga sobras de execuções
-    interrompidas (sem meta.json). Chamar só sem validação em andamento."""
+def podar(raiz, manter=1):
+    """Mantém as `manter` execuções mais recentes (só a atual, por padrão) e os PDFs só da mais recente;
+    apaga sobras de execuções interrompidas (sem meta.json). Chamar só sem validação em andamento."""
     if not os.path.isdir(raiz):
         return
     concluidas = listar(raiz)

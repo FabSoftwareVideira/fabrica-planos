@@ -2,6 +2,7 @@ from flask import Blueprint, render_template, request
 
 from ..avaliacao import pipeline
 from ..paginas import meus_planos
+from ..servicos import revisao
 from ..servicos.planos import Ocupado, Proibido
 from .comum import email, json_, ocupado, servicos
 
@@ -21,7 +22,12 @@ def pagina():
 
 @bp.get('/lista')
 def listar():
-    return json_({'planos': servicos().planos.do_professor(_dono())})
+    s = servicos()
+    planos = s.planos.do_professor(_dono())
+    vigentes = s.revisao.vigentes()
+    for plano in planos:  # parecer da coordenação/NDE/NDB, que vale sobre a avaliação da IA
+        plano['revisao'] = revisao.resumo(vigentes.get(plano['nome']))
+    return json_({'planos': planos})
 
 
 @bp.post('')

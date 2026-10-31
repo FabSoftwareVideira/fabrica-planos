@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 from datetime import datetime
 
 from app.armazenamento import csvsaida, detalhes, historico
@@ -8,7 +9,7 @@ from app.config import Config
 from app.servicos.andamento import Andamento
 
 
-def _cfg(tmp_path, historico_max=3):
+def _cfg(tmp_path):
     planos = tmp_path / 'planos'
     planos.mkdir()
     (planos / 'a.pdf').write_bytes(b'%PDF fake')
@@ -16,7 +17,7 @@ def _cfg(tmp_path, historico_max=3):
     return Config(
         planos_dir=str(planos), resultados_dir=str(tmp_path / 'res'),
         ollama_url='http://ollama:11434', modelo='qwen2.5:14b', num_ctx=12288,
-        hora_agendada=5, agendar=False, historico_max=historico_max,
+        hora_agendada=5, agendar=False,
     )
 
 
@@ -67,8 +68,8 @@ def test_lote_grava_historico_registra_andamento_e_libera(tmp_path, monkeypatch,
     assert 'Validação concluída: 2 plano(s)' in mensagens
 
 
-def test_historico_guarda_as_ultimas_e_pdfs_so_da_mais_recente(tmp_path, monkeypatch):
-    cfg = _cfg(tmp_path, historico_max=2)
+def test_validacao_nova_substitui_a_anterior(tmp_path, monkeypatch):
+    cfg = _cfg(tmp_path)
     monkeypatch.setattr(pipeline, 'extrair_texto', lambda caminho: 'Ementa: algo\n')
     monkeypatch.setattr(pipeline, 'chamar_ollama', lambda url, payload: '{"status_geral": "OK"}')
     horas = iter(range(10, 13))
@@ -77,11 +78,11 @@ def test_historico_guarda_as_ultimas_e_pdfs_so_da_mais_recente(tmp_path, monkeyp
     for _ in range(3):
         _executar(cfg)
 
-    execucoes = historico.listar(cfg.historico_dir)
-    assert [e.id for e in execucoes] == ['20261030-120000', '20261030-110000']  # a primeira saiu
-    assert execucoes[0].pdfs() == ['a.pdf', 'b.PDF']
-    assert execucoes[1].pdfs() == []
-    assert detalhes.ler(execucoes[1].detalhes_dir, 'a.pdf') is not None  # resultado antigo continua
+    [execucao] = historico.listar(cfg.historico_dir)  # só a atual é guardada
+    assert execucao.id == '20261030-120000'
+    assert execucao.pdfs() == ['a.pdf', 'b.PDF']
+    assert detalhes.ler(execucao.detalhes_dir, 'a.pdf') is not None
+    assert sorted(os.listdir(cfg.historico_dir)) == ['20261030-120000']
 
 
 def test_falha_no_ollama_vira_erro_no_csv(tmp_path, monkeypatch):

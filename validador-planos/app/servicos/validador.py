@@ -109,7 +109,7 @@ class Validador:
         try:
             historico.migrar_legado(cfg.historico_dir, cfg.csv_path, os.path.join(cfg.resultados_dir, 'detalhes'),
                                     csvsaida.ler_csv)
-            historico.podar(cfg.historico_dir, cfg.historico_max)
+            historico.podar(cfg.historico_dir)  # versões anteriores guardavam várias validações
             lock_antigo = os.path.join(cfg.resultados_dir, 'validacao.lock')  # da versão com lock em arquivo
             if os.path.exists(lock_antigo):
                 os.remove(lock_antigo)

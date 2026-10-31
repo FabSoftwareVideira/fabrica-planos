@@ -15,6 +15,9 @@
   'desativado': ('success', 'check-circle', 'Usuário desativado. Ele não consegue mais abrir o sistema.'),
   'admin': ('danger', 'times-circle', 'Administradores (ADMIN_EMAILS) não podem ser desativados.'),
   'inexistente': ('danger', 'times-circle', 'Usuário não encontrado.'),
+  'papel_adicionado': ('success', 'check-circle', 'Papel adicionado. A pessoa já pode revisar os planos desse curso.'),
+  'papel_removido': ('success', 'check-circle', 'Papel removido. As revisões que ela já fez continuam valendo.'),
+  'papel_invalido': ('danger', 'times-circle', 'Curso ou papel inválido.'),
 } %}
 {% with titulo_pagina='Administração', pagina_atual='administracao' %}
 {% include '_cabecalho.html' %}
@@ -36,7 +39,7 @@
         <p class="resumo">{{ contagem.total }} cadastrados · {{ contagem.ativos }} ativos · {{ contagem.inativos }} desativados</p>
       </div>
       <div class="card-content">
-        <p class="ajuda">Todo servidor com conta <strong>@ifc.edu.br</strong> entra no cadastro no primeiro acesso, com o nome da conta Google. Desativar bloqueia o acesso sem apagar nada; quem é administrador é definido em ADMIN_EMAILS.</p>
+        <p class="ajuda">Todo servidor com conta <strong>@ifc.edu.br</strong> entra no cadastro no primeiro acesso, com o nome da conta Google. Desativar bloqueia o acesso sem apagar nada; quem é administrador é definido em ADMIN_EMAILS. Em <strong>Revisão</strong>, dê a quem é da coordenação, do NDE ou do NDB de um curso o direito de revisar a avaliação da IA dos planos desse curso.</p>
 
         <form class="filtros" method="get" action="/administracao/usuarios" role="search">
           <div class="br-input busca">
@@ -72,7 +75,7 @@
           <table>
             <caption class="sr-only">Usuários, {{ de }} a {{ ate }} de {{ total }}</caption>
             <thead>
-              <tr><th scope="col">Nome</th><th scope="col">E-mail</th><th scope="col">Papel</th><th scope="col">Situação</th><th scope="col">Último acesso</th><th scope="col"><span class="sr-only">Ação</span></th></tr>
+              <tr><th scope="col">Nome</th><th scope="col">E-mail</th><th scope="col">Papel</th><th scope="col">Revisão</th><th scope="col">Situação</th><th scope="col">Último acesso</th><th scope="col"><span class="sr-only">Ação</span></th></tr>
             </thead>
             <tbody>
               {% for u in usuarios %}
@@ -80,6 +83,25 @@
                 <td data-rotulo="Nome" class="nome">{{ u.nome or '—' }}{% if u.eu %} <span class="voce">(você)</span>{% endif %}</td>
                 <td data-rotulo="E-mail" class="email">{{ u.email }}</td>
                 <td data-rotulo="Papel">{{ 'Administrador' if u.admin else 'Consulta' }}</td>
+                <td data-rotulo="Revisão" class="revisao">
+                  {% for curso, papel, rotulo, nome_curso in u.papeis %}
+                  <form class="papel" method="post" action="/administracao/usuarios/papel">
+                    <input type="hidden" name="email" value="{{ u.email }}"><input type="hidden" name="curso" value="{{ curso }}">
+                    <input type="hidden" name="papel" value="{{ papel }}"><input type="hidden" name="acao" value="remover">
+                    <input type="hidden" name="voltar" value="{{ endereco() }}">
+                    <span class="br-tag papel-curso" title="{{ nome_curso }}">{{ rotulo }}<button type="submit" aria-label="Remover {{ rotulo }} de {{ u.nome or u.email }}"><i class="fas fa-times" aria-hidden="true"></i></button></span>
+                  </form>
+                  {% endfor %}
+                  {% if cursos %}
+                  <form class="novo-papel" method="post" action="/administracao/usuarios/papel">
+                    <input type="hidden" name="email" value="{{ u.email }}"><input type="hidden" name="acao" value="adicionar">
+                    <input type="hidden" name="voltar" value="{{ endereco() }}">
+                    <select name="curso" aria-label="Curso de {{ u.nome or u.email }}">{% for sigla, nome_curso in cursos.items() %}<option value="{{ sigla }}" title="{{ nome_curso }}">{{ sigla }}</option>{% endfor %}</select>
+                    <select name="papel" aria-label="Papel no curso">{% for valor, rotulo in papeis_curso.items() %}<option value="{{ valor }}">{{ rotulo }}</option>{% endfor %}</select>
+                    <button class="br-button secondary small circle" type="submit" title="Adicionar papel" aria-label="Adicionar papel a {{ u.nome or u.email }}"><i class="fas fa-plus" aria-hidden="true"></i></button>
+                  </form>
+                  {% endif %}
+                </td>
                 <td data-rotulo="Situação"><span class="br-tag situacao {{ 'ativo' if u.ativo else 'desativado' }}">{{ 'Ativo' if u.ativo else 'Desativado' }}</span></td>
                 <td data-rotulo="Último acesso" title="Primeiro acesso: {{ u.primeiro }}">{{ u.ultimo }}</td>
                 <td class="acao">

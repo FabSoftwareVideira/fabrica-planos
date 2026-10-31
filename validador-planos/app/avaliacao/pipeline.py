@@ -137,6 +137,6 @@ def _registrar(cfg, execucao, linhas, nomes, iniciado_em, erro):
             'modelo': cfg.modelo, 'total': len(nomes), 'processados': len(linhas), 'erro': erro,
             **historico.contar(linhas),
         })
-        historico.podar(cfg.historico_dir, cfg.historico_max)
+        historico.podar(cfg.historico_dir)  # fica só a validação atual
     except Exception:
         log.exception('Falha ao registrar a validação %s no histórico', execucao.id)

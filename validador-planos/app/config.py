@@ -12,7 +12,6 @@ class Config:
     hora_agendada: int
     agendar: bool
     pdf_max_mb: int = 10
-    historico_max: int = 3
     # Login feito pelo proxy (Caddy + oauth2-proxy), que repassa o e-mail no cabeçalho X-Usuario-Email.
     # Sem exigir login (uso local, testes), todo acesso conta como administrador.
     exigir_login: bool = False
@@ -26,6 +25,11 @@ class Config:
     def usuarios_path(self):
         """Cadastro de quem já entrou (nome, ativo, acessos)."""
         return os.path.join(self.resultados_dir, 'usuarios.sqlite3')
+
+    @property
+    def revisoes_path(self):
+        """Revisões manuais (coordenação, NDE, NDB) da avaliação da IA."""
+        return os.path.join(self.resultados_dir, 'revisoes.sqlite3')
 
     @property
     def csv_path(self):
@@ -43,7 +47,6 @@ def carregar():
         hora_agendada=int(os.environ.get('AGENDAMENTO_HORA', '5')),
         agendar=os.environ.get('AGENDAR', '1') == '1',
         pdf_max_mb=int(os.environ.get('PDF_MAX_MB') or '10'),
-        historico_max=max(1, int(os.environ.get('HISTORICO_MAX') or '3')),
         exigir_login=os.environ.get('EXIGIR_LOGIN', '1') == '1',
         admins=frozenset(e.strip().lower() for e in os.environ.get('ADMIN_EMAILS', '').split(',') if e.strip()),
     )

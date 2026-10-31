@@ -1,6 +1,7 @@
 import base64
 import json
 from functools import wraps
+from urllib.parse import urlsplit
 
 from flask import Response, current_app, jsonify, request
 
@@ -34,6 +35,12 @@ def nome():
     if not isinstance(carga, dict) or str(carga.get('email', '')).strip().lower() not in ('', email()):
         return ''
     return ' '.join(str(carga.get('name') or '').split())[:120]
+
+
+def mesma_origem():
+    """Formulário enviado por esta aplicação (o navegador manda Origin nos POSTs)."""
+    origem = request.headers.get('Origin')
+    return not origem or urlsplit(origem).netloc == request.host
 
 
 def eh_admin():

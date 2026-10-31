@@ -156,9 +156,7 @@ def test_relatorio_navega_entre_planos_e_volta_ao_card(cliente):
     execucao = _execucao(c, ['a.pdf', 'b.pdf', 'c.pdf'], 10)
     html = c.get('/relatorio?arquivo=b.pdf').get_data(as_text=True)
     assert 'href="/dashboard#plano-1"' in html
-    v = 'validacao=' + execucao.id
-    # No HTML o & do endereço vem escapado (&amp;), como manda a especificação
-    assert f'href="/relatorio?{v}&amp;arquivo=a.pdf"' in html and f'href="/relatorio?{v}&amp;arquivo=c.pdf"' in html
+    assert 'href="/relatorio?arquivo=a.pdf"' in html and 'href="/relatorio?arquivo=c.pdf"' in html
     assert 'Plano 2 de 3' in html
     primeiro = c.get('/relatorio?arquivo=a.pdf').get_data(as_text=True)
     assert '<span class="off">‹ Anterior</span>' in primeiro
@@ -173,27 +171,18 @@ def test_relatorio_de_plano_desconhecido(cliente):
     _execucao(c, ['a.pdf'], 10)
     assert c.get('/relatorio?arquivo=x.pdf').status_code == 404
     assert c.get('/relatorio?arquivo=../x.pdf').status_code == 404
-    assert c.get('/relatorio?validacao=20200101-000000&arquivo=a.pdf').status_code == 404
 
 
-def test_dashboard_mostra_historico_e_validacao_anterior(cliente):
+def test_dashboard_mostra_so_a_validacao_atual(cliente):
     c, _ = cliente
-    antiga = _execucao(c, ['velho.pdf'], 9)
+    _execucao(c, ['velho.pdf'], 9)
     nova = _execucao(c, ['novo.pdf'], 11, pdfs=['novo.pdf'])
     html = c.get('/dashboard').get_data(as_text=True)
-    assert 'novo' in html and 'velho' not in html.split('id="historico"')[1].split('</select>')[1]
+    assert 'novo.pdf' in html and 'velho.pdf' not in html
+    assert 'id="historico"' not in html  # sem seletor de validações anteriores
     assert f'/validacoes/{nova.id}/pdfs.zip' in html and f'/validacoes/{nova.id}/csv' in html
-    assert '(última)' in html
-
-    html = c.get('/dashboard?validacao=' + antiga.id).get_data(as_text=True)
-    assert 'Você está vendo uma validação anterior' in html
-    assert f'/validacoes/{antiga.id}/pdfs.zip' not in html  # PDFs antigos não são guardados
-    assert 'data-pdf=' not in html  # nem o zip de cada grupo aparece
-    assert '>📄 Abrir PDF<' not in html
-    relatorio = c.get(f'/relatorio?validacao={antiga.id}&arquivo=velho.pdf').get_data(as_text=True)
-    assert f'href="/dashboard?validacao={antiga.id}#plano-0"' in relatorio
-
-    assert c.get('/dashboard?validacao=20200101-000000').status_code == 302
+    assert 'href="/dashboard#plano-0"' in c.get('/relatorio?arquivo=novo.pdf').get_data(as_text=True)
+    assert c.get('/relatorio?arquivo=velho.pdf').status_code == 404
 
 
 def test_zip_csv_e_pdf_da_ultima_validacao(cliente):
@@ -245,16 +234,14 @@ def test_revalidar_pela_rota(cliente, monkeypatch):
     assert _servicos(c).validador.andamento.resumo()['unico'] == 'a.pdf'
 
 
-def test_dashboard_tem_filtros_e_revalidar_so_na_ultima(cliente):
+def test_dashboard_tem_filtros_e_revalidar(cliente):
     c, planos = cliente
     validacao = {'status_geral': 'PENDENTE', 'horario_atendimento': {'status': 'INCOMPLETO', 'obs': ''}}
-    antiga = _execucao(c, ['a.pdf'], 9)
     _execucao(c, ['a.pdf', 'b.pdf'], 10, validacao)
     html = c.get('/dashboard').get_data(as_text=True)
     assert 'id="busca"' in html and 'data-status="PENDENTE"' in html
     assert 'Pendentes (2)' in html and '<option value="Horário Atendimento">' in html
     assert 'class="revalidar" data-arquivo="a.pdf"' in html
-    assert 'class="revalidar"' not in c.get('/dashboard?validacao=' + antiga.id).get_data(as_text=True)
 
     (planos / 'a.pdf').write_bytes(PDF)
     assert 'id="revalidar"' in c.get('/relatorio?arquivo=a.pdf').get_data(as_text=True)
@@ -540,3 +527,113 @@ def test_tela_de_usuarios_filtra_e_pagina(com_login):
     html = c.get('/administracao/usuarios?q=ninguem', headers=ADMIN).get_data(as_text=True)
     assert 'Nenhum usuário com esses filtros.' in html
     assert 'href="/administracao/usuarios"' in c.get('/administracao', headers=ADMIN).get_data(as_text=True)
+
+
+
+# Revisão manual (coordenação/NDE/NDB) ---------------------------------------------------------------
+
+NDE = {'X-Usuario-Email': 'nde@ifc.edu.br'}
+CABECALHO_CC = 'CCC0723 - DESENVOLVIMENTO WEB I (60h) - Turma: 01 (2026.2)\n'
+
+
+def _plano_cc(c, planos, nome='web.pdf', status='PENDENTE'):
+    """Validação atual com um plano de Ciência da Computação (CC) avaliado pela IA, com o PDF na pasta."""
+    from app.armazenamento import detalhes
+    execucao = _execucao(c, [nome], 10, {'status_geral': status})
+    detalhes.salvar(execucao.detalhes_dir, nome, {'texto': CABECALHO_CC + 'Ementa: ...'})
+    (planos / nome).write_bytes(PDF)
+    return execucao
+
+
+def _dar_papel(c, email, curso='CC', papel='nde'):
+    c.get('/dashboard', headers={'X-Usuario-Email': email})  # entra no cadastro no primeiro acesso
+    return c.post('/administracao/usuarios/papel', headers=ADMIN,
+                  data={'email': email, 'curso': curso, 'papel': papel, 'acao': 'adicionar'})
+
+
+def test_papeis_nos_cursos(com_login):
+    c, _ = com_login
+    usuarios = _servicos(c).usuarios
+    r = _dar_papel(c, 'nde@ifc.edu.br')
+    assert r.status_code == 303 and 'aviso=papel_adicionado' in r.headers['Location']
+    assert usuarios.papeis('nde@ifc.edu.br') == [('CC', 'nde')]
+    assert 'aviso=papel_invalido' in _dar_papel(c, 'nde@ifc.edu.br', curso='XX').headers['Location']
+    assert 'aviso=inexistente' in c.post('/administracao/usuarios/papel', headers=ADMIN, data={
+        'email': 'ninguem@ifc.edu.br', 'curso': 'CC', 'papel': 'nde', 'acao': 'adicionar'}).headers['Location']
+    # Quem não é administrador não dá papéis
+    c.post('/administracao/usuarios/papel', headers=SERVIDOR,
+           data={'email': 'fulano@ifc.edu.br', 'curso': 'CC', 'papel': 'coordenador', 'acao': 'adicionar'})
+    assert usuarios.papeis('fulano@ifc.edu.br') == []
+
+    html = c.get('/administracao/usuarios?papel=revisor', headers=ADMIN).get_data(as_text=True)
+    assert 'nde@ifc.edu.br' in html and 'fulano@ifc.edu.br' not in html and 'CC · NDE' in html
+    r = c.post('/administracao/usuarios/papel', headers=ADMIN,
+               data={'email': 'nde@ifc.edu.br', 'curso': 'CC', 'papel': 'nde', 'acao': 'remover'})
+    assert 'aviso=papel_removido' in r.headers['Location'] and usuarios.papeis('nde@ifc.edu.br') == []
+
+
+def test_so_quem_tem_papel_no_curso_revisa(com_login):
+    c, planos = com_login
+    _plano_cc(c, planos)
+    _dar_papel(c, 'nde@ifc.edu.br', curso='IN')  # papel em outro curso não vale
+    _dar_papel(c, 'outro@ifc.edu.br')
+    html = c.get('/relatorio?arquivo=web.pdf', headers=NDE).get_data(as_text=True)
+    assert 'action="/revisao"' not in html and 'Aguardando a revisão' in html
+    r = c.post('/revisao', headers=NDE, data={'arquivo': 'web.pdf', 'status': 'OK', 'comentario': 'ok'})
+    assert r.status_code == 403
+    assert c.post('/revisao', headers=ADMIN, data={'arquivo': 'web.pdf', 'status': 'OK'}).status_code == 403
+    assert 'action="/revisao"' in c.get('/relatorio?arquivo=web.pdf',
+                                        headers={'X-Usuario-Email': 'outro@ifc.edu.br'}).get_data(as_text=True)
+
+
+def test_parecer_vale_sobre_a_ia_e_um_pdf_novo_reabre(com_login):
+    c, planos = com_login
+    _plano_cc(c, planos, status='PENDENTE')
+    _dar_papel(c, 'nde@ifc.edu.br')
+    # Discordar da IA (ou não aprovar) exige comentário
+    r = c.post('/revisao', headers=NDE, data={'arquivo': 'web.pdf', 'status': 'OK'})
+    assert 'aviso=incompleta' in r.headers['Location']
+    assert _servicos(c).revisao.vigente('web.pdf') is None
+    r = c.post('/revisao', headers=NDE, data={'arquivo': 'web.pdf', 'status': 'OK', 'comentario': 'Ementa está completa.'})
+    assert r.status_code == 303 and 'aviso=salva' in r.headers['Location']
+
+    html = c.get('/dashboard', headers=SERVIDOR).get_data(as_text=True)
+    assert 'data-status="OK"' in html and 'data-revisado="1"' in html and 'Revisado' in html
+    assert 'a IA tinha avaliado como PENDENTE' in html and 'Ementa está completa.' in html
+    assert 'Revisados (1)' in html
+    relatorio = c.get('/relatorio?arquivo=web.pdf', headers=SERVIDOR).get_data(as_text=True)
+    assert 'IA: PENDENTE' in relatorio and 'action="/revisao"' not in relatorio  # servidor só vê
+
+    (planos / 'web.pdf').write_bytes(PDF + b'% versao nova')  # o professor mandou outro PDF
+    assert _servicos(c).revisao.vigente('web.pdf') is None
+    html = c.get('/dashboard', headers=SERVIDOR).get_data(as_text=True)
+    assert 'data-status="PENDENTE"' in html and 'data-revisado="0"' in html
+
+
+def test_desfazer_revisao(com_login):
+    c, planos = com_login
+    _plano_cc(c, planos, status='OK')
+    _dar_papel(c, 'nde@ifc.edu.br')
+    assert 'aviso=salva' in c.post('/revisao', headers=NDE, data={'arquivo': 'web.pdf', 'status': 'OK'}).headers[
+        'Location']  # concordar e aprovar dispensa comentário
+    assert _servicos(c).revisao.vigente('web.pdf')['revisor_email'] == 'nde@ifc.edu.br'
+    r = c.post('/revisao', headers=NDE, data={'arquivo': 'web.pdf', 'acao': 'desfazer'})
+    assert 'aviso=desfeita' in r.headers['Location'] and _servicos(c).revisao.vigente('web.pdf') is None
+    assert c.post('/revisao', headers=NDE, data={'arquivo': 'nao-existe.pdf', 'status': 'OK'}).status_code == 404
+
+
+def test_professor_ve_o_parecer(com_login, monkeypatch):
+    from app.avaliacao import pipeline
+    from conftest import gerar_pdf
+    c, planos = com_login
+    monkeypatch.setattr(pipeline, 'revalidar', lambda cfg, andamento, nome: andamento.finalizar())
+    pdf = gerar_pdf([CABECALHO_CC.strip()] + ['Linha de texto do plano de ensino numero %d.' % i for i in range(6)])
+    c.post('/meus-planos', headers=SERVIDOR, data=_envio(('web.pdf', pdf)), content_type='multipart/form-data')
+    from app.armazenamento import detalhes
+    execucao = _execucao(c, ['web.pdf'], 10, {'status_geral': 'OK'})
+    detalhes.salvar(execucao.detalhes_dir, 'web.pdf', {'texto': CABECALHO_CC, 'validado_em': '2099-01-01T00:00:00'})
+    _dar_papel(c, 'nde@ifc.edu.br')
+    c.post('/revisao', headers=NDE, data={'arquivo': 'web.pdf', 'status': 'PENDENTE', 'comentario': 'Falta o cronograma.'})
+    [plano] = c.get('/meus-planos/lista', headers=SERVIDOR).json['planos']
+    assert plano['revisao']['status'] == 'PENDENTE' and plano['revisao']['comentario'] == 'Falta o cronograma.'
+    assert plano['revisao']['papel'] == 'NDE' and not plano['revisao']['concorda']

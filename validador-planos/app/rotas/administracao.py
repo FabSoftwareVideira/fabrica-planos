@@ -1,14 +1,13 @@
-from urllib.parse import urlsplit
-
 from flask import Blueprint, redirect, render_template, request
 
+from ..armazenamento.usuarios import PAPEIS_CURSO
 from ..avaliacao import pipeline
 from ..paginas import administracao, usuarios
 from ..servicos.planos import NaoEncontrado, Ocupado
-from .comum import eh_admin, email, json_, ocupado, servicos, somente_admin
+from .comum import eh_admin, email, json_, mesma_origem, ocupado, servicos, somente_admin
 
-# Só administradores (ADMIN_EMAILS): disparar validações, enviar/excluir quaisquer PDFs da pasta e
-# ativar/desativar usuários.
+# Só administradores (ADMIN_EMAILS): disparar validações, enviar/excluir quaisquer PDFs da pasta,
+# ativar/desativar usuários e dar os papéis de coordenação/NDE/NDB nos cursos.
 bp = Blueprint('administracao', __name__)
 
 
@@ -25,14 +24,8 @@ def pagina_usuarios():
         return redirect('/dashboard')
     s = servicos()
     ctx = usuarios.contexto(s.usuarios, s.cfg.admins, usuarios.filtros(request.args), email(),
-                            request.args.get('aviso', ''))
+                            request.args.get('aviso', ''), s.planos.cursos())
     return render_template('usuarios.html', **ctx)
-
-
-def _mesma_origem():
-    """Formulário enviado por esta aplicação (o navegador manda Origin nos POSTs)."""
-    origem = request.headers.get('Origin')
-    return not origem or urlsplit(origem).netloc == request.host
 
 
 @bp.post('/administracao/usuarios/ativo')
@@ -43,7 +36,7 @@ def alterar_ativo():
     if not voltar.startswith('/administracao/usuarios'):
         voltar = '/administracao/usuarios'
     separador = '&' if '?' in voltar else '?'
-    if not _mesma_origem():
+    if not mesma_origem():
         return 'Origem inválida', 403
     s = servicos()
     alvo = (request.form.get('email') or '').strip().lower()
@@ -54,6 +47,32 @@ def alterar_ativo():
         aviso = 'inexistente'
     else:
         aviso = 'ativado' if ativo else 'desativado'
+    return redirect(f'{voltar}{separador}aviso={aviso}', 303)
+
+
+@bp.post('/administracao/usuarios/papel')
+def alterar_papel():
+    """Dá ou tira de um usuário o papel de coordenação, NDE ou NDB num curso (quem pode revisar os planos dele)."""
+    if not eh_admin():
+        return redirect('/dashboard')
+    voltar = request.form.get('voltar', '')
+    if not voltar.startswith('/administracao/usuarios'):
+        voltar = '/administracao/usuarios'
+    separador = '&' if '?' in voltar else '?'
+    if not mesma_origem():
+        return 'Origem inválida', 403
+    s = servicos()
+    alvo = (request.form.get('email') or '').strip().lower()
+    curso = (request.form.get('curso') or '').strip().upper()
+    papel = request.form.get('papel', '')
+    if request.form.get('acao') == 'remover':
+        aviso = 'papel_removido' if s.usuarios.remover_papel(alvo, curso, papel) else 'papel_invalido'
+    elif papel not in PAPEIS_CURSO or curso not in s.planos.cursos():
+        aviso = 'papel_invalido'
+    elif not s.usuarios.adicionar_papel(alvo, curso, papel):
+        aviso = 'inexistente'
+    else:
+        aviso = 'papel_adicionado'
     return redirect(f'{voltar}{separador}aviso={aviso}', 303)
 
 

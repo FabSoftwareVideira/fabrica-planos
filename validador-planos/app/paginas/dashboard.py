@@ -2,14 +2,14 @@ from urllib.parse import quote
 
 from ..armazenamento.csvsaida import CAMPOS_COLUNA
 from ..avaliacao import identificacao
-from .comum import data_br
 
-# Dashboard (templates/dashboard.html): resumo, filtros e um card por plano da validação exibida.
+# Dashboard (templates/dashboard.html): resumo, filtros e um card por plano da validação atual. O status
+# de cada plano é o da revisão manual (coordenação/NDE/NDB), quando houver uma vigente; senão, o da IA.
 
 STATUS_FILTRO = [('OK', 'Aprovados'), ('PENDENTE', 'Pendentes'), ('REPROVADO', 'Reprovados'), ('ERRO', 'Com erro')]
 
 AGRUPAMENTOS = [('cp', 'Curso e período'), ('periodo', 'Período'), ('curso', 'Curso'), ('docente', 'Docente'),
-                ('status', 'Situação'), ('', 'Sem agrupar')]
+                ('status', 'Situação'), ('revisao', 'Revisão'), ('', 'Sem agrupar')]
 
 
 def _dados_grupo(ident, docentes):
@@ -24,7 +24,7 @@ def _dados_grupo(ident, docentes):
     return dados
 
 
-def _card(indice, linha, validacao, pdfs_guardados, ultima, ident=None, docentes=()):
+def _card(indice, linha, validacao, pdfs_guardados, admin, ident=None, docentes=(), revisao=None):
     arquivo = linha.get('Arquivo') or ''
     partes = []
     if ident:
@@ -37,28 +37,20 @@ def _card(indice, linha, validacao, pdfs_guardados, ultima, ident=None, docentes
         'arquivo': arquivo,
         'nome': arquivo.replace('2024-1 - ', '').replace('.pdf', ''),
         'sub': ' · '.join(partes),
-        'status': linha.get('Status Geral', ''),
+        'status': linha.get('Status Geral', ''),  # o da revisão, se houver
+        'revisao': revisao,
         'problemas': '|'.join(rotulo for rotulo, _ in CAMPOS_COLUNA if linha.get(rotulo) != 'OK'),
         'observacao': linha.get('Observação Geral', ''),
         'topicos': [(rotulo, linha.get(rotulo, ''), linha.get(rotulo + ' Obs', '')) for rotulo, _ in CAMPOS_COLUNA],
         'dados': _dados_grupo(ident, docentes),
         # O relatório abre na mesma aba e volta para este card (âncora #plano-N).
-        'url_relatorio': '/relatorio?validacao=' + validacao + '&arquivo=' + quote(arquivo),
+        'url_relatorio': '/relatorio?arquivo=' + quote(arquivo),
         'url_pdf': '/validacoes/' + validacao + '/pdf?arquivo=' + quote(arquivo) if tem_pdf else '',
-        'revalidar': ultima,  # revalidar atualiza a última validação; as anteriores ficam como estão
+        'revalidar': admin,  # revalidar é coisa de administrador
     }
 
 
-def _rotulo_execucao(meta, ultima):
-    partes = [data_br(meta.get('finalizado_em')), f"{meta.get('total', 0)} plano(s)",
-              f"{meta.get('ok', 0)} OK", f"{meta.get('pendentes', 0)} pendente(s)",
-              f"{meta.get('problemas', 0)} com problemas"]
-    if meta.get('erro'):
-        partes.append('interrompida')
-    return ' · '.join(partes) + (' (última)' if ultima else '')
-
-
-def _filtros(linhas, grupos):
+def _filtros(linhas, grupos, revisados):
     """Opções da barra de filtros (tudo é filtrado no navegador). Com um só curso e período, o filtro
     de grupo não aparece; os campos listados são só os que têm problema em algum plano."""
     chips = [('', 'Todos', len(linhas))]
@@ -71,11 +63,17 @@ def _filtros(linhas, grupos):
         'grupos': grupos if len(grupos) > 1 else [],
         'chips': chips,
         'campos': [rotulo for rotulo, _ in CAMPOS_COLUNA if any(l.get(rotulo) != 'OK' for l in linhas)],
+        'revisao': [('', 'Revisados ou não'), ('1', f'Revisados ({revisados})'),
+                    ('0', f'Aguardando revisão ({len(linhas) - revisados})')],
     }
 
 
-def contexto(linhas, max_mb=10, execucoes=(), execucao=None, usuario='', admin=True, idents=None, docentes=None):
-    execucoes = list(execucoes)
+def contexto(linhas, max_mb=10, execucao=None, usuario='', admin=True, idents=None, docentes=None, revisoes=None):
+    """`revisoes`: {arquivo: resumo da revisão vigente} (servicos/revisao.py: resumo)."""
+    revisoes = revisoes or {}
+    # Com revisão vigente, o status do revisor substitui o da IA em tudo (resumo, filtros, agrupamento).
+    linhas = [dict(l, **{'Status Geral': revisoes[l.get('Arquivo')]['status']}) if l.get('Arquivo') in revisoes else l
+              for l in linhas]
     total = len(linhas)
     ok = sum(1 for l in linhas if l.get('Status Geral') == 'OK')
     pendente = sum(1 for l in linhas if l.get('Status Geral') == 'PENDENTE')
@@ -97,20 +95,15 @@ def contexto(linhas, max_mb=10, execucoes=(), execucao=None, usuario='', admin=T
     if execucao is None:
         return ctx
 
-    meta = execucao.meta()
-    ctx.update({
-        'historico': [(e.id, _rotulo_execucao(e.meta(), i == 0), e.id == execucao.id) for i, e in enumerate(execucoes)],
-        'tem_pdfs': bool(execucao.pdfs()),
-        'meta': meta,
-        'antiga': execucao.id != execucoes[0].id,
-    })
+    ctx.update({'tem_pdfs': bool(execucao.pdfs()), 'meta': execucao.meta()})
     if linhas:
         pdfs = set(execucao.pdfs())
-        ultima = execucao.id == execucoes[0].id and admin  # revalidar é coisa de administrador
         idents, docentes = idents or {}, docentes or {}
-        ctx['cards'] = [_card(i, l, execucao.id, pdfs, ultima, idents.get(l.get('Arquivo')),
-                              docentes.get(l.get('Arquivo'), ())) for i, l in enumerate(linhas)]
+        ctx['cards'] = [_card(i, l, execucao.id, pdfs, admin, idents.get(l.get('Arquivo')),
+                              docentes.get(l.get('Arquivo'), ()), revisoes.get(l.get('Arquivo')))
+                        for i, l in enumerate(linhas)]
         grupos = sorted({identificacao.grupo_curso_periodo(idents.get(l.get('Arquivo'))) for l in linhas},
                         key=lambda g: (g[2], g[1]))
-        ctx['filtros'] = _filtros(linhas, [(chave, titulo) for chave, titulo, _ in grupos])
+        revisados = sum(1 for l in linhas if l.get('Arquivo') in revisoes)
+        ctx['filtros'] = _filtros(linhas, [(chave, titulo) for chave, titulo, _ in grupos], revisados)
     return ctx

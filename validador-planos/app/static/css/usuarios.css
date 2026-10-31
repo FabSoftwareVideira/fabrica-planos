@@ -35,6 +35,16 @@ h2{font-size:var(--font-size-scale-up-02);margin:0}
 .protegido{color:var(--gray-50);font-size:var(--font-size-scale-down-01)}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 
+/* Papéis nos cursos (coluna Revisão) */
+.revisao{min-width:200px}
+.revisao form{display:inline-flex;margin:0 4px 4px 0;vertical-align:middle}
+.papel-curso{display:inline-flex;align-items:center;gap:4px;background:#e8f0fd;color:var(--blue-warm-vivid-70,#1351b4);
+  border-radius:var(--surface-rounder-pill);padding:2px 4px 2px 10px;font-size:var(--font-size-scale-down-02);font-weight:var(--font-weight-semi-bold)}
+.papel-curso button{border:0;background:none;color:inherit;cursor:pointer;padding:0 4px;line-height:1}
+.novo-papel{gap:4px;align-items:center}
+.novo-papel select{height:32px;border:1px solid var(--gray-40);border-radius:var(--surface-rounder-sm);padding:0 4px;
+  background:var(--background);font:inherit;font-size:var(--font-size-scale-down-01);color:var(--color)}
+
 /* Paginação */
 .rodape-tabela{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:var(--spacing-scale-base);
   margin-top:var(--spacing-scale-2x);color:var(--gray-60);font-size:var(--font-size-scale-down-01)}

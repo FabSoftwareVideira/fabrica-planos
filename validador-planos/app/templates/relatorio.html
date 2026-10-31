@@ -34,7 +34,7 @@
   <a class="br-button secondary small voltar" href="{{ url_dashboard }}" data-tecla="Escape"><i class="fas fa-arrow-left" aria-hidden="true"></i> <span class="longo">Voltar ao dashboard</span><span class="curto">Dashboard</span></a>
   {{ link_plano(anterior, '‹ Anterior', 'ArrowLeft') }}
   {{ link_plano(proximo, 'Próximo ›', 'ArrowRight') }}
-  <span class="pos">Plano {{ indice + 1 }} de {{ total }}{% if not eh_ultima %} · validação anterior de {{ data }}{% endif %}</span>
+  <span class="pos">Plano {{ indice + 1 }} de {{ total }}</span>
   {% if pode_revalidar %}
   <button type="button" class="br-button primary small revalidar" id="revalidar" data-arquivo="{{ nome }}"><i class="fas fa-redo" aria-hidden="true"></i> Revalidar<span class="longo"> este plano</span></button>
   {% endif %}
@@ -44,15 +44,55 @@
   <div class="container-lg py-4">
     <h1>{{ nome.removesuffix('.pdf') }}</h1>
     <div class="meta">
-      <span>{{ tag_status(linha['Status Geral']) }}</span>
+      <span>{{ tag_status(revisao.status if revisao else linha['Status Geral']) }}{% if revisao %} <span class="ia">IA: {{ linha['Status Geral'] }}</span>{% endif %}</span>
       <span><i class="fas fa-clock" aria-hidden="true"></i> Validado em {{ linha['Data Validação'] }}</span>
       {% if det and det.modelo %}<span><i class="fas fa-robot" aria-hidden="true"></i> Modelo {{ det.modelo }}</span>{% endif %}
       {% if url_pdf %}
       <span><a href="{{ url_pdf }}" target="_blank" rel="noopener"><i class="fas fa-file-pdf" aria-hidden="true"></i> Abrir PDF</a></span>
       {% else %}
-      <span>PDF não guardado (só a última validação guarda os PDFs)</span>
+      <span>PDF não disponível</span>
       {% endif %}
     </div>
+
+    <section class="br-card revisao" id="revisao">
+      <div class="card-header"><h2><i class="fas fa-user-check" aria-hidden="true"></i> Revisão da coordenação / NDE / NDB</h2></div>
+      <div class="card-content">
+        {% if aviso_revisao %}{% set tipo, icone, texto_aviso = aviso_revisao %}
+        <div class="br-message {{ tipo }}" role="status">
+          <div class="icon"><i class="fas fa-{{ icone }} fa-lg" aria-hidden="true"></i></div>
+          <div class="content"><span class="message-body">{{ texto_aviso }}</span></div>
+        </div>
+        {% endif %}
+        {% if revisao %}
+        <div class="parecer" style="--cor:{{ cor(revisao.status) }}">
+          <p><strong>{{ revisao.parecer }}</strong> · {{ revisao.revisor }} ({{ revisao.papel }}) em {{ revisao.revisado_em|data_br }}
+            {%- if not revisao.concorda %} · a IA tinha avaliado como {{ revisao.status_ia or '—' }}{% else %} · de acordo com a IA{% endif %}</p>
+          {% if revisao.comentario %}<p class="comentario">{{ revisao.comentario }}</p>{% endif %}
+        </div>
+        {% elif not papel_revisor %}
+        <p class="nota">Aguardando a revisão da coordenação, do NDE ou do NDB{% if curso %} de {{ curso }}{% endif %}. Até lá, vale a avaliação da IA.</p>
+        {% endif %}
+
+        {% if papel_revisor %}
+        <form class="form-revisao" method="post" action="/revisao">
+          <input type="hidden" name="arquivo" value="{{ nome }}">
+          <fieldset>
+            <legend>{{ 'Alterar o parecer' if revisao else 'Seu parecer' }} <span class="nota">({{ papel_revisor }}{% if curso %} · {{ curso }}{% endif %})</span></legend>
+            {% set marcado = revisao.status if revisao else linha['Status Geral'] %}
+            {% for valor, rotulo in opcoes_revisao.items() %}
+            <label class="opcao" style="--cor:{{ cor(valor) }}"><input type="radio" name="status" value="{{ valor }}"{% if valor == marcado %} checked{% endif %} required> {{ rotulo }}{% if valor == linha['Status Geral'] %} <span class="nota">(avaliação da IA)</span>{% endif %}</label>
+            {% endfor %}
+          </fieldset>
+          <label for="comentario">Comentário para o docente</label>
+          <textarea id="comentario" name="comentario" rows="4" maxlength="2000" placeholder="Obrigatório quando o plano não é aprovado ou o parecer difere da IA: diga o que precisa mudar.">{{ revisao.comentario if revisao else '' }}</textarea>
+          <div class="botoes">
+            <button class="br-button primary small" type="submit"><i class="fas fa-check" aria-hidden="true"></i> Registrar parecer</button>
+            {% if revisao %}<button class="br-button secondary small" type="submit" name="acao" value="desfazer" formnovalidate><i class="fas fa-undo" aria-hidden="true"></i> Desfazer revisão</button>{% endif %}
+          </div>
+        </form>
+        {% endif %}
+      </div>
+    </section>
 
     {% if det is none %}
     <div class="br-message warning">

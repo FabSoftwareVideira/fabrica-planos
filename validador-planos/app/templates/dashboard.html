@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% from '_macros.html' import tag_status %}
-{#- Dashboard: resultados da validação (histórico, resumo, filtros e um card por plano), para todos os servidores.
+{#- Dashboard: resultado da validação atual (resumo, filtros e um card por plano), para todos os servidores.
     A gestão dos PDFs fica em Administração; a barra de status, em _status.html (static/js/status.js).
     No Padrão Digital de Governo (Design System gov.br). -#}
 
@@ -26,11 +26,6 @@
     {% else %}
     <div class="cab-resultados">
       <h2>Resultados</h2>
-      <select id="historico" aria-label="Validação exibida">
-        {% for id, rotulo, atual in historico %}
-        <option value="{{ id }}"{% if atual %} selected{% endif %}>{{ rotulo }}</option>
-        {% endfor %}
-      </select>
       {% if tem_pdfs %}<a class="br-button secondary small" href="/validacoes/{{ execucao.id }}/pdfs.zip"><i class="fas fa-file-archive" aria-hidden="true"></i> PDFs (zip)</a>{% endif %}
       <a class="br-button secondary small" href="/validacoes/{{ execucao.id }}/csv"><i class="fas fa-file-csv" aria-hidden="true"></i> CSV</a>
     </div>
@@ -38,12 +33,6 @@
       {%- if meta.modelo %} · modelo {{ meta.modelo }}{% endif %}
       {%- if meta.erro %} · <span class="erro">interrompida após {{ meta.processados or 0 }} de {{ meta.total or 0 }} plano(s): {{ meta.erro }}</span>{% endif -%}
     </p>
-    {% if antiga %}
-    <div class="br-message warning">
-      <div class="icon"><i class="fas fa-history fa-lg" aria-hidden="true"></i></div>
-      <div class="content"><span class="message-body">Você está vendo uma validação anterior. Os PDFs dela não são guardados, só o resultado. <a href="/dashboard">Ver a última validação</a></span></div>
-    </div>
-    {% endif %}
     {% endif %}
 
     <div class="resumo">
@@ -73,18 +62,22 @@
       <select id="campo" aria-label="Campo com problema"><option value="">Qualquer campo</option>
         {% for rotulo in f.campos %}<option value="{{ rotulo }}">{{ rotulo }}</option>{% endfor %}
       </select>
+      <select id="revisao" aria-label="Revisão manual">
+        {% for valor, rotulo in f.revisao %}<option value="{{ valor }}">{{ rotulo }}</option>{% endfor %}
+      </select>
       <span class="contagem" id="contagem"></span>
       <button type="button" class="br-button small limpar" id="limpar-filtros" hidden><i class="fas fa-times" aria-hidden="true"></i> Limpar filtros</button>
     </div>
 
     <div id="resultados" data-validacao="{{ execucao.id }}">
       {% for c in cards %}
-      <details id="plano-{{ c.indice }}" class="plano" data-indice="{{ c.indice }}" data-arquivo="{{ c.arquivo }}" data-status="{{ c.status }}" data-problemas="{{ c.problemas }}"{% if c.url_pdf %} data-pdf="1"{% endif %}{% for nome, valor in c.dados %} data-{{ nome }}="{{ valor }}"{% endfor %}>
+      <details id="plano-{{ c.indice }}" class="plano" data-indice="{{ c.indice }}" data-arquivo="{{ c.arquivo }}" data-status="{{ c.status }}" data-problemas="{{ c.problemas }}" data-revisado="{{ '1' if c.revisao else '0' }}"{% if c.url_pdf %} data-pdf="1"{% endif %}{% for nome, valor in c.dados %} data-{{ nome }}="{{ valor }}"{% endfor %}>
         {# Título e ações quebram em duas linhas quando não cabem lado a lado (celular). #}
         <summary>
           <span class="titulo"><span class="nome">{{ c.nome }}</span>{% if c.sub %}<span class="sub">{{ c.sub }}</span>{% endif %}</span>
           <span class="acoes">
             {{ tag_status(c.status) }}
+            {% if c.revisao %}<span class="selo-revisao" title="Revisado por {{ c.revisao.revisor }} ({{ c.revisao.papel }}) em {{ c.revisao.revisado_em|data_br }}"><i class="fas fa-user-check" aria-hidden="true"></i> Revisado</span>{% endif %}
             <a href="{{ c.url_relatorio }}" onclick="event.stopPropagation()"><i class="fas fa-file-alt" aria-hidden="true"></i> Relatório</a>
             {% if c.url_pdf %}<a href="{{ c.url_pdf }}" target="_blank" rel="noopener" onclick="event.stopPropagation()"><i class="fas fa-file-pdf" aria-hidden="true"></i> PDF</a>{% endif %}
             {% if c.revalidar %}<button type="button" class="revalidar" data-arquivo="{{ c.arquivo }}" title="Valida de novo só este plano, com o PDF atual da pasta"><i class="fas fa-redo" aria-hidden="true"></i> Revalidar</button>{% endif %}
@@ -92,6 +85,13 @@
           </span>
         </summary>
         <div class="corpo">
+          {% if c.revisao %}
+          <div class="parecer" style="--cor:{{ cor(c.revisao.status) }}">
+            <strong>{{ c.revisao.parecer }}</strong> · revisado por {{ c.revisao.revisor }} ({{ c.revisao.papel }}) em {{ c.revisao.revisado_em|data_br }}
+            {% if not c.revisao.concorda %} · a IA tinha avaliado como {{ c.revisao.status_ia or '—' }}{% endif %}
+            {% if c.revisao.comentario %}<p>{{ c.revisao.comentario }}</p>{% endif %}
+          </div>
+          {% endif %}
           {% if c.observacao %}<p class="obs-geral">{{ c.observacao }}</p>{% endif %}
           <div class="topicos">
             {% for rotulo, status, obs in c.topicos %}

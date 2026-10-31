@@ -11,7 +11,7 @@ app/
   config.py         configuração lida do ambiente (.env)
   depurar.py        linha de comando para conferir a extração de um PDF
   avaliacao/        como um plano é avaliado: extração do PDF, seções, prompt, Ollama, regras e o pipeline
-  armazenamento/    arquivos em resultados/: CSV, detalhes por plano, histórico e dono de cada PDF
+  armazenamento/    arquivos em resultados/: CSV, detalhes por plano, validação atual, dono de cada PDF, usuários e revisões
   servicos/         casos de uso com estado: Validador (lote, fila, agendador) e PastaDePlanos (envio/exclusão)
   rotas/            Blueprints, um por área: publico, painel, validacoes, administracao, meus_planos
   paginas/          dados de cada página (contexto do template) e funções comuns aos templates
@@ -19,7 +19,7 @@ app/
   static/           CSS e JavaScript das páginas (css/, js/), servidos em /static com versão no endereço;
                     vendor/ tem o Design System gov.br, a fonte Rawline e o Font Awesome (scripts/atualizar_vendor.sh)
 tests/              testes unitários (regras, seções, extração, pipeline, rotas, CSV)
-resultados/         histórico das validações e cópia do CSV da última (criados automaticamente; ver "Histórico")
+resultados/         validação atual, cópia do CSV dela, usuários e revisões (criados automaticamente; ver "Resultado")
 docker-compose.yml, Dockerfile, .env.example, Caddyfile
 ```
 
@@ -43,16 +43,17 @@ O dashboard (`/dashboard`) mostra os resultados a todos os servidores; o envio e
 
 Na administração é possível:
 
-- enviar PDFs (arrastando ou escolhendo arquivos; um PDF com o mesmo nome é substituído), abrir e excluir os da pasta, um a um ou todos de uma vez (**Excluir todos**, que não apaga o histórico). Só entram arquivos `.pdf` de até `PDF_MAX_MB` MB (padrão 10) que abram e tenham texto selecionável; digitalizados (só imagem) são recusados com o aviso de que precisam de OCR.
+- enviar PDFs (arrastando ou escolhendo arquivos; um PDF com o mesmo nome é substituído), abrir e excluir os da pasta, um a um ou todos de uma vez (**Excluir todos**, que não apaga o resultado da validação). Só entram arquivos `.pdf` de até `PDF_MAX_MB` MB (padrão 10) que abram e tenham texto selecionável; digitalizados (só imagem) são recusados com o aviso de que precisam de OCR.
 
 No dashboard é possível:
 
 - abrir o **Relatório** de cada plano avaliado: a avaliação de cada campo ao lado do texto extraído para ele, o texto completo do PDF, o prompt enviado e a resposta da IA. A barra do topo volta ao dashboard já no card do plano (ou `Esc`) e passa para o plano anterior/próximo (ou `←`/`→`). Planos validados antes desta versão só mostram o texto depois de uma nova validação;
-- **revalidar um plano só** (botão ↻ no card, no relatório ou na lista de PDFs, útil depois que o docente corrige o PDF): a linha dele na última validação é substituída (ou acrescentada, se for um PDF novo), sem rodar o lote;
+- **revalidar um plano só** (botão ↻ no card, no relatório ou na lista de PDFs, útil depois que o docente corrige o PDF): a linha dele na validação atual é substituída (ou acrescentada, se for um PDF novo), sem rodar o lote;
 - ver os resultados agrupados, com o resumo de cada grupo, escolhendo em **Agrupar por**: curso e período (padrão; ver "Curso e período"), só período, só curso, docente, situação (aprovados, pendentes…) ou sem agrupar. O agrupamento é feito no navegador e a escolha fica guardada nele;
-- baixar o **zip com os PDFs de um grupo** (link no cabeçalho do grupo): leva os planos visíveis nele, respeitando os filtros. Como o zip geral, só existe para a última validação;
+- baixar o **zip com os PDFs de um grupo** (link no cabeçalho do grupo): leva os planos visíveis nele, respeitando os filtros;
 - filtrar os resultados por texto (disciplina ou docente, sem diferenciar acentos), curso e período, status e campo com problema; os filtros ficam guardados enquanto a aba estiver aberta;
-- consultar as últimas validações (seletor ao lado de **Resultados**) e baixar o CSV de cada uma e o **zip com os PDFs** da última.
+- baixar o CSV e o **zip com os PDFs** da validação atual;
+- ver quais planos já foram **revisados** pela coordenação, NDE ou NDB (selo "Revisado" e o parecer no card), filtrar ou agrupar por revisão. Com revisão, vale o status do revisor (ver "Revisão manual").
 
 Enquanto uma validação geral roda, envio e exclusão pelo administrador ficam bloqueados; o envio pelo professor (em "Meus planos") é aceito e avaliado em seguida. O acesso exige login com a conta Google `@ifc.edu.br` (ver "Login"). Qualquer servidor consulta resultados, relatórios, PDFs, CSV e zip e entrega os próprios planos; só os administradores (`ADMIN_EMAILS`) veem e usam **Validar agora**, ↻ Revalidar, envio e exclusão de quaisquer PDFs.
 
@@ -69,6 +70,16 @@ O docente vem do bloco "Matrícula Docente(s)" (`1773245 LUCILENE DAL MEDICO BAE
 
 A dashboard agrupa os planos por curso e período (o mais recente primeiro; no mesmo ano, 2º semestre, 1º e os anuais) e mostra em cada card o código, a disciplina, a turma e a carga horária. Planos cujo cabeçalho não é reconhecido ficam em "Sem identificação de curso e período". O nome dos cursos de graduação vem da sigla, no dicionário `CURSOS` de `identificacao.py`: para outro curso, acrescente a sigla lá (sem ela, o grupo mostra só a sigla). A identificação é gravada nos detalhes de cada plano (`identificacao_plano`), mas a dashboard a lê de novo do texto já extraído: validações antigas e correções no leitor valem sem validar outra vez.
 
+## Revisão manual (coordenação, NDE, NDB)
+
+Quem é da coordenação, do NDE ou do NDB de um curso confere a avaliação da IA dos planos daquele curso:
+
+- **Quem pode:** o administrador dá o papel em **Administração → Usuários**, na coluna **Revisão** (curso + Coordenação, NDE ou NDB). O curso é o do cabeçalho do plano (ver "Curso e período"); planos sem curso identificado não podem ser revisados. Sem login (`EXIGIR_LOGIN=0`, uso local), qualquer acesso revisa.
+- **Como:** no relatório do plano, o painel **Revisão da coordenação / NDE / NDB** traz o parecer — Aprovado, Ajustes necessários ou Reprovado — e um comentário para o docente, obrigatório quando o plano não é aprovado ou o parecer difere da IA. Dá para alterar o parecer ou desfazer a revisão.
+- **Efeito:** o parecer passa a ser o status oficial do plano: na dashboard (resumo, filtros, agrupamento, com o selo "Revisado" e a avaliação da IA ao lado) e em **Meus planos**, onde o professor vê o parecer, quem revisou e o comentário.
+- **PDF novo reabre:** a revisão guarda o tamanho e a data do PDF revisado; se o PDF muda (o professor reenvia, o administrador substitui ou alguém copia outro para a pasta), ela deixa de valer e o plano volta a mostrar a avaliação da IA até uma nova revisão. Revalidar com a IA o mesmo PDF não desfaz a revisão.
+- As revisões ficam em `resultados/revisoes.sqlite3` (uma por plano, a mais recente), à parte do resultado da validação: uma validação geral nova não as apaga.
+
 ## Meus planos (entrega pelo professor)
 
 Em `/meus-planos` cada servidor entrega os próprios planos: o PDF enviado vai para a mesma pasta de planos do NDE (é a entrega oficial, no lugar da pasta do Drive) e a avaliação começa logo em seguida, só para ele. A página mostra os planos agrupados por curso e período, com a situação de cada um (na fila, avaliando, resultado com os campos a verificar e link para o relatório); o curso e o período são lidos já no envio, então o plano aparece no grupo certo antes mesmo de ser avaliado. Para corrigir, o professor ajusta no SIGAA e envia o PDF de novo com o mesmo nome, que substitui o anterior.
@@ -82,21 +93,23 @@ Em `/meus-planos` cada servidor entrega os próprios planos: o PDF enviado vai p
 | Método | Rota | Resposta |
 |---|---|---|
 | POST | `/validar` | `200 {"status":"iniciado"}`, `409` se já houver validação em andamento, `422` se a pasta não tiver PDFs |
-| POST | `/validar?arquivo=nome.pdf` | Revalida só esse plano e atualiza a última validação; com outra validação rodando, entra na fila (`{"status":"na_fila","posicao":N}`); `404` se o PDF não estiver na pasta |
+| POST | `/validar?arquivo=nome.pdf` | Revalida só esse plano e atualiza a validação atual; com outra validação rodando, entra na fila (`{"status":"na_fila","posicao":N}`); `404` se o PDF não estiver na pasta |
 | GET | `/status` | Andamento: `rodando`, `total`, `processados`, `atual`, `iniciado_em`, `finalizado_em`, `erro`, `unico` (plano, numa revalidação) e `fila` (planos esperando) |
-| GET | `/dashboard?validacao=ID` | Página HTML com os resultados; sem `validacao`, a última |
+| GET | `/dashboard` | Página HTML com os resultados da validação atual |
 | GET | `/administracao` | Página HTML de gestão dos PDFs e validação; quem não é administrador vai para o dashboard |
 | GET | `/administracao/usuarios` | Usuários (tabela paginada, 20 por página; filtros `q`, `situacao`, `papel`, `ordem`, `pagina`); só administradores |
+| POST | `/administracao/usuarios/papel` | Dá (`acao=adicionar`) ou tira (`acao=remover`) do `email` o `papel` (`coordenador`, `nde` ou `ndb`) no `curso` (sigla); só administradores |
 | POST | `/administracao/usuarios/ativo` | Ativa (`ativo=1`) ou desativa (`ativo=0`) o `email` do formulário e volta à tabela; administradores de `ADMIN_EMAILS` não podem ser desativados |
 | GET | `/planos` | Lista dos PDFs da pasta (`nome`, `dono`, `tamanho`, `modificado`) |
 | POST | `/planos` | Upload (multipart, campo `arquivos`, vários por vez, até `PDF_MAX_MB` por arquivo e 100 MB no total). Responde `salvos` e `recusados` (com o motivo); `409` durante a validação |
 | DELETE | `/planos?arquivo=nome.pdf` | Exclui o PDF; `409` durante a validação |
 | DELETE | `/planos/todos` | Exclui todos os PDFs da pasta (`{"excluidos": N}`); `409` durante a validação |
-| GET | `/relatorio?validacao=ID&arquivo=nome.pdf` | Relatório HTML do plano; sem `validacao`, a última; `404` se o plano não estiver nela |
-| GET | `/validacoes` | Histórico: resumo de cada validação guardada, da mais recente para a mais antiga |
+| GET | `/relatorio?arquivo=nome.pdf` | Relatório HTML do plano, com o painel de revisão; `404` se o plano não estiver na validação atual |
+| POST | `/revisao` | Parecer (`arquivo`, `status` = `OK`, `PENDENTE` ou `REPROVADO`, `comentario`) ou, com `acao=desfazer`, desfaz a revisão; volta ao relatório. `403` para quem não tem papel no curso do plano |
+| GET | `/validacoes` | Resumo da validação atual (lista com um item; vazia antes da primeira) |
 | GET | `/validacoes/ID/csv` | CSV da validação |
-| GET | `/validacoes/ID/pdfs.zip` | Zip com os PDFs validados; só para a última validação (`404` nas demais). Com `?arquivo=a.pdf&arquivo=b.pdf`, só esses (zip de um grupo) e `?nome=` entra no nome do arquivo baixado |
-| GET | `/validacoes/ID/pdf?arquivo=nome.pdf` | O PDF como estava na validação (só a última) |
+| GET | `/validacoes/ID/pdfs.zip` | Zip com os PDFs validados. Com `?arquivo=a.pdf&arquivo=b.pdf`, só esses (zip de um grupo) e `?nome=` entra no nome do arquivo baixado |
+| GET | `/validacoes/ID/pdf?arquivo=nome.pdf` | O PDF como estava na validação |
 | GET | `/pdf?arquivo=nome.pdf` | O PDF atual da pasta de planos |
 | GET | `/` | Página inicial pública: apresentação do projeto e botão **Entrar com Google** |
 | GET | `/health` | `{"status":"ok"}` |
@@ -109,11 +122,11 @@ Com login exigido, toda rota (exceto `/` e `/health`) responde `401` sem o e-mai
 
 Validação automática todos os dias na hora `AGENDAMENTO_HORA` (padrão 5h, fuso `TZ`).
 
-## Histórico
+## Resultado
 
-Cada validação fica em `resultados/historico/AAAAMMDD-HHMMSS/`, com o CSV (`validacao_planos.csv`), os detalhes de cada plano (`detalhes/`, usados no relatório) e um resumo (`meta.json`). Ficam as `HISTORICO_MAX` mais recentes (padrão 3); as mais antigas são apagadas ao fim de cada validação. Uma cópia dos PDFs (`pdfs/`) é guardada só na mais recente, para o zip e para abrir o PDF exatamente como foi avaliado; nas anteriores fica só o resultado. Uma validação interrompida por erro também entra no histórico, com o que chegou a ser validado.
+Só a validação atual é guardada, em `resultados/historico/AAAAMMDD-HHMMSS/`: o CSV (`validacao_planos.csv`), os detalhes de cada plano (`detalhes/`, usados no relatório), um resumo (`meta.json`) e uma cópia dos PDFs avaliados (`pdfs/`, para o zip e para abrir o PDF exatamente como foi avaliado). Uma validação geral nova substitui a anterior, que só é apagada quando a nova termina; uma interrompida por erro também vira a atual, com o que chegou a ser validado. Revalidar um plano atualiza a linha dele na validação atual. O agrupamento por curso, período e docente faz o papel de histórico, e as revisões manuais ficam à parte (`revisoes.sqlite3`).
 
-`resultados/validacao_planos.csv` continua sendo gravado com a última validação, para quem lê o arquivo direto. Na primeira subida desta versão, o resultado anterior (esse CSV e a pasta `resultados/detalhes/`) é movido para o histórico.
+`resultados/validacao_planos.csv` continua sendo gravado com a validação atual, para quem lê o arquivo direto. Ao subir esta versão, as validações anteriores que estavam guardadas são apagadas (fica a mais recente).
 
 ## Controle de execução
 
@@ -167,7 +180,7 @@ O Caddy consulta o `oauth2-proxy` a cada requisição (`forward_auth`). Sem sess
 
 ## Usuários
 
-Todo servidor entra no cadastro (`resultados/usuarios.sqlite3`) no primeiro acesso, com o nome da conta Google; o nome e o último acesso são atualizados nos acessos seguintes. Em **Administração → Usuários** os administradores veem a tabela, buscam por nome ou e-mail, filtram por situação e papel e ativam ou desativam contas. Quem é desativado recebe "Acesso desativado" em qualquer página (403) até ser reativado; nada do que enviou é apagado. Os administradores de `ADMIN_EMAILS` aparecem como protegidos e não podem ser desativados.
+Todo servidor entra no cadastro (`resultados/usuarios.sqlite3`) no primeiro acesso, com o nome da conta Google; o nome e o último acesso são atualizados nos acessos seguintes. Em **Administração → Usuários** os administradores veem a tabela, buscam por nome ou e-mail, filtram por situação e papel (inclusive "Coordenação/NDE/NDB"), ativam ou desativam contas e, na coluna **Revisão**, dão ou tiram os papéis de coordenação, NDE e NDB em cada curso (ver "Revisão manual"). Os cursos oferecidos são os de `CURSOS` em `identificacao.py` e os que aparecem nos planos. Quem é desativado recebe "Acesso desativado" em qualquer página (403) até ser reativado; nada do que enviou é apagado. Os administradores de `ADMIN_EMAILS` aparecem como protegidos e não podem ser desativados.
 - Fora do Docker (ex.: `flask --app app.web run` para desenvolver), use `EXIGIR_LOGIN=0`: sem login, todo acesso conta como administrador.
 
 ## Conferir a extração de um plano

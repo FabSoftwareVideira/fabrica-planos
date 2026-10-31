@@ -9,13 +9,19 @@ async function corpo(resp) { try { return await resp.json(); } catch { return {}
 function selo(texto, cor) { const s = document.createElement('span'); s.className = 'br-tag status-plano'; s.style.background = cor; s.textContent = texto; return s; }
 
 function situacao(p) {
+  // Revisado pela coordenação/NDE/NDB: o parecer vale sobre a avaliação da IA
+  if (p.revisao && p.situacao === 'avaliado') {
+    const r = p.revisao;
+    const quem = `${r.parecer} por ${r.revisor} (${r.papel}) em ${hora(r.revisado_em)}`;
+    return [selo(r.status, CORES[r.status] || '#ef4444'), quem + (r.comentario ? ': ' + r.comentario : '.')];
+  }
   if (p.situacao === 'na_fila') return [selo(`Na fila (${p.posicao}º)`, '#6b7280'), 'Aguardando a vez da avaliação automática.'];
   if (p.situacao === 'validando') return [selo('Avaliando…', '#2563eb'), 'A IA está lendo o plano; leva cerca de um minuto.'];
   if (p.situacao === 'aguardando') return [selo('Aguardando', '#6b7280'), 'Será avaliado na próxima validação geral.'];
   const detalhe = p.status === 'OK' ? 'Nenhum ajuste necessário.'
     : p.status === 'ERRO' || !p.problemas.length ? p.obs  // ERRO: o motivo (PDF ilegível, falha da IA)
     : 'Verificar: ' + p.problemas.join(', ') + '.';
-  return [selo(p.status, CORES[p.status] || '#ef4444'), detalhe];
+  return [selo(p.status, CORES[p.status] || '#ef4444'), detalhe + ' Aguardando a revisão da coordenação/NDE.'];
 }
 
 function item(p) {

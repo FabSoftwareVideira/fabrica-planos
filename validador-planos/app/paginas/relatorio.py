@@ -3,7 +3,7 @@ from urllib.parse import quote
 
 from ..armazenamento.csvsaida import CAMPOS_COLUNA
 from ..avaliacao.prompt import LIMITE_PADRAO, LIMITES
-from .comum import data_br
+from ..servicos.revisao import STATUS_REVISAO
 
 # Relatório de um plano (templates/relatorio.html): monta os dados de cada campo e da navegação.
 
@@ -20,12 +20,12 @@ def _resposta(raw):
         return raw
 
 
-def _plano(linhas, indice, validacao):
+def _plano(linhas, indice):
     """Nome e link do plano vizinho (anterior/próximo); None fora da lista."""
     if not 0 <= indice < len(linhas):
         return None
     nome = linhas[indice].get('Arquivo', '')
-    return {'nome': nome, 'url': '/relatorio?validacao=' + validacao + '&arquivo=' + quote(nome)}
+    return {'nome': nome, 'url': '/relatorio?arquivo=' + quote(nome)}
 
 
 def _campos(linha, sec):
@@ -46,11 +46,9 @@ def _campos(linha, sec):
     return campos
 
 
-def contexto(linhas, indice, det, execucao, eh_ultima=True, pode_revalidar=False, email=''):
+def contexto(linhas, indice, det, execucao, pode_revalidar=False, email=''):
     linha = linhas[indice]
     nome = linha.get('Arquivo', '')
-    # Para a última validação o dashboard dispensa o ?validacao=, como no link do menu.
-    url_dashboard = ('/dashboard' + ('' if eh_ultima else '?validacao=' + execucao.id) + '#plano-' + str(indice))
     return {
         'email': email,
         'nome': nome,
@@ -58,14 +56,31 @@ def contexto(linhas, indice, det, execucao, eh_ultima=True, pode_revalidar=False
         'det': det,
         'indice': indice,
         'total': len(linhas),
-        'eh_ultima': eh_ultima,
         'pode_revalidar': pode_revalidar,
-        'data': data_br((execucao.meta() or {}).get('finalizado_em')),
-        'url_dashboard': url_dashboard,
-        'anterior': _plano(linhas, indice - 1, execucao.id),
-        'proximo': _plano(linhas, indice + 1, execucao.id),
+        'url_dashboard': '/dashboard#plano-' + str(indice),
+        'anterior': _plano(linhas, indice - 1),
+        'proximo': _plano(linhas, indice + 1),
         'url_pdf': ('/validacoes/' + execucao.id + '/pdf?arquivo=' + quote(nome)
                     if nome in execucao.pdfs() else ''),
         'campos': _campos(linha, (det or {}).get('secoes')),
         'resposta_ia': _resposta((det or {}).get('resposta_ia')),
+    }
+
+
+AVISOS_REVISAO = {
+    'salva': ('success', 'check-circle', 'Parecer registrado. Ele passa a ser o status oficial do plano.'),
+    'desfeita': ('success', 'check-circle', 'Revisão desfeita. O plano volta a mostrar a avaliação da IA.'),
+    'incompleta': ('danger', 'times-circle', 'Escolha o parecer e explique no comentário o que precisa mudar '
+                                             '(obrigatório quando o plano não é aprovado ou o parecer difere da IA).'),
+}
+
+
+def contexto_revisao(revisao, papel, ident, aviso=''):
+    """Painel de revisão manual: o parecer vigente e, para quem tem papel no curso, o formulário."""
+    return {
+        'revisao': revisao,
+        'papel_revisor': papel,
+        'curso': (ident or {}).get('curso', ''),
+        'opcoes_revisao': STATUS_REVISAO,
+        'aviso_revisao': AVISOS_REVISAO.get(aviso),
     }

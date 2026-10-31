@@ -160,6 +160,20 @@ class PastaDePlanos:
             self.validador.remover_da_fila(nome)
         log.info('Meus planos (%s): excluído %s', email, nome)
 
+    def cursos(self):
+        """{sigla: nome} dos cursos conhecidos: os de identificacao.CURSOS e os dos planos na pasta e na
+        validação atual (para escolher o curso de um papel na administração)."""
+        cursos = dict(identificacao.CURSOS)
+        idents = [d.get('identificacao') for d in donos.ler(self.cfg.resultados_dir).values()]
+        execucoes = historico.listar(self.cfg.historico_dir)
+        if execucoes:
+            for linha in csvsaida.ler_csv(execucoes[0].csv_path):
+                idents.append(identificacao.de_detalhes(detalhes.ler(execucoes[0].detalhes_dir, linha.get('Arquivo'))))
+        for ident in idents:
+            if ident:
+                cursos.setdefault(ident['sigla_curso'], ident['curso'])
+        return dict(sorted(cursos.items()))
+
     # Situação dos planos do professor -----------------------------------------------------------
 
     def do_professor(self, email):

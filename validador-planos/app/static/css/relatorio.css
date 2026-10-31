@@ -42,3 +42,21 @@ pre.vazio{color:var(--danger);font-family:inherit}
   h1{font-size:var(--font-size-scale-up-02)}
   pre{max-height:260px}
 }
+
+/* Revisão manual (coordenação/NDE/NDB) */
+.meta .ia{font-size:var(--font-size-scale-down-02);color:var(--gray-60);margin-left:4px}
+.revisao{margin-bottom:var(--spacing-scale-3x)}
+.revisao h2{font-size:var(--font-size-scale-up-01);margin:0}
+.revisao .parecer{border-left:4px solid var(--cor);background:var(--gray-2);border-radius:var(--surface-rounder-sm);
+  padding:var(--spacing-scale-base) var(--spacing-scale-2x);margin-bottom:var(--spacing-scale-2x)}
+.revisao .parecer p{margin:0}
+.revisao .comentario{margin-top:var(--spacing-scale-half) !important;white-space:pre-line}
+.form-revisao fieldset{border:0;padding:0;margin:0 0 var(--spacing-scale-2x)}
+.form-revisao legend{font-weight:var(--font-weight-semi-bold);margin-bottom:var(--spacing-scale-base)}
+.form-revisao .opcao{display:inline-flex;align-items:center;gap:6px;margin:0 var(--spacing-scale-2x) var(--spacing-scale-base) 0;
+  padding:6px 12px;border:1px solid var(--gray-20);border-left:4px solid var(--cor);border-radius:var(--surface-rounder-sm);cursor:pointer}
+.form-revisao .opcao:has(input:checked){background:var(--gray-2);border-color:var(--cor)}
+.form-revisao label[for=comentario]{display:block;font-weight:var(--font-weight-semi-bold);margin-bottom:var(--spacing-scale-half)}
+.form-revisao textarea{width:100%;font:inherit;border:1px solid var(--gray-40);border-radius:var(--surface-rounder-sm);padding:var(--spacing-scale-base)}
+.form-revisao textarea:focus{outline:2px solid var(--focus-color,#c2850c);outline-offset:2px}
+.form-revisao .botoes{display:flex;gap:var(--spacing-scale-base);flex-wrap:wrap;margin-top:var(--spacing-scale-base)}

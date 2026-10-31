@@ -8,7 +8,7 @@ document.addEventListener('keydown', e => {
   if (a) location.href = a.href;
 });
 
-// Revalida o plano (atualiza a última validação), acompanha /status e recarrega o relatório ao terminar.
+// Revalida o plano (atualiza a validação atual), acompanha /status e recarrega o relatório ao terminar.
 const botao = document.getElementById('revalidar');
 const rotuloRevalidar = botao && botao.innerHTML;
 if (botao) botao.onclick = async () => {

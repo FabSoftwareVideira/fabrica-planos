@@ -4,7 +4,8 @@ import threading
 from datetime import datetime, timedelta
 
 # Usuários que já entraram no sistema, em resultados/usuarios.sqlite3: e-mail, nome (lido no login),
-# se está ativo, primeiro e último acesso. Quem é administrador continua vindo de ADMIN_EMAILS.
+# se está ativo, primeiro e último acesso, e os papéis em cursos (coordenação, NDE ou NDB), que dão
+# direito a revisar os planos daquele curso. Quem é administrador continua vindo de ADMIN_EMAILS.
 
 # Intervalo mínimo entre duas gravações do último acesso de um mesmo usuário (evita uma escrita por requisição)
 INTERVALO_ACESSO = timedelta(minutes=5)
@@ -18,6 +19,18 @@ CREATE TABLE IF NOT EXISTS usuarios (
     ultimo_acesso TEXT NOT NULL
 )
 """
+
+# Papel de um usuário num curso (sigla das 2 primeiras letras do código do componente, ex.: CC)
+ESQUEMA_PAPEIS = """
+CREATE TABLE IF NOT EXISTS papeis_curso (
+    email TEXT NOT NULL,
+    curso TEXT NOT NULL,
+    papel TEXT NOT NULL,
+    PRIMARY KEY (email, curso, papel)
+)
+"""
+
+PAPEIS_CURSO = {'coordenador': 'Coordenação', 'nde': 'NDE', 'ndb': 'NDB'}
 
 ORDENS = {
     'acesso': 'ultimo_acesso DESC, email',
@@ -42,6 +55,7 @@ class Usuarios:
         os.makedirs(os.path.dirname(caminho), exist_ok=True)
         with self._conexao() as con:
             con.execute(ESQUEMA)
+            con.execute(ESQUEMA_PAPEIS)
 
     def _conexao(self):
         con = sqlite3.connect(self.caminho, timeout=10)
@@ -86,7 +100,9 @@ class Usuarios:
         if situacao in ('ativos', 'inativos'):
             condicoes.append('ativo = ?')
             valores.append(1 if situacao == 'ativos' else 0)
-        if papel in ('admin', 'consulta'):
+        if papel == 'revisor':
+            condicoes.append('email IN (SELECT email FROM papeis_curso)')
+        elif papel in ('admin', 'consulta'):
             marcas = ','.join('?' * len(admins)) or "''"
             condicoes.append(f"email {'IN' if papel == 'admin' else 'NOT IN'} ({marcas})")
             valores += list(admins)
@@ -96,6 +112,48 @@ class Usuarios:
             linhas = con.execute(f'SELECT * FROM usuarios {onde} ORDER BY {ORDENS.get(ordem, ORDENS["acesso"])} '
                                  'LIMIT ? OFFSET ?', valores + [por_pagina, (pagina - 1) * por_pagina]).fetchall()
         return [dict(l) for l in linhas], total
+
+    # Papéis em cursos ------------------------------------------------------------------------------
+
+    def papeis(self, email):
+        """[(curso, papel)] do usuário, em ordem de curso."""
+        with self._conexao() as con:
+            linhas = con.execute('SELECT curso, papel FROM papeis_curso WHERE email = ? ORDER BY curso, papel',
+                                 (email,)).fetchall()
+        return [(l['curso'], l['papel']) for l in linhas]
+
+    def papeis_de(self, emails):
+        """{email: [(curso, papel)]} de vários usuários de uma vez (para a tabela da administração)."""
+        emails = list(emails)
+        if not emails:
+            return {}
+        marcas = ','.join('?' * len(emails))
+        with self._conexao() as con:
+            linhas = con.execute(f'SELECT email, curso, papel FROM papeis_curso WHERE email IN ({marcas}) '
+                                 'ORDER BY curso, papel', emails).fetchall()
+        saida = {e: [] for e in emails}
+        for l in linhas:
+            saida[l['email']].append((l['curso'], l['papel']))
+        return saida
+
+    def adicionar_papel(self, email, curso, papel):
+        """Dá ao usuário (já cadastrado) o papel no curso; devolve False se o usuário não existir."""
+        with self._trava, self._conexao() as con:
+            if con.execute('SELECT 1 FROM usuarios WHERE email = ?', (email,)).fetchone() is None:
+                return False
+            con.execute('INSERT OR IGNORE INTO papeis_curso (email, curso, papel) VALUES (?, ?, ?)',
+                        (email, curso, papel))
+            return True
+
+    def remover_papel(self, email, curso, papel):
+        with self._trava, self._conexao() as con:
+            return con.execute('DELETE FROM papeis_curso WHERE email = ? AND curso = ? AND papel = ?',
+                               (email, curso, papel)).rowcount > 0
+
+    def cursos_com_papel(self):
+        """Siglas dos cursos que já têm alguém com papel (para a lista de cursos da administração)."""
+        with self._conexao() as con:
+            return [l[0] for l in con.execute('SELECT DISTINCT curso FROM papeis_curso ORDER BY curso')]
 
     def contar(self):
         with self._conexao() as con:

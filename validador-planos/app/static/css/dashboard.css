@@ -56,6 +56,12 @@ select:focus,.busca input:focus{outline:2px solid var(--focus-color,#c2850c);out
 .plano[open] .seta i{transform:rotate(180deg)}
 .plano .corpo{padding:0 var(--spacing-scale-3x) var(--spacing-scale-3x)}
 .plano .obs-geral{margin:0 0 var(--spacing-scale-2x);color:var(--gray-60);font-size:var(--font-size-scale-down-01)}
+/* Revisão manual (coordenação/NDE/NDB): selo no card e parecer no corpo */
+.selo-revisao{display:inline-flex;align-items:center;gap:4px;font-size:var(--font-size-scale-down-02);font-weight:var(--font-weight-semi-bold);
+  color:#168821;background:#e3f5e1;border-radius:var(--surface-rounder-pill);padding:2px 8px;white-space:nowrap}
+.plano .parecer{border-left:4px solid var(--cor);background:var(--gray-2);border-radius:var(--surface-rounder-sm);
+  padding:var(--spacing-scale-base) var(--spacing-scale-2x);margin:0 0 var(--spacing-scale-2x);font-size:var(--font-size-scale-down-01)}
+.plano .parecer p{margin:var(--spacing-scale-half) 0 0;white-space:pre-line}
 .topicos{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(240px,100%),1fr));gap:var(--spacing-scale-base)}
 .topico{border:1px solid var(--gray-10);border-left:4px solid var(--cor);border-radius:var(--surface-rounder-sm);
   padding:var(--spacing-scale-base) var(--spacing-scale-2x);background:var(--gray-2)}

@@ -1,11 +1,13 @@
 from datetime import datetime
 from urllib.parse import urlencode
 
+from ..armazenamento.usuarios import PAPEIS_CURSO
+
 # Tela de usuários da administração (templates/usuarios.html): filtros, tabela e paginação.
 
 POR_PAGINA = 20
 SITUACOES = {'': 'Todas', 'ativos': 'Ativos', 'inativos': 'Desativados'}
-PAPEIS = {'': 'Todos', 'admin': 'Administradores', 'consulta': 'Consulta'}
+PAPEIS = {'': 'Todos', 'admin': 'Administradores', 'revisor': 'Coordenação/NDE/NDB', 'consulta': 'Consulta'}
 ORDENS = {'acesso': 'Último acesso', 'nome': 'Nome', 'email': 'E-mail', 'cadastro': 'Primeiro acesso'}
 
 
@@ -54,13 +56,18 @@ def _quando(iso):
         return ''
 
 
-def contexto(usuarios, admins, f, eu='', aviso=''):
+def contexto(usuarios, admins, f, eu='', aviso='', cursos=None):
+    """`cursos`: {sigla: nome} dos cursos que podem receber papéis (coordenação, NDE, NDB)."""
+    cursos = cursos or {}
     itens, total = usuarios.listar(f['q'], f['situacao'], f['papel'], admins, f['ordem'], f['pagina'], POR_PAGINA)
     paginas = max(1, -(-total // POR_PAGINA))
     if f['pagina'] > paginas and total:  # página além do fim (ex.: após filtrar): mostra a última
         f = {**f, 'pagina': paginas}
         itens, total = usuarios.listar(f['q'], f['situacao'], f['papel'], admins, f['ordem'], f['pagina'], POR_PAGINA)
+    papeis = usuarios.papeis_de(u['email'] for u in itens)
     for u in itens:
+        u['papeis'] = [(curso, papel, f'{curso} · {PAPEIS_CURSO.get(papel, papel)}', cursos.get(curso, curso))
+                       for curso, papel in papeis.get(u['email'], [])]
         u['admin'] = u['email'] in admins
         u['eu'] = u['email'] == eu
         u['ultimo'] = _quando(u['ultimo_acesso'])
@@ -71,6 +78,7 @@ def contexto(usuarios, admins, f, eu='', aviso=''):
         'pagina': f['pagina'], 'paginas': paginas, 'numeros': _paginas(f['pagina'], paginas),
         'de': inicio + 1 if total else 0, 'ate': inicio + len(itens),
         'situacoes': SITUACOES, 'papeis': PAPEIS, 'ordens': ORDENS,
+        'cursos': cursos, 'papeis_curso': PAPEIS_CURSO,
         'endereco': lambda **m: endereco(f, **m),
         'filtrando': bool(f['q'] or f['situacao'] or f['papel']),
     }

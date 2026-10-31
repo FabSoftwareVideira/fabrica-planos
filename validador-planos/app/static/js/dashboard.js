@@ -1,10 +1,11 @@
-// Dashboard: filtros, agrupamento e destaque dos cards dos planos, e troca da validação exibida.
+// Dashboard: filtros, agrupamento e destaque dos cards dos planos.
 // $ e a barra de status vêm de status.js (carregado antes).
-function trocarValidacao(id) { location.href = '/dashboard' + (id ? '?validacao=' + encodeURIComponent(id) : ''); }
 
-// Filtros dos resultados: busca (sem acento/caixa), status e campo com problema. Ficam salvos na aba.
+// Filtros dos resultados: busca (sem acento/caixa), curso e período, status, campo com problema e revisão.
+// Ficam salvos na aba.
 const semAcento = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
-let filtro = { busca: '', grupo: '', status: '', campo: '' };
+const SEM_FILTRO = { busca: '', grupo: '', status: '', campo: '', revisao: '' };
+let filtro = { ...SEM_FILTRO };
 
 // Agrupamento dos cards, feito aqui com os data-* de cada card (chave, título e ordem de cada forma).
 const SITUACOES = { OK: 'Aprovados', PENDENTE: 'Pendentes', REPROVADO: 'Reprovados', ERRO: 'Com erro' };
@@ -16,6 +17,7 @@ const CRITERIOS = {
     : ['-', 'Sem docente identificado', '1'],
   status: c => [c.dataset.status, SITUACOES[c.dataset.status] || c.dataset.status,
     String(Object.keys(SITUACOES).indexOf(c.dataset.status) + 10)],
+  revisao: c => c.dataset.revisado === '1' ? ['1', 'Revisados', '1'] : ['0', 'Aguardando revisão', '0'],
   '': () => ['', '', ''],
 };
 let agruparPor = 'cp';
@@ -77,7 +79,8 @@ function aplicarFiltros() {
     const ok = termos.every(t => nome.includes(t))
       && (!filtro.status || c.dataset.status === filtro.status)
       && (!filtro.campo || c.dataset.problemas.split('|').includes(filtro.campo))
-      && (!filtro.grupo || c.dataset.cp === filtro.grupo);
+      && (!filtro.grupo || c.dataset.cp === filtro.grupo)
+      && (!filtro.revisao || c.dataset.revisado === filtro.revisao);
     c.hidden = !ok;
     if (ok) visiveis++;
   }
@@ -85,9 +88,10 @@ function aplicarFiltros() {
   $('busca').value = filtro.busca;
   $('campo').value = filtro.campo;
   if ($('grupo')) $('grupo').value = filtro.grupo;
+  $('revisao').value = filtro.revisao;
   document.querySelectorAll('.grupo').forEach(g => g.hidden = !g.querySelector('.plano:not([hidden])'));
   atualizarZips();
-  const ativo = filtro.busca || filtro.status || filtro.campo || filtro.grupo;
+  const ativo = filtro.busca || filtro.status || filtro.campo || filtro.grupo || filtro.revisao;
   $('contagem').textContent = ativo ? `${visiveis} de ${cards.length} plano(s)` : `${cards.length} plano(s)`;
   $('limpar-filtros').hidden = !ativo;
   $('sem-resultado').hidden = visiveis > 0;
@@ -103,11 +107,13 @@ function iniciarFiltros() {
   $('campo').onchange = e => { filtro.campo = e.target.value; aplicarFiltros(); };
   if (filtro.grupo && !($('grupo') && [...$('grupo').options].some(o => o.value === filtro.grupo))) filtro.grupo = '';
   if ($('grupo')) $('grupo').onchange = e => { filtro.grupo = e.target.value; aplicarFiltros(); };
+  if (!['', '0', '1'].includes(filtro.revisao)) filtro.revisao = '';
+  $('revisao').onchange = e => { filtro.revisao = e.target.value; aplicarFiltros(); };
   try { const salvo = localStorage.getItem('agrupar'); if (salvo !== null && salvo in CRITERIOS) agruparPor = salvo; } catch {}
   $('agrupar').value = agruparPor;
   $('agrupar').onchange = e => { agruparPor = e.target.value; agrupar(); };
   document.querySelectorAll('.chip').forEach(ch => ch.onclick = () => { filtro.status = ch.dataset.status; aplicarFiltros(); });
-  $('limpar-filtros').onclick = () => { filtro = { busca: '', grupo: '', status: '', campo: '' }; aplicarFiltros(); };
+  $('limpar-filtros').onclick = () => { filtro = { ...SEM_FILTRO }; aplicarFiltros(); };
   agrupar();  // monta os grupos e aplica os filtros
 }
 
@@ -120,13 +126,12 @@ function focarPlano() {
     alvo = [...document.querySelectorAll('.plano')].find(c => c.dataset.arquivo === nome);
   }
   if (!alvo) return;
-  if (alvo.hidden) { filtro = { busca: '', grupo: '', status: '', campo: '' }; aplicarFiltros(); }  // não esconder o plano pedido
+  if (alvo.hidden) { filtro = { ...SEM_FILTRO }; aplicarFiltros(); }  // não esconder o plano pedido
   alvo.open = true;
   alvo.scrollIntoView({ block: 'start' });
   alvo.classList.add('destaque');
   setTimeout(() => alvo.classList.remove('destaque'), 2000);
 }
 
-if ($('historico')) $('historico').onchange = e => trocarValidacao(e.target.value);
 iniciarFiltros();
 focarPlano();
