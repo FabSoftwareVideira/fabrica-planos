@@ -1,7 +1,7 @@
 from flask import Blueprint, redirect, request, send_from_directory
 
 from ..armazenamento import csvsaida, detalhes, historico
-from ..avaliacao import pipeline
+from ..avaliacao import identificacao, pipeline
 from ..paginas import dashboard, relatorio
 from .comum import eh_admin, email, html, json_, servicos, texto
 
@@ -27,7 +27,9 @@ def pagina_dashboard():
     if request.args.get('validacao') and execucao is None:
         return redirect('/dashboard')  # validação que saiu do histórico
     linhas = csvsaida.ler_csv(execucao.csv_path) if execucao else []
-    return html(dashboard.gerar_html(linhas, cfg.pdf_max_mb, execucoes, execucao, email(), eh_admin()))
+    idents = {l.get('Arquivo'): identificacao.de_detalhes(detalhes.ler(execucao.detalhes_dir, l.get('Arquivo')))
+              for l in linhas}  # curso e período de cada plano, para agrupar
+    return html(dashboard.gerar_html(linhas, cfg.pdf_max_mb, execucoes, execucao, email(), eh_admin(), idents))
 
 
 @bp.get('/relatorio')

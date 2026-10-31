@@ -32,10 +32,22 @@ Em `/dashboard` é possível:
 - enviar PDFs (arrastando ou escolhendo arquivos; um PDF com o mesmo nome é substituído), abrir e excluir os da pasta, um a um ou todos de uma vez (**Excluir todos**, que não apaga o histórico). Só entram arquivos `.pdf` de até `PDF_MAX_MB` MB (padrão 10) que abram e tenham texto selecionável; digitalizados (só imagem) são recusados com o aviso de que precisam de OCR;
 - abrir o **Relatório** de cada plano avaliado: a avaliação de cada campo ao lado do texto extraído para ele, o texto completo do PDF, o prompt enviado e a resposta da IA. A barra do topo volta ao dashboard já no card do plano (ou `Esc`) e passa para o plano anterior/próximo (ou `←`/`→`). Planos validados antes desta versão só mostram o texto depois de uma nova validação;
 - **revalidar um plano só** (botão ↻ no card, no relatório ou na lista de PDFs, útil depois que o docente corrige o PDF): a linha dele na última validação é substituída (ou acrescentada, se for um PDF novo), sem rodar o lote;
-- filtrar os resultados por texto (disciplina ou docente, sem diferenciar acentos), status e campo com problema; os filtros ficam guardados enquanto a aba estiver aberta;
+- ver os resultados agrupados por curso e período (ver "Curso e período"), com o resumo de cada grupo;
+- filtrar os resultados por texto (disciplina ou docente, sem diferenciar acentos), curso e período, status e campo com problema; os filtros ficam guardados enquanto a aba estiver aberta;
 - consultar as últimas validações (seletor ao lado de **Resultados**) e baixar o CSV de cada uma e o **zip com os PDFs** da última.
 
 Enquanto uma validação geral roda, envio e exclusão pelo administrador ficam bloqueados; o envio pelo professor (em "Meus planos") é aceito e avaliado em seguida. O acesso exige login com a conta Google `@ifc.edu.br` (ver "Login"). Qualquer servidor consulta resultados, relatórios, PDFs, CSV e zip e entrega os próprios planos; só os administradores (`ADMIN_EMAILS`) veem e usam **Validar agora**, ↻ Revalidar, envio e exclusão de quaisquer PDFs.
+
+## Curso e período
+
+O cabeçalho do plano gerado pelo SIGAA identifica o componente, o curso e o período (`app/avaliacao/identificacao.py`):
+
+| Oferta | Exemplo no PDF | Curso | Período |
+|---|---|---|---|
+| Graduação (semestral) | `CCC0723 - DESENVOLVIMENTO WEB I (60h) - Turma: 01 (2026.2)` | `CC` (2 primeiras letras do código) → Ciência da Computação | 2º semestre de 2026 |
+| Técnico (anual) | `INC0713-1 - WEB DESIGN (60h) - Turma: 03 (2026)` e `Turma: [TÉCNICO EM INFORMÁTICA INTEGRADO AO ENSINO MÉDIO - IN07 (MT) - A (2026)]` | nome que vem entre colchetes | 2026 (anual) |
+
+A dashboard agrupa os planos por curso e período (o mais recente primeiro; no mesmo ano, 2º semestre, 1º e os anuais) e mostra em cada card o código, a disciplina, a turma e a carga horária. Planos cujo cabeçalho não é reconhecido ficam em "Sem identificação de curso e período". O nome dos cursos de graduação vem da sigla, no dicionário `CURSOS` de `identificacao.py`: para outro curso, acrescente a sigla lá (sem ela, o grupo mostra só a sigla). A identificação é gravada nos detalhes de cada plano (`identificacao_plano`); para validações anteriores a esta versão, ela é tirada do texto já extraído, sem validar de novo.
 
 ## Meus planos (entrega pelo professor)
 

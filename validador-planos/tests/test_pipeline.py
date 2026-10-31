@@ -57,6 +57,7 @@ def test_lote_grava_historico_registra_andamento_e_libera(tmp_path, monkeypatch,
 
     det = detalhes.ler(execucao.detalhes_dir, 'a.pdf')
     assert det['texto'] == 'Ementa: algo\n'
+    assert det['identificacao_plano'] is None  # texto sem o cabeçalho do SIGAA
     assert det['secoes']['ementa'] == 'algo'
     assert 'EMENTA:\nalgo' in det['prompt']
     assert det['resposta_ia'] == resposta

@@ -5,8 +5,23 @@ from ..armazenamento.csvsaida import CAMPOS_COLUNA
 from .comum import cor, data_br, selo
 
 
-def _card(indice, linha, validacao, pdfs_guardados, ultima):
+def grupo(ident):
+    """Chave e título do grupo (curso e período) de um plano; planos sem identificação ficam juntos."""
+    if not ident or not ident.get('periodo'):
+        return '-', 'Sem identificação de curso e período'
+    if ident['oferta'] == 'semestral':
+        periodo = f"{ident['semestre']}º semestre de {ident['ano']}"
+    else:
+        periodo = f"{ident['ano']} (anual)"
+    return ident['sigla_curso'] + '|' + ident['periodo'], ident['curso'] + ' · ' + periodo
+
+
+def _card(indice, linha, validacao, pdfs_guardados, ultima, ident=None):
     nome = (linha.get('Arquivo') or '').replace('2024-1 - ', '').replace('.pdf', '')
+    sub = ''
+    if ident:
+        sub = ('<span class="sub">' + escape(ident['codigo']) + ' · ' + escape(ident['disciplina'])
+               + ' · Turma ' + escape(ident['turma']) + ' · ' + str(ident['carga_horaria']) + 'h</span>')
     problemas = [rotulo for rotulo, _ in CAMPOS_COLUNA if linha.get(rotulo) != 'OK']
     topicos = []
     for rotulo, _ in CAMPOS_COLUNA:
@@ -37,10 +52,12 @@ def _card(indice, linha, validacao, pdfs_guardados, ultima):
     return (
         '<details id="plano-' + str(indice) + '" class="plano" data-arquivo="'
         + escape(linha.get('Arquivo', ''), quote=True) + '" data-status="' + escape(linha.get('Status Geral', ''))
-        + '" data-problemas="' + escape('|'.join(problemas), quote=True) + '" '
+        + '" data-problemas="' + escape('|'.join(problemas), quote=True)
+        + '" data-grupo="' + escape(grupo(ident)[0], quote=True) + '" '
         'style="background:#fff;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.1);margin-bottom:12px">'
         '<summary style="display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer;list-style:none">'
-        '<span style="font-weight:600;flex:1">' + escape(nome) + '</span>' + selo(linha.get('Status Geral', ''))
+        '<span style="flex:1;min-width:0"><span style="font-weight:600">' + escape(nome) + '</span>' + sub + '</span>'
+        + selo(linha.get('Status Geral', ''))
         + link + '<span style="color:#9ca3af;font-size:12px">▼ detalhes</span></summary>'
         '<div style="padding:0 16px 16px">'
         + ('<p style="margin:0 0 12px;font-size:13px;color:#6b7280">' + escape(observacao) + '</p>' if observacao else '')
@@ -96,7 +113,10 @@ ESTILO = (
     '.chip[aria-pressed="true"]{background:#1f2937;border-color:#1f2937;color:#fff}'
     '.contagem{font-size:13px;color:#6b7280;margin-left:auto}'
     '.limpar{border:0;background:none;color:#2563eb;font:inherit;font-size:13px;cursor:pointer}'
-    '.plano[hidden]{display:none}'
+    '.plano[hidden],.grupo[hidden]{display:none}'
+    '.sub{display:block;font-size:12px;color:#6b7280;font-weight:400;margin-top:2px}'
+    '.cab-grupo{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin:24px 0 10px;font-size:17px}'
+    '.cab-grupo span{font-size:13px;font-weight:400;color:#6b7280}'
     '.plano{scroll-margin-top:16px;transition:box-shadow .3s}'
     '.plano.destaque{box-shadow:0 0 0 3px #93c5fd !important}'
     '.usuario{margin:-16px 0 24px;font-size:14px;color:#6b7280}.usuario a{color:#2563eb}'
@@ -258,7 +278,7 @@ document.addEventListener('click', e => {
 
 // Filtros dos resultados: busca (sem acento/caixa), status e campo com problema. Ficam salvos na aba.
 const semAcento = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
-let filtro = { busca: '', status: '', campo: '' };
+let filtro = { busca: '', grupo: '', status: '', campo: '' };
 
 function aplicarFiltros() {
   if (!$('filtros')) return;
@@ -269,14 +289,17 @@ function aplicarFiltros() {
     const nome = semAcento(c.dataset.arquivo);
     const ok = termos.every(t => nome.includes(t))
       && (!filtro.status || c.dataset.status === filtro.status)
-      && (!filtro.campo || c.dataset.problemas.split('|').includes(filtro.campo));
+      && (!filtro.campo || c.dataset.problemas.split('|').includes(filtro.campo))
+      && (!filtro.grupo || c.dataset.grupo === filtro.grupo);
     c.hidden = !ok;
     if (ok) visiveis++;
   }
   document.querySelectorAll('.chip').forEach(ch => ch.setAttribute('aria-pressed', String(ch.dataset.status === filtro.status)));
   $('busca').value = filtro.busca;
   $('campo').value = filtro.campo;
-  const ativo = filtro.busca || filtro.status || filtro.campo;
+  if ($('grupo')) $('grupo').value = filtro.grupo;
+  document.querySelectorAll('.grupo').forEach(g => g.hidden = !g.querySelector('.plano:not([hidden])'));
+  const ativo = filtro.busca || filtro.status || filtro.campo || filtro.grupo;
   $('contagem').textContent = ativo ? `${visiveis} de ${cards.length} plano(s)` : `${cards.length} plano(s)`;
   $('limpar-filtros').hidden = !ativo;
   $('sem-resultado').hidden = visiveis > 0;
@@ -290,8 +313,10 @@ function iniciarFiltros() {
   if (filtro.campo && ![...$('campo').options].some(o => o.value === filtro.campo)) filtro.campo = '';
   $('busca').oninput = e => { filtro.busca = e.target.value; aplicarFiltros(); };
   $('campo').onchange = e => { filtro.campo = e.target.value; aplicarFiltros(); };
+  if (filtro.grupo && !($('grupo') && [...$('grupo').options].some(o => o.value === filtro.grupo))) filtro.grupo = '';
+  if ($('grupo')) $('grupo').onchange = e => { filtro.grupo = e.target.value; aplicarFiltros(); };
   document.querySelectorAll('.chip').forEach(ch => ch.onclick = () => { filtro.status = ch.dataset.status; aplicarFiltros(); });
-  $('limpar-filtros').onclick = () => { filtro = { busca: '', status: '', campo: '' }; aplicarFiltros(); };
+  $('limpar-filtros').onclick = () => { filtro = { busca: '', grupo: '', status: '', campo: '' }; aplicarFiltros(); };
   aplicarFiltros();
 }
 
@@ -304,7 +329,7 @@ function focarPlano() {
     alvo = [...document.querySelectorAll('.plano')].find(c => c.dataset.arquivo === nome);
   }
   if (!alvo) return;
-  if (alvo.hidden) { filtro = { busca: '', status: '', campo: '' }; aplicarFiltros(); }  // não esconder o plano pedido
+  if (alvo.hidden) { filtro = { busca: '', grupo: '', status: '', campo: '' }; aplicarFiltros(); }  // não esconder o plano pedido
   alvo.open = true;
   alvo.scrollIntoView({ block: 'start' });
   alvo.classList.add('destaque');
@@ -343,8 +368,9 @@ focarPlano();
 STATUS_FILTRO = [('OK', 'Aprovados'), ('PENDENTE', 'Pendentes'), ('REPROVADO', 'Reprovados'), ('ERRO', 'Com erro')]
 
 
-def _filtros(linhas):
-    """Barra de filtros dos cards (busca, status e campo com problema); a filtragem é feita no navegador."""
+def _filtros(linhas, grupos=()):
+    """Barra de filtros dos cards (busca, curso/período, status e campo com problema); a filtragem é feita
+    no navegador. `grupos` são os (chave, título) presentes; com um só, o seletor não aparece."""
     chips = '<button type="button" class="chip" data-status="" aria-pressed="true">Todos (' + str(len(linhas)) + ')</button>'
     for status, rotulo in STATUS_FILTRO:
         n = sum(1 for l in linhas if l.get('Status Geral') == status)
@@ -359,7 +385,10 @@ def _filtros(linhas):
     return (
         '<div class="filtros" id="filtros">'
         '<input type="search" id="busca" placeholder="Buscar por disciplina ou docente" aria-label="Buscar planos">'
-        '<div class="chips" role="group" aria-label="Filtrar por status">' + chips + '</div>'
+        + ('<select id="grupo" aria-label="Curso e período"><option value="">Todos os cursos e períodos</option>'
+           + ''.join('<option value="' + escape(chave, quote=True) + '">' + escape(titulo) + '</option>'
+                     for chave, titulo in grupos) + '</select>' if len(grupos) > 1 else '')
+        + '<div class="chips" role="group" aria-label="Filtrar por status">' + chips + '</div>'
         '<select id="campo" aria-label="Campo com problema"><option value="">Qualquer campo</option>' + campos + '</select>'
         '<span class="contagem" id="contagem"></span>'
         '<button type="button" class="limpar" id="limpar-filtros" hidden>Limpar filtros</button>'
@@ -421,7 +450,32 @@ PAINEL_ENTREGA = (
 )
 
 
-def gerar_html(linhas, max_mb=10, execucoes=(), execucao=None, usuario='', admin=True):
+def _grupos(linhas, idents, execucao_id, pdfs, ultima):
+    """Cards agrupados por curso e período (mais recente primeiro), com o resumo de cada grupo."""
+    grupos = {}
+    for i, linha in enumerate(linhas):
+        ident = idents.get(linha.get('Arquivo'))
+        grupos.setdefault(grupo(ident), []).append((i, linha, ident))
+
+    def ordem(item):
+        # Ano mais recente primeiro; no mesmo ano, 2º semestre, 1º e por último os anuais.
+        (chave, titulo), _ = item
+        ano, _, semestre = (chave.split('|')[1] if '|' in chave else '').partition('.')
+        return (chave == '-', -int(ano or 0), -int(semestre or 0), titulo)
+
+    html = ''
+    for (chave, titulo), itens in sorted(grupos.items(), key=ordem):
+        status = [l.get('Status Geral') for _, l, _ in itens]
+        ok, pendentes = status.count('OK'), status.count('PENDENTE')
+        resumo = (f'{len(itens)} plano(s) · {ok} OK · {pendentes} pendente(s) · '
+                  f'{len(itens) - ok - pendentes} com problemas')
+        html += ('<section class="grupo" data-grupo="' + escape(chave, quote=True) + '">'
+                 '<h3 class="cab-grupo">' + escape(titulo) + '<span>' + resumo + '</span></h3>'
+                 + ''.join(_card(i, l, execucao_id, pdfs, ultima, ident) for i, l, ident in itens) + '</section>')
+    return html, [g for g, _ in sorted(grupos.items(), key=ordem)]
+
+
+def gerar_html(linhas, max_mb=10, execucoes=(), execucao=None, usuario='', admin=True, idents=None):
     total = len(linhas)
     ok = sum(1 for l in linhas if l.get('Status Geral') == 'OK')
     pendente = sum(1 for l in linhas if l.get('Status Geral') == 'PENDENTE')
@@ -447,7 +501,8 @@ def gerar_html(linhas, max_mb=10, execucoes=(), execucao=None, usuario='', admin
     if execucao is not None and linhas:
         pdfs = set(execucao.pdfs())
         ultima = execucao.id == execucoes[0].id and admin  # revalidar é coisa de administrador
-        corpo = _filtros(linhas) + ''.join(_card(i, l, execucao.id, pdfs, ultima) for i, l in enumerate(linhas))
+        cards, grupos = _grupos(linhas, idents or {}, execucao.id, pdfs, ultima)
+        corpo = _filtros(linhas, grupos) + cards
         corpo += '<p class="msg" id="sem-resultado" hidden>Nenhum plano corresponde aos filtros.</p>'
     else:
         corpo = '<p style="color:#6b7280">Nenhuma validação concluída ainda.</p>'

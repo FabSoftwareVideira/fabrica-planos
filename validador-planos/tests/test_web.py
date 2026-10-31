@@ -366,3 +366,25 @@ def test_professor_nao_assume_plano_sem_dono(com_login):
     r = c.post('/meus-planos', headers=SERVIDOR, data=_envio(('antigo.pdf', PDF)), content_type='multipart/form-data')
     assert r.status_code == 400
     assert c.delete('/meus-planos?arquivo=antigo.pdf', headers=SERVIDOR).status_code == 403
+
+
+def test_dashboard_agrupa_por_curso_e_periodo(cliente):
+    from app.armazenamento import detalhes
+    c, _ = cliente
+    execucao = _execucao(c, ['web.pdf', 'algebra.pdf', 'design.pdf', 'avulso.pdf'], 10)
+    textos = {
+        'web.pdf': 'CCC0723 - DESENVOLVIMENTO WEB I (60h) - Turma: 01 (2026.2)',
+        'algebra.pdf': 'CCC0707 - ÁLGEBRA LINEAR (60h) - Turma: 01 (2026.1)',
+        'design.pdf': 'INC0713-1 - WEB DESIGN (60h) - Turma: 03 (2026)\n'
+                      'Turma: [TÉCNICO EM INFORMÁTICA INTEGRADO AO ENSINO MÉDIO - IN07 (MT) - A (2026)]',
+    }
+    for nome, texto in textos.items():  # sem 'identificacao_plano': como uma validação antiga
+        detalhes.salvar(execucao.detalhes_dir, nome, {'texto': texto})
+    html = c.get('/dashboard').get_data(as_text=True)
+    titulos = ['Ciência da Computação · 2º semestre de 2026', 'Ciência da Computação · 1º semestre de 2026',
+               'Técnico em Informática Integrado ao Ensino Médio · 2026 (anual)', 'Sem identificação de curso e período']
+    posicoes = [html.index('class="cab-grupo">' + t) for t in titulos]
+    assert posicoes == sorted(posicoes)  # mais recente primeiro; os sem identificação no fim
+    assert 'data-grupo="CC|2026.2"' in html and '<option value="IN|2026">' in html
+    assert 'CCC0723 · Desenvolvimento Web I · Turma 01 · 60h' in html
+    assert '1 plano(s) · 1 OK' in html

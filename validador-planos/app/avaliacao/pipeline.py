@@ -4,6 +4,7 @@ import time
 from datetime import datetime
 
 from ..armazenamento import csvsaida, detalhes, historico
+from . import identificacao
 from .extrator import PdfIlegivel, extrair_texto
 from .ollama import chamar_ollama, extrair_json, montar_payload
 from .prompt import build_prompt
@@ -33,6 +34,7 @@ def validar_plano(cfg, nome, detalhes_dir):
     det = {'arquivo': nome, 'modelo': cfg.modelo, 'validado_em': datetime.now().isoformat(timespec='seconds')}
     try:
         det['texto'] = texto = extrair_texto(caminho)
+        det['identificacao_plano'] = identificacao.extrair(texto)  # curso e período, para agrupar
         det['secoes'] = sec = analisar_texto(texto)
         det['prompt'] = prompt = build_prompt(sec)
         payload = montar_payload(cfg.modelo, prompt, cfg.num_ctx)
