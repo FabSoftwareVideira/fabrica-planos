@@ -55,12 +55,22 @@ No dashboard é possível:
 - **revalidar um plano só** (botão ↻ no card, no relatório ou na lista de PDFs, útil depois que o docente corrige o PDF): a linha dele na validação atual é substituída (ou acrescentada, se for um PDF novo), sem rodar o lote;
 - ver os resultados agrupados, com o resumo de cada grupo, escolhendo em **Agrupar por**: curso e período (padrão; ver "Curso e período"), só período, só curso, docente, situação (aprovados, pendentes…) ou sem agrupar. O agrupamento é feito no navegador e a escolha fica guardada nele;
 - baixar o **zip com os PDFs de um grupo** (link no cabeçalho do grupo): leva os planos visíveis nele, respeitando os filtros (só coordenação de curso e administração);
-- filtrar os resultados por texto (disciplina ou docente, sem diferenciar acentos), curso e período, status e campo com problema; os filtros ficam guardados enquanto a aba estiver aberta;
+- filtrar os resultados por texto (disciplina ou docente, sem diferenciar acentos), curso e período e status; os filtros ficam guardados enquanto a aba estiver aberta;
 - baixar o CSV e o **zip com os PDFs** da validação atual (só coordenação de curso e administração; os demais abrem cada plano e PDF pelo card);
 - ir direto ao parecer pelo botão **Revisar** do card, que aparece para a coordenação, o NDE e o NDB do curso do plano;
-- ver quais planos já foram **revisados** pela coordenação, NDE ou NDB (selo "Revisado" e o parecer no card), filtrar ou agrupar por revisão. Com revisão, vale o status do revisor (ver "Revisão manual").
+- ver quais planos já foram **revisados** pela coordenação, NDE ou NDB (selo "Revisado" e o parecer no card) e agrupar por revisão. Com revisão, vale o status do revisor (ver "Revisão manual").
 
 Enquanto uma validação geral roda, envio e exclusão pelo administrador ficam bloqueados; o envio pelo professor (em "Meus planos") é aceito e avaliado em seguida. O acesso exige login com a conta Google `@ifc.edu.br` (ver "Login"). Qualquer servidor consulta resultados, relatórios e PDFs e entrega os próprios planos; o CSV e os zips ficam com quem tem papel de coordenação em algum curso e com os administradores; só os administradores (`ADMIN_EMAILS`) veem e usam **Validar agora**, ↻ Revalidar, envio e exclusão de quaisquer PDFs.
+
+## Visão da coordenação
+
+Em **Coordenação** (`/coordenacao`), quem tem o papel de coordenador vê a situação dos planos dos cursos que coordena, e a administração vê todos os cursos da validação atual. Cada coordenador tem a sua visão: com mais de um curso, escolhe qual ver. Para o curso e o período escolhidos (padrão: o período mais recente; com mais de um, também "Todos os períodos"), a página mostra:
+
+- **Situação:** total de planos, aprovados, pendentes, reprovados e com erro, com a proporção de cada um. Com revisão vigente, vale o parecer do revisor;
+- **Revisão:** quantos planos já foram revisados, quantos aguardam e em quantos o parecer difere da IA;
+- **O que mais falta nos planos:** os campos que a avaliação automática não aprovou, em número de planos;
+- **Por docente:** planos de cada docente, com a situação e quantos aguardam revisão; quem tem mais pendências aparece primeiro;
+- **Planos:** a lista do curso e período, com os não aprovados e os que aguardam revisão primeiro, e os botões Revisar e Relatório. O **zip com os PDFs do curso** no período fica no topo.
 
 ## Curso e período
 
@@ -81,7 +91,7 @@ Quem é da coordenação, do NDE ou do NDB de um curso confere a avaliação da 
 
 - **Quem pode:** o administrador dá o papel em **Administração → Usuários**, na coluna **Revisão** (curso + Coordenação, NDE ou NDB). O curso é o do cabeçalho do plano (ver "Curso e período"); planos sem curso identificado não podem ser revisados. Sem login (`EXIGIR_LOGIN=0`, uso local), qualquer acesso revisa.
 - **Como:** no relatório do plano, o painel **Revisão da coordenação / NDE / NDB** traz o parecer — Aprovado, Ajustes necessários ou Reprovado — e um comentário para o docente, obrigatório quando o plano não é aprovado ou o parecer difere da IA. Dá para alterar o parecer ou desfazer a revisão.
-- **Efeito:** o parecer passa a ser o status oficial do plano: na dashboard (resumo, filtros, agrupamento, com o selo "Revisado" e a avaliação da IA ao lado) e em **Meus planos**, onde o professor vê o parecer, quem revisou e o comentário.
+- **Efeito:** o parecer passa a ser o status oficial do plano: na dashboard (filtros, agrupamento, com o selo "Revisado" e a avaliação da IA ao lado) e em **Meus planos**, onde o professor vê o parecer, quem revisou e o comentário.
 - **PDF novo reabre:** a revisão guarda o tamanho e a data do PDF revisado; se o PDF muda (o professor reenvia, o administrador substitui ou alguém copia outro para a pasta), ela deixa de valer e o plano volta a mostrar a avaliação da IA até uma nova revisão. Revalidar com a IA o mesmo PDF não desfaz a revisão.
 - As revisões ficam em `resultados/revisoes.sqlite3` (uma por plano, a mais recente), à parte do resultado da validação: uma validação geral nova não as apaga.
 
@@ -101,6 +111,7 @@ Em `/meus-planos` cada servidor entrega os próprios planos: o PDF enviado vai p
 | POST | `/validar?arquivo=nome.pdf` | Revalida só esse plano e atualiza a validação atual; com outra validação rodando, entra na fila (`{"status":"na_fila","posicao":N}`); `404` se o PDF não estiver na pasta |
 | GET | `/status` | Andamento: `rodando`, `total`, `processados`, `atual`, `iniciado_em`, `finalizado_em`, `erro`, `unico` (plano, numa revalidação) e `fila` (planos esperando) |
 | GET | `/dashboard` | Página HTML com os resultados da validação atual |
+| GET | `/coordenacao` | Visão da coordenação (`?curso=CC&periodo=2026.2`); quem não é coordenador nem administrador vai para o dashboard |
 | GET | `/administracao` | Página HTML de gestão dos PDFs e validação; quem não é administrador vai para o dashboard |
 | GET | `/administracao/usuarios` | Usuários (tabela paginada, 20 por página; filtros `q`, `situacao`, `papel`, `ordem`, `pagina`); só administradores |
 | POST | `/administracao/usuarios/papel` | Dá (`acao=adicionar`) ou tira (`acao=remover`) do `email` o `papel` (`coordenador`, `nde` ou `ndb`) no `curso` (sigla); só administradores |

@@ -1,10 +1,10 @@
 // Dashboard: filtros, agrupamento e destaque dos cards dos planos.
 // $ e a barra de status vêm de status.js (carregado antes).
 
-// Filtros dos resultados: busca (sem acento/caixa), curso e período, status, campo com problema e revisão.
+// Filtros dos resultados: busca (sem acento/caixa), curso e período e status.
 // Ficam salvos na aba.
 const semAcento = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
-const SEM_FILTRO = { busca: '', grupo: '', status: '', campo: '', revisao: '' };
+const SEM_FILTRO = { busca: '', grupo: '', status: '' };
 let filtro = { ...SEM_FILTRO };
 
 // Agrupamento dos cards, feito aqui com os data-* de cada card (chave, título e ordem de cada forma).
@@ -81,20 +81,16 @@ function aplicarFiltros() {
     const nome = semAcento(c.dataset.arquivo + ' ' + (c.dataset.docente || ''));
     const ok = termos.every(t => nome.includes(t))
       && (!filtro.status || c.dataset.status === filtro.status)
-      && (!filtro.campo || c.dataset.problemas.split('|').includes(filtro.campo))
-      && (!filtro.grupo || c.dataset.cp === filtro.grupo)
-      && (!filtro.revisao || c.dataset.revisado === filtro.revisao);
+      && (!filtro.grupo || c.dataset.cp === filtro.grupo);
     c.hidden = !ok;
     if (ok) visiveis++;
   }
   document.querySelectorAll('.chip').forEach(ch => ch.setAttribute('aria-pressed', String(ch.dataset.status === filtro.status)));
   $('busca').value = filtro.busca;
-  $('campo').value = filtro.campo;
   if ($('grupo')) $('grupo').value = filtro.grupo;
-  $('revisao').value = filtro.revisao;
   document.querySelectorAll('.grupo').forEach(g => g.hidden = !g.querySelector('.plano:not([hidden])'));
   atualizarZips();
-  const ativo = filtro.busca || filtro.status || filtro.campo || filtro.grupo || filtro.revisao;
+  const ativo = filtro.busca || filtro.status || filtro.grupo;
   $('contagem').textContent = ativo ? `${visiveis} de ${cards.length} plano(s)` : `${cards.length} plano(s)`;
   $('limpar-filtros').hidden = !ativo;
   $('sem-resultado').hidden = visiveis > 0;
@@ -103,15 +99,11 @@ function aplicarFiltros() {
 
 function iniciarFiltros() {
   if (!$('filtros')) return;
-  try { Object.assign(filtro, JSON.parse(sessionStorage.getItem('filtros') || '{}')); } catch {}
+  try { const { busca = '', grupo = '', status = '' } = JSON.parse(sessionStorage.getItem('filtros') || '{}'); Object.assign(filtro, { busca, grupo, status }); } catch {}
   if (filtro.status && !document.querySelector(`.chip[data-status="${filtro.status}"]`)) filtro.status = '';
-  if (filtro.campo && ![...$('campo').options].some(o => o.value === filtro.campo)) filtro.campo = '';
   $('busca').oninput = e => { filtro.busca = e.target.value; aplicarFiltros(); };
-  $('campo').onchange = e => { filtro.campo = e.target.value; aplicarFiltros(); };
   if (filtro.grupo && !($('grupo') && [...$('grupo').options].some(o => o.value === filtro.grupo))) filtro.grupo = '';
   if ($('grupo')) $('grupo').onchange = e => { filtro.grupo = e.target.value; aplicarFiltros(); };
-  if (!['', '0', '1'].includes(filtro.revisao)) filtro.revisao = '';
-  $('revisao').onchange = e => { filtro.revisao = e.target.value; aplicarFiltros(); };
   try { const salvo = localStorage.getItem('agrupar'); if (salvo !== null && salvo in CRITERIOS) agruparPor = salvo; } catch {}
   $('agrupar').value = agruparPor;
   $('agrupar').onchange = e => { agruparPor = e.target.value; agrupar(); };

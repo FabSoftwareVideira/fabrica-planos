@@ -240,7 +240,7 @@ def test_dashboard_tem_filtros_e_revalidar(cliente):
     _execucao(c, ['a.pdf', 'b.pdf'], 10, validacao)
     html = c.get('/dashboard').get_data(as_text=True)
     assert 'id="busca"' in html and 'data-status="PENDENTE"' in html
-    assert 'Pendentes (2)' in html and '<option value="Horário Atendimento">' in html
+    assert 'Pendentes (2)' in html and 'id="campo"' not in html and 'id="revisao"' not in html
     assert 'class="revalidar" data-arquivo="a.pdf"' in html
 
     (planos / 'a.pdf').write_bytes(PDF)
@@ -600,7 +600,6 @@ def test_parecer_vale_sobre_a_ia_e_um_pdf_novo_reabre(com_login):
     html = c.get('/dashboard', headers=SERVIDOR).get_data(as_text=True)
     assert 'data-status="OK"' in html and 'data-revisado="1"' in html and 'Revisado' in html
     assert 'a IA tinha avaliado como PENDENTE' in html and 'Ementa está completa.' in html
-    assert 'Revisados (1)' in html
     relatorio = c.get('/relatorio?arquivo=web.pdf', headers=SERVIDOR).get_data(as_text=True)
     assert 'IA: PENDENTE' in relatorio and 'action="/revisao"' not in relatorio  # servidor só vê
 
@@ -663,7 +662,7 @@ def test_persona_entra_com_nome_e_papeis(dev):
     r = c.post('/dev/login', data={'email': 'coordenacao.cc@ifc.edu.br', 'rd': '/meus-planos'})
     assert r.status_code == 303 and r.headers['Location'] == '/meus-planos'
     html = c.get('/dashboard').get_data(as_text=True)
-    assert 'Carlos Coordenador' in html and 'Trocar usuário' in html and 'Consulta' in html
+    assert 'Carlos Coordenador' in html and 'Trocar usuário' in html and 'papel-usuario">Coordenação<' in html
     assert _servicos(c).usuarios.papeis('coordenacao.cc@ifc.edu.br') == [('CC', 'coordenador')]
     assert c.get('/administracao').status_code == 302  # não é administrador
 
@@ -720,3 +719,29 @@ def test_card_tem_botao_revisar_para_quem_pode_revisar(com_login):
         '/dashboard', headers=NDE).get_data(as_text=True)
     for cab in (SERVIDOR, ADMIN):
         assert 'class="revisar"' not in c.get('/dashboard', headers=cab).get_data(as_text=True)
+
+
+def test_visao_da_coordenacao_por_curso(com_login):
+    from app.armazenamento import detalhes
+    c, planos = com_login
+    execucao = _execucao(c, ['web.pdf', 'tec.pdf'], 10, {'status_geral': 'PENDENTE'})
+    detalhes.salvar(execucao.detalhes_dir, 'web.pdf', {'texto': CABECALHO_CC + 'Ementa: ...'})
+    detalhes.salvar(execucao.detalhes_dir, 'tec.pdf', {'texto': 'INC0713-1 - WEB DESIGN (60h) - Turma: 03 (2026)\n'})
+    (planos / 'web.pdf').write_bytes(PDF)
+    _dar_papel(c, 'coord@ifc.edu.br', papel='coordenador')
+    coord = {'X-Usuario-Email': 'coord@ifc.edu.br'}
+
+    # Quem não coordena não vê a área nem o item no menu
+    for cab in (SERVIDOR, NDE):
+        assert c.get('/coordenacao', headers=cab).status_code == 302
+        assert 'href="/coordenacao"' not in c.get('/dashboard', headers=cab).get_data(as_text=True)
+
+    html = c.get('/coordenacao', headers=coord).get_data(as_text=True)
+    assert 'href="/coordenacao"' in html and 'Ciência da Computação' in html and '2º semestre de 2026' in html
+    assert 'Desenvolvimento Web I' in html and 'Web Design' not in html  # só o curso dele
+    assert 'href="/relatorio?arquivo=web.pdf#revisao"' in html and '<strong>0</strong> de 1 plano(s) revisados' in html
+    assert c.get('/coordenacao?curso=IN', headers=coord).get_data(as_text=True).count('Web Design') == 0
+
+    adm = c.get('/coordenacao', headers=ADMIN).get_data(as_text=True)  # administração escolhe o curso
+    assert '<option value="CC" selected>' in adm and '<option value="IN">' in adm
+    assert 'Web Design' in c.get('/coordenacao?curso=IN', headers=ADMIN).get_data(as_text=True)

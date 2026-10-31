@@ -45,7 +45,7 @@ def logo_ifc():
 
 def _usuario():
     # Importado aqui: rotas.comum depende do Flask montado, e as rotas importam este pacote
-    from ..rotas.comum import eh_admin, email, nome, servicos
+    from ..rotas.comum import cursos_coordenados, eh_admin, email, nome, servicos
     usuario = email()
     nome_usuario = nome()
     if usuario and not nome_usuario:  # sem o token nesta requisição, vale o nome guardado no último login
@@ -53,7 +53,9 @@ def _usuario():
             nome_usuario = (servicos().usuarios.obter(usuario) or {}).get('nome', '')
         except Exception:
             nome_usuario = ''
-    return {'usuario_email': usuario, 'usuario_nome': nome_usuario, 'usuario_admin': bool(usuario) and eh_admin(),
+    admin = bool(usuario) and eh_admin()
+    return {'usuario_email': usuario, 'usuario_nome': nome_usuario, 'usuario_admin': admin,
+            'usuario_coordenacao': admin or bool(cursos_coordenados()),
             'login_simulado': servicos().cfg.login_simulado}
 
 

@@ -5,7 +5,7 @@ main{flex:1}
 [hidden]{display:none !important}
 
 /* Cabeçalho: logotipo e nome do sistema à esquerda; menu (texto e ícone) e conta à direita.
-   Abaixo de 992px o menu vira hambúrguer: um painel que abre sob a barra. */
+   Abaixo de 1200px o menu vira hambúrguer (com Coordenação e Administração ele não cabe em 1024px): um painel que abre sob a barra. */
 .cabecalho{display:block;position:relative;z-index:30;padding:0}  /* o br-header do DS é flex */
 .cabecalho .topo{display:flex;align-items:center;gap:var(--spacing-scale-2x);min-height:64px;padding:var(--spacing-scale-base) 0}
 .cabecalho .marca{display:flex;align-items:center;gap:var(--spacing-scale-2x);text-decoration:none;color:var(--gray-80);margin-right:auto}
@@ -32,7 +32,7 @@ main{flex:1}
 .cabecalho .menu-botao{display:none}
 .titulo-pagina{border-top:1px solid var(--gray-10);background:var(--gray-1,#f8f8f8);padding:var(--spacing-scale-base) 0;
   font-size:var(--font-size-scale-up-01);font-weight:var(--font-weight-medium);color:var(--gray-80)}
-@media (max-width:991px){
+@media (max-width:1199px){
   .cabecalho .menu-botao{display:inline-flex}
   .cabecalho .topo{height:64px;min-height:0}
   .cabecalho .menu{display:none;position:absolute;left:0;right:0;top:64px;  /* abre logo abaixo da barra, sobre o título */

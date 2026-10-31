@@ -1,0 +1,131 @@
+{% extends 'base.html' %}
+{% from '_macros.html' import tag_status %}
+{#- Visão da coordenação: situação dos planos de um curso e período na validação atual (paginas/coordenacao.py).
+    O coordenador vê os cursos que coordena; a administração, todos. -#}
+
+{% block titulo %}Coordenação · Validação de Planos de Ensino{% endblock %}
+
+{% block estilos %}
+{% include '_ds.html' %}
+  <link rel="stylesheet" href="{{ estatico('css/coordenacao.css') }}">
+{% endblock %}
+
+{% block corpo %}
+{% with titulo_pagina='Visão da coordenação', pagina_atual='coordenacao' %}
+{% include '_cabecalho.html' %}
+{% endwith %}
+
+<main id="main">
+  <div class="container-lg py-4">
+    {% if not cursos %}
+    <p class="msg">Nenhum curso com planos na validação atual.</p>
+    {% else %}
+    <form class="escolha" method="get" action="/coordenacao">
+      {% if cursos|length > 1 %}
+      <label>Curso <select name="curso" onchange="this.form.periodo.value='';this.form.submit()">
+        {% for sigla, nome_c in cursos %}<option value="{{ sigla }}"{% if sigla == curso %} selected{% endif %}>{{ nome_c }}</option>{% endfor %}
+      </select></label>
+      {% else %}
+      <input type="hidden" name="curso" value="{{ curso }}">
+      <h2>{{ nome_curso }}</h2>
+      {% endif %}
+      {% if periodos %}
+      <label>Período <select name="periodo" onchange="this.form.submit()">
+        {% for valor, titulo in periodos %}<option value="{{ valor }}"{% if valor == periodo %} selected{% endif %}>{{ titulo }}</option>{% endfor %}
+      </select></label>
+      {% else %}
+      <input type="hidden" name="periodo" value="">
+      {% endif %}
+      <noscript><button class="br-button secondary small" type="submit">Ver</button></noscript>
+      {% if url_zip %}<a class="br-button secondary small zip" href="{{ url_zip }}"><i class="fas fa-file-archive" aria-hidden="true"></i> PDFs do curso (zip)</a>{% endif %}
+    </form>
+    {% if meta.finalizado_em %}<p class="meta-validacao">Validação concluída em {{ meta.finalizado_em|data_br }}</p>{% endif %}
+
+    {% if not planos %}
+    <p class="msg">Nenhum plano de {{ nome_curso }} na validação atual.</p>
+    {% else %}
+    <div class="indicadores">
+      <div class="br-card indicador"><div class="rot">Planos</div><div class="num">{{ total }}</div></div>
+      {% for s in situacoes %}{% if s.n or s.status != 'ERRO' %}
+      <div class="br-card indicador" style="--cor:{{ s.cor }}"><div class="rot">{{ s.rotulo }}</div><div class="num">{{ s.n }} <span>{{ s.pct }}%</span></div></div>
+      {% endif %}{% endfor %}
+    </div>
+    <div class="barra" role="img" aria-label="{% for s in situacoes if s.n %}{{ s.rotulo }}: {{ s.n }}{{ '; ' if not loop.last }}{% endfor %}">
+      {% for s in situacoes if s.n %}<span style="flex:{{ s.n }};background:{{ s.cor }}" title="{{ s.rotulo }}: {{ s.n }}"></span>{% endfor %}
+    </div>
+
+    <div class="colunas">
+      <section class="br-card">
+        <div class="card-header"><h3><i class="fas fa-user-check" aria-hidden="true"></i> Revisão</h3></div>
+        <div class="card-content">
+          <p class="destaque"><strong>{{ revisados }}</strong> de {{ total }} plano(s) revisados ({{ pct_revisados }}%)</p>
+          <div class="progresso"><span style="width:{{ pct_revisados }}%"></span></div>
+          <ul class="lista-simples">
+            <li>{{ aguardando }} aguardando revisão</li>
+            <li>{{ discordam }} revisão(ões) com parecer diferente da IA</li>
+          </ul>
+        </div>
+      </section>
+      <section class="br-card">
+        <div class="card-header"><h3><i class="fas fa-exclamation-triangle" aria-hidden="true"></i> O que mais falta nos planos</h3></div>
+        <div class="card-content">
+          {% if campos %}
+          <ul class="campos">
+            {% for rotulo, n, pct in campos %}
+            <li><span class="rotulo">{{ rotulo }}</span><span class="trilho"><span style="width:{{ pct }}%"></span></span><span class="valor">{{ n }}</span></li>
+            {% endfor %}
+          </ul>
+          <p class="nota">Campos não aprovados pela avaliação automática, em número de planos.</p>
+          {% else %}
+          <p class="msg">Todos os campos foram aprovados em todos os planos.</p>
+          {% endif %}
+        </div>
+      </section>
+    </div>
+
+    <section class="br-card">
+      <div class="card-header"><h3><i class="fas fa-chalkboard-teacher" aria-hidden="true"></i> Por docente</h3></div>
+      <div class="card-content tabela">
+        <table>
+          <thead><tr><th>Docente</th><th>Planos</th>{% for s in situacoes %}<th>{{ s.rotulo }}</th>{% endfor %}<th>Aguardando revisão</th></tr></thead>
+          <tbody>
+            {% for d in docentes %}
+            <tr><td>{{ d.nome }}</td><td>{{ d.total }}</td>
+              {% for s in situacoes %}<td{% if d.contagem[s.status] and s.status != 'OK' %} class="alerta"{% endif %}>{{ d.contagem[s.status] or '–' }}</td>{% endfor %}
+              <td>{{ d.aguardando or '–' }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="br-card">
+      <div class="card-header"><h3><i class="fas fa-file-alt" aria-hidden="true"></i> Planos · {{ titulo_periodo }}</h3>
+        <p class="nota">Primeiro os não aprovados, depois os que aguardam revisão.</p></div>
+      <div class="card-content tabela">
+        <table>
+          <thead><tr><th>Disciplina</th><th>Docente(s)</th><th>Situação</th><th>Revisão</th><th aria-label="Ações"></th></tr></thead>
+          <tbody>
+            {% for p in planos %}
+            <tr>
+              <td><span class="disciplina">{{ p.disciplina }}</span><small>{{ p.codigo }}{% if periodo == 'todos' %} · {{ p.ident.periodo }}{% endif %}</small></td>
+              <td>{{ p.docentes|join(', ') }}</td>
+              <td>{{ tag_status(p.status) }}</td>
+              <td>{% if p.revisao %}{{ p.revisao.revisor }} ({{ p.revisao.papel }}){% else %}<span class="aguardando">Aguardando</span>{% endif %}</td>
+              <td class="acoes">
+                {% if p.url_revisar %}<a class="revisar" href="{{ p.url_revisar }}"><i class="fas fa-{{ 'edit' if p.revisao else 'user-check' }}" aria-hidden="true"></i> {{ 'Alterar parecer' if p.revisao else 'Revisar' }}</a>{% endif %}
+                <a href="{{ p.url_relatorio }}"><i class="fas fa-file-alt" aria-hidden="true"></i> Relatório</a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+    {% endif %}
+    {% endif %}
+  </div>
+</main>
+
+{% include '_rodape.html' %}
+{% endblock %}

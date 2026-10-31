@@ -1,0 +1,59 @@
+/* Visão da coordenação (sobre o Design System gov.br e ds.css): indicadores, revisão, campos e tabelas. */
+h2{font-size:var(--font-size-scale-up-02);margin:0}
+h3{font-size:var(--font-size-scale-up-01);margin:0;display:flex;align-items:center;gap:var(--spacing-scale-base)}
+.msg,.nota{color:var(--gray-60)}
+.nota{margin:var(--spacing-scale-half) 0 0;font-size:var(--font-size-scale-down-01)}
+.br-card{margin-bottom:var(--spacing-scale-3x)}
+
+/* Escolha do curso e do período */
+.escolha{display:flex;align-items:center;flex-wrap:wrap;gap:var(--spacing-scale-base) var(--spacing-scale-3x);margin-bottom:var(--spacing-scale-half)}
+.escolha label{display:flex;align-items:center;gap:var(--spacing-scale-base);font-weight:var(--font-weight-semi-bold);margin:0}
+.escolha select{font:inherit;font-weight:var(--font-weight-regular);height:40px;padding:0 var(--spacing-scale-2x);max-width:100%;
+  border:1px solid var(--gray-40);border-radius:var(--surface-rounder-sm);background:var(--pure-0);color:var(--gray-80)}
+.escolha .zip{margin-left:auto}
+.meta-validacao{margin:0 0 var(--spacing-scale-3x);color:var(--gray-60);font-size:var(--font-size-scale-down-01)}
+
+/* Indicadores e barra com a proporção de cada situação */
+.indicadores{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:var(--spacing-scale-2x)}
+.indicador{margin:0;padding:var(--spacing-scale-2x) var(--spacing-scale-3x);border-left:4px solid var(--cor,var(--gray-20))}
+.indicador .rot{font-size:var(--font-size-scale-down-01);color:var(--gray-60)}
+.indicador .num{font-size:var(--font-size-scale-up-05);font-weight:var(--font-weight-bold);color:var(--cor,var(--gray-80))}
+.indicador .num span{font-size:var(--font-size-scale-base);font-weight:var(--font-weight-regular);color:var(--gray-50)}
+.barra{display:flex;height:10px;border-radius:var(--surface-rounder-pill);overflow:hidden;gap:2px;margin:var(--spacing-scale-2x) 0 var(--spacing-scale-3x)}
+
+.colunas{display:grid;grid-template-columns:1fr 1.4fr;gap:0 var(--spacing-scale-3x)}
+.destaque{margin:0 0 var(--spacing-scale-base);font-size:var(--font-size-scale-up-01)}
+.progresso,.trilho{display:block;height:8px;background:var(--gray-5);border-radius:var(--surface-rounder-pill);overflow:hidden}
+.progresso span,.trilho span{display:block;height:100%;background:var(--interactive)}
+.lista-simples{margin:var(--spacing-scale-2x) 0 0;padding-left:var(--spacing-scale-3x);color:var(--gray-70)}
+.campos{list-style:none;margin:0;padding:0}
+.campos li{display:grid;grid-template-columns:minmax(120px,190px) 1fr 2.5em;align-items:center;gap:var(--spacing-scale-2x);
+  padding:var(--spacing-scale-half) 0;font-size:var(--font-size-scale-down-01)}
+.campos .trilho span{background:var(--warning,#eab308)}
+.campos .valor{text-align:right;font-weight:var(--font-weight-semi-bold)}
+
+/* Tabelas por docente e dos planos */
+.tabela{overflow-x:auto}
+.tabela table{width:100%;border-collapse:collapse;font-size:var(--font-size-scale-down-01)}
+.tabela th{text-align:left;color:var(--gray-60);font-weight:var(--font-weight-semi-bold);white-space:nowrap}
+.tabela th,.tabela td{padding:var(--spacing-scale-base) var(--spacing-scale-2x) var(--spacing-scale-base) 0;border-bottom:1px solid var(--gray-10);vertical-align:middle}
+.tabela td.alerta{color:var(--danger);font-weight:var(--font-weight-semi-bold)}
+.tabela .disciplina{display:block;font-weight:var(--font-weight-semi-bold)}
+.tabela small{color:var(--gray-50)}
+.aguardando{color:var(--gray-50)}
+.acoes{white-space:nowrap;text-align:right}
+.acoes a{font-weight:var(--font-weight-semi-bold);margin-left:var(--spacing-scale-2x)}
+.acoes a.revisar{display:inline-flex;align-items:center;gap:var(--spacing-scale-half);padding:2px var(--spacing-scale-base);
+  border-radius:var(--surface-rounder-pill);background:var(--interactive);color:var(--pure-0);text-decoration:none}
+.acoes a.revisar:hover{background:var(--blue-warm-vivid-80)}
+
+@media (max-width:767px){
+  .colunas{grid-template-columns:1fr}
+  .escolha label,.escolha select{flex:1 1 100%}
+  .escolha .zip{margin-left:0}
+  .indicadores{grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--spacing-scale-base)}
+  .indicador{padding:var(--spacing-scale-base) var(--spacing-scale-2x)}
+  .indicador .num{font-size:var(--font-size-scale-up-03)}
+  .campos li{grid-template-columns:1fr 2.5em}
+  .campos .trilho{grid-column:1 / -1;grid-row:2}
+}

@@ -58,13 +58,18 @@ def somente_admin(rota):
     return verificar
 
 
+def cursos_coordenados():
+    """Siglas dos cursos em que o usuário tem o papel de coordenador."""
+    usuario = email()
+    if not usuario:
+        return []
+    return sorted({curso for curso, papel in servicos().usuarios.papeis(usuario) if papel == 'coordenador'})
+
+
 def pode_exportar():
     """Zip dos PDFs e CSV da validação: administradores e coordenadores de curso. Os demais abrem cada
     plano e PDF pelo dashboard."""
-    if eh_admin():
-        return True
-    usuario = email()
-    return bool(usuario) and any(papel == 'coordenador' for _, papel in servicos().usuarios.papeis(usuario))
+    return eh_admin() or bool(cursos_coordenados())
 
 
 def somente_exportadores(rota):

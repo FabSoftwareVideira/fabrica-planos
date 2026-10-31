@@ -19,22 +19,33 @@ def resultado_atual():
     return execucoes[0] if execucoes else None
 
 
-@bp.get('/dashboard')
-@bp.get('/webhook/dashboard')
-def pagina_dashboard():
-    cfg = servicos().cfg
+def dados_da_validacao():
+    """Validação atual, linhas do CSV e, por arquivo, identificação (curso e período), docentes e resumo
+    da revisão vigente. Usados pelo dashboard e pela visão da coordenação."""
     execucao = resultado_atual()
     linhas = csvsaida.ler_csv(execucao.csv_path) if execucao else []
-    # Curso, período e docentes de cada plano, lidos do texto guardado nos detalhes, para agrupar.
+    # Curso, período e docentes de cada plano, lidos do texto guardado nos detalhes.
     dets = {l.get('Arquivo'): detalhes.ler(execucao.detalhes_dir, l.get('Arquivo')) for l in linhas}
     idents = {nome: identificacao.de_detalhes(det) for nome, det in dets.items()}
     docentes = {nome: identificacao.docentes((det or {}).get('texto', '')) for nome, det in dets.items()}
     revisoes = {nome: revisao.resumo(r) for nome, r in servicos().revisao.vigentes().items()}
-    # Planos que quem está vendo pode revisar (tem papel no curso deles): o card ganha o botão Revisar.
-    revisaveis = {nome for nome, ident in idents.items() if servicos().revisao.papel(email(), ident)}
+    return execucao, linhas, idents, docentes, revisoes
+
+
+def revisaveis(idents):
+    """Planos que quem está vendo pode revisar (tem papel no curso deles)."""
+    return {nome for nome, ident in idents.items() if servicos().revisao.papel(email(), ident)}
+
+
+@bp.get('/dashboard')
+@bp.get('/webhook/dashboard')
+def pagina_dashboard():
+    cfg = servicos().cfg
+    execucao, linhas, idents, docentes, revisoes = dados_da_validacao()
+    # Nos planos que pode revisar, o card ganha o botão Revisar.
     return render_template('dashboard.html', **dashboard.contexto(
         linhas, cfg.pdf_max_mb, execucao, email(), eh_admin(), idents, docentes, revisoes,
-        exportar=pode_exportar(), revisaveis=revisaveis))
+        exportar=pode_exportar(), revisaveis=revisaveis(idents)))
 
 
 @bp.get('/relatorio')

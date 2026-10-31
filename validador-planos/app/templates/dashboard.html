@@ -30,13 +30,6 @@
     </div>
     {% endif %}
 
-    <div class="resumo">
-      <div class="br-card cartao"><div class="rot">Total de planos</div><div class="num">{{ total }}</div></div>
-      {% for rotulo, valor, pct, cor_cartao in resumo %}
-      <div class="br-card cartao" style="--cor:{{ cor_cartao }}"><div class="rot">{{ rotulo }}</div><div class="num">{{ valor }} <span>({{ pct }}%)</span></div></div>
-      {% endfor %}
-    </div>
-
     {% if cards %}
     {% set f = filtros %}
     <div class="br-card filtros" id="filtros">
@@ -54,19 +47,13 @@
         <button type="button" class="chip" data-status="{{ status }}" aria-pressed="{{ 'true' if loop.first else 'false' }}">{{ rotulo }} ({{ n }})</button>
         {% endfor %}
       </div>
-      <select id="campo" aria-label="Campo com problema"><option value="">Qualquer campo</option>
-        {% for rotulo in f.campos %}<option value="{{ rotulo }}">{{ rotulo }}</option>{% endfor %}
-      </select>
-      <select id="revisao" aria-label="Revisão manual">
-        {% for valor, rotulo in f.revisao %}<option value="{{ valor }}">{{ rotulo }}</option>{% endfor %}
-      </select>
       <span class="contagem" id="contagem"></span>
       <button type="button" class="br-button small limpar" id="limpar-filtros" hidden><i class="fas fa-times" aria-hidden="true"></i> Limpar filtros</button>
     </div>
 
     <div id="resultados" data-validacao="{{ execucao.id }}">
       {% for c in cards %}
-      <details id="plano-{{ c.indice }}" class="plano" data-indice="{{ c.indice }}" data-arquivo="{{ c.arquivo }}" data-status="{{ c.status }}" data-problemas="{{ c.problemas }}" data-revisado="{{ '1' if c.revisao else '0' }}"{% if c.url_pdf %} data-pdf="1"{% endif %}{% for nome, valor in c.dados %} data-{{ nome }}="{{ valor }}"{% endfor %}>
+      <details id="plano-{{ c.indice }}" class="plano" data-indice="{{ c.indice }}" data-arquivo="{{ c.arquivo }}" data-status="{{ c.status }}" data-revisado="{{ '1' if c.revisao else '0' }}"{% if c.url_pdf %} data-pdf="1"{% endif %}{% for nome, valor in c.dados %} data-{{ nome }}="{{ valor }}"{% endfor %}>
         {# Título e ações quebram em duas linhas quando não cabem lado a lado (celular). #}
         <summary>
           <span class="titulo"><span class="nome">{{ c.nome }}</span>{% if c.sub %}<span class="sub">{{ c.sub }}</span>{% endif %}</span>

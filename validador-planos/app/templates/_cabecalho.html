@@ -1,8 +1,9 @@
 {#- Cabeçalho de todas as páginas (br-header do Padrão Digital de Governo): logotipo, nome do sistema, menu com
     texto e ícone e quem está logado. Em telas menores o menu vira hambúrguer (static/js/cabecalho.js).
     Usa: titulo_pagina, pagina_atual e sem_menu (só a conta, sem os links); usuario_email, usuario_nome e
-    usuario_admin vêm de paginas/comum.py. -#}
+    usuario_admin e usuario_coordenacao vêm de paginas/comum.py. -#}
 {% set itens = [] if sem_menu else [('painel', 'Painel', '/dashboard', 'chart-bar')]
+             + ([('coordenacao', 'Coordenação', '/coordenacao', 'chart-pie')] if usuario_coordenacao else [])
              + ([('administracao', 'Administração', '/administracao', 'cog')] if usuario_admin else [])
              + [('meus', 'Meus planos', '/meus-planos', 'folder-open')] %}
 <header class="br-header cabecalho" id="header">
@@ -28,7 +29,7 @@
         <div class="conta">
           <span class="usuario" title="{{ usuario_nome ~ ' · ' if usuario_nome }}{{ usuario_email }}">
             <i class="fas fa-user-circle" aria-hidden="true"></i>
-            <span><span class="email">{{ usuario_nome or usuario_email }}</span><small class="papel-usuario">{{ 'Administrador' if usuario_admin else 'Consulta' }}</small></span>
+            <span><span class="email">{{ usuario_nome or usuario_email }}</span><small class="papel-usuario">{{ 'Administrador' if usuario_admin else 'Coordenação' if usuario_coordenacao else 'Consulta' }}</small></span>
           </span>
           {% if login_simulado %}<a class="br-button secondary small sair" href="/dev/login" title="Login simulado (desenvolvimento)"><i class="fas fa-user-friends" aria-hidden="true"></i> Trocar usuário</a>{% endif %}
           <a class="br-button secondary small sair" href="/oauth2/sign_out"><i class="fas fa-sign-out-alt" aria-hidden="true"></i> Sair</a>
