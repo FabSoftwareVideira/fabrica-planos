@@ -35,8 +35,12 @@ def estatico(arquivo):
     return url_for('static', filename=arquivo, v=_versoes[arquivo])
 
 
+def ano_atual():
+    return datetime.now().year
+
+
 def registrar(app):
-    app.jinja_env.globals.update(cor=cor, estatico=estatico)
+    app.jinja_env.globals.update(cor=cor, estatico=estatico, ano_atual=ano_atual)
     app.jinja_env.filters['data_br'] = data_br
     # Sem espaços e quebras sobrando em volta dos blocos {% ... %}
     app.jinja_env.trim_blocks = True

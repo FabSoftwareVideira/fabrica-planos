@@ -27,9 +27,29 @@ main{flex:1}
 .msg.erro{color:var(--danger)}
 .msg.ok{color:var(--success)}
 
-/* Texto da mensagem no tamanho normal (o DS aumenta um nível) e rodapé com respiro */
+/* Texto da mensagem no tamanho normal (o DS aumenta um nível) */
 .br-message .content{font-size:var(--font-size-scale-base)}
-.br-footer .info{padding:var(--spacing-scale-3x) 0 var(--spacing-scale-base)}
+
+/* Rodapé (br-footer, fundo escuro do DS): identificação, três colunas e linha de créditos */
+.br-footer{margin-top:var(--spacing-scale-5x)}
+.br-footer>.container-lg:first-child{padding-top:var(--spacing-scale-2x);padding-bottom:var(--spacing-scale-3x)}
+.br-footer .logo{display:flex;align-items:center;gap:var(--spacing-scale-2x);margin:0 0 var(--spacing-scale-3x);padding:0}
+.br-footer .logo .sigla{font-weight:var(--font-weight-black);font-size:var(--font-size-scale-up-05);color:#5fc06c;letter-spacing:.02em}
+.br-footer .logo .nome{font-weight:var(--font-weight-semi-bold);line-height:1.25;border-left:1px solid rgba(255,255,255,.4);
+  padding-left:var(--spacing-scale-2x)}
+.br-footer .logo small{font-weight:var(--font-weight-regular);font-size:var(--font-size-scale-down-01)}
+.br-footer .colunas{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr));gap:var(--spacing-scale-4x)}
+.br-footer h2{font-size:var(--font-size-scale-down-01);font-weight:var(--font-weight-bold);text-transform:uppercase;
+  letter-spacing:.04em;color:inherit;margin:0 0 var(--spacing-scale-base);padding:0;line-height:1.4}
+.br-footer ul{list-style:none;margin:0;padding:0}
+.br-footer li{margin-bottom:var(--spacing-scale-base)}
+.br-footer p{margin:0;font-size:var(--font-size-scale-down-01);line-height:1.5}
+.br-footer a{color:var(--pure-0);text-decoration:none}
+.br-footer a:hover{text-decoration:underline}
+.br-footer a i{font-size:.75em;opacity:.8;margin-left:2px}
+.br-footer .br-divider{border-color:rgba(255,255,255,.25)}
+.br-footer .info{padding:var(--spacing-scale-3x) 0;text-align:center}
+.br-footer .info a{font-weight:var(--font-weight-semi-bold);text-decoration:underline}
 
 /* Área de envio de PDFs (arrastar e soltar ou escolher), usada no dashboard e em "Meus planos" */
 .soltar{border:2px dashed var(--gray-20);border-radius:var(--surface-rounder-md);padding:var(--spacing-scale-3x);

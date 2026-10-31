@@ -1,8 +1,39 @@
-{#- Rodapé simples no padrão gov.br. -#}
+{#- Rodapé no padrão gov.br (br-footer): identificação, links do sistema e créditos da Fábrica de Software.
+    As colunas são simples (sem o acordeão do br-list, que depende do JavaScript do DS). -#}
 <footer class="br-footer">
   <div class="container-lg">
+    <div class="logo">
+      <span class="sigla" aria-hidden="true">IFC</span>
+      <span class="nome">Instituto Federal Catarinense<br><small>Campus Videira</small></span>
+    </div>
+
+    <div class="colunas">
+      <nav aria-labelledby="rodape-sistema">
+        <h2 id="rodape-sistema">Sistema</h2>
+        <ul>
+          <li><a href="/">Página inicial</a></li>
+          <li><a href="/dashboard">Painel de validação</a></li>
+          <li><a href="/meus-planos">Meus planos</a></li>
+        </ul>
+      </nav>
+      <div>
+        <h2>Sobre</h2>
+        <p>Conferência automática dos planos de ensino, seção por seção. A IA roda no servidor do campus: o conteúdo dos planos não sai da instituição.</p>
+      </div>
+      <nav aria-labelledby="rodape-fabrica">
+        <h2 id="rodape-fabrica">Desenvolvimento</h2>
+        <ul>
+          <li><a href="https://fabrica.videira.ifc.edu.br" target="_blank" rel="noopener">Fábrica de Software do IFC Videira <i class="fas fa-external-link-alt" aria-hidden="true"></i></a></li>
+          <li><a href="https://ifc.edu.br" target="_blank" rel="noopener">Instituto Federal Catarinense <i class="fas fa-external-link-alt" aria-hidden="true"></i></a></li>
+        </ul>
+      </nav>
+    </div>
+  </div>
+  <span class="br-divider"></span>
+  <div class="container-lg">
     <div class="info">
-      <div class="text-down-01 text-medium pb-3">Instituto Federal Catarinense · Validação automática de planos de ensino. A IA roda no servidor do campus.</div>
+      <p>© {{ ano_atual() }} Instituto Federal Catarinense · Campus Videira.
+        Desenvolvido pela <a href="https://fabrica.videira.ifc.edu.br" target="_blank" rel="noopener">Fábrica de Software do IFC Videira</a>.</p>
     </div>
   </div>
 </footer>
