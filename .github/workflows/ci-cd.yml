@@ -1,18 +1,12 @@
 # Testes em todo push/PR; deploy no servidor do IFC a cada push na master que passe nos testes.
 # O deploy roda num runner self-hosted instalado no próprio servidor (ver "Deploy automático"
-# no README do validador): ele só abre conexões de saída para o GitHub, sem porta exposta.
+# no README): ele só abre conexões de saída para o GitHub, sem porta exposta.
 name: CI/CD
 
 on:
   push:
     branches: [master]
-    paths:
-      - "validador-planos/**"
-      - ".github/workflows/ci-cd.yml"
   pull_request:
-    paths:
-      - "validador-planos/**"
-      - ".github/workflows/ci-cd.yml"
   # Botão "Run workflow" na aba Actions, para reimplantar sem novo commit
   workflow_dispatch:
 
@@ -22,9 +16,6 @@ permissions:
 jobs:
   testes:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: validador-planos
     steps:
       - uses: actions/checkout@v4
 
@@ -32,7 +23,7 @@ jobs:
         with:
           python-version: "3.10"   # a mesma do Dockerfile
           cache: pip
-          cache-dependency-path: validador-planos/requirements*.txt
+          cache-dependency-path: requirements*.txt
 
       - run: pip install -r requirements-dev.txt
 
@@ -63,8 +54,9 @@ jobs:
             echo "::error::Defina a variável DEPLOY_DIR (caminho do clone no servidor)."
             exit 1
           fi
-          test -f "$DEPLOY_DIR/validador-planos/.env" || {
-            echo "::error::$DEPLOY_DIR/validador-planos/.env não existe."; exit 1; }
+          # Antes de o projeto ir para a raiz do repositório, o .env ficava em validador-planos/
+          test -f "$DEPLOY_DIR/.env" || test -f "$DEPLOY_DIR/validador-planos/.env" || {
+            echo "::error::$DEPLOY_DIR/.env não existe."; exit 1; }
 
       - name: Atualizar o código
         working-directory: ${{ env.DEPLOY_DIR }}
@@ -86,17 +78,33 @@ jobs:
           git reset --hard "$GITHUB_SHA"
           git log -1 --oneline
 
+      # Migração única: o projeto saiu de validador-planos/ para a raiz do repositório. O .env e os
+      # resultados (fora do git) vão junto; um .env que já estivesse na raiz era do projeto antigo (n8n) e
+      # é guardado como .env.n8n-antigo. Depois disso validador-planos/ não existe e o passo não faz nada.
+      - name: Migrar .env e resultados de validador-planos/
+        working-directory: ${{ env.DEPLOY_DIR }}
+        run: |
+          [ -d validador-planos ] || exit 0
+          if [ -e validador-planos/.env ] && [ -e .env ]; then mv .env .env.n8n-antigo; fi
+          for item in .env resultados; do
+            if [ -e "validador-planos/$item" ] && [ ! -e "$item" ]; then mv "validador-planos/$item" "$item"; fi
+          done
+          # A pasta dos PDFs era relativa a validador-planos/ (../planos); agora o compose fica na raiz
+          sed -i 's#^PLANOS_HOST_DIR=\.\./planos/\?[[:space:]]*$#PLANOS_HOST_DIR=./planos#' .env
+          grep -q '^PLANOS_HOST_DIR=' .env && grep '^PLANOS_HOST_DIR=' .env
+          rmdir validador-planos 2>/dev/null || { echo "::warning::Sobrou em validador-planos/:"; ls -A validador-planos; }
+
       - name: Reconstruir e subir os containers
-        working-directory: ${{ env.DEPLOY_DIR }}/validador-planos
+        working-directory: ${{ env.DEPLOY_DIR }}
         run: docker compose up -d --build --remove-orphans
 
       # O Caddyfile é montado como arquivo: mudanças nele não recriam o container, então recarrega aqui
       - name: Recarregar a configuração do Caddy
-        working-directory: ${{ env.DEPLOY_DIR }}/validador-planos
+        working-directory: ${{ env.DEPLOY_DIR }}
         run: docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile
 
       - name: Verificar se o app respondeu
-        working-directory: ${{ env.DEPLOY_DIR }}/validador-planos
+        working-directory: ${{ env.DEPLOY_DIR }}
         run: |
           for i in $(seq 1 30); do
             if docker compose exec -T app python -c \

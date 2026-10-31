@@ -1,106 +1,306 @@
-# Validação Automática de Planos de Ensino (TCC)
+# Validador de Planos de Ensino
 
-Sistema semiautomático que valida planos de ensino em PDF usando n8n e IA local (Ollama), verificando se todos os campos obrigatórios estão preenchidos corretamente. Os resultados vão para uma planilha Google Sheets e podem ser visualizados em um dashboard HTML.
+Aplicação em Python (Flask + gunicorn) que valida os PDFs de planos de ensino com o Ollama e publica um dashboard. Substitui o workflow de validação do n8n, com a mesma lógica de regras e o mesmo CSV (`;`, UTF-8 com BOM).
 
-## Como funciona
+## Estrutura
 
 ```
-Google Drive (pasta com PDFs)
-        │
-        ▼
-n8n: baixa e extrai o texto de cada PDF
-        │
-        ▼
-Separa o texto por seções (ementa, objetivos, metodologia, ...)
-        │
-        ▼
-IA (Ollama qwen2.5:7b local/GPU, ou Gemini): avalia cada campo → OK / INCOMPLETO / AUSENTE
-        │
-        ▼
-Google Sheets (uma linha por plano) ──► Dashboard HTML (/webhook/dashboard)
+app/
+  web.py            entrada do gunicorn (app.web:app)
+  fabrica.py        Application Factory: cria o Flask, os serviços e registra as rotas
+  config.py         configuração lida do ambiente (.env)
+  depurar.py        linha de comando para conferir a extração de um PDF
+  avaliacao/        como um plano é avaliado: extração do PDF, seções, prompt, Ollama, regras e o pipeline
+  armazenamento/    arquivos em resultados/: CSV, detalhes por plano, validação atual, dono de cada PDF, usuários e revisões
+  servicos/         casos de uso com estado: Validador (lote, fila, agendador) e PastaDePlanos (envio/exclusão)
+  rotas/            Blueprints, um por área: publico, painel, validacoes, administracao, meus_planos
+  paginas/          dados de cada página (contexto do template) e funções comuns aos templates
+  templates/        HTML das páginas em Jinja: base.html (esqueleto), _macros.html e uma por página
+  static/           CSS e JavaScript das páginas (css/, js/), servidos em /static com versão no endereço;
+                    vendor/ tem o Design System gov.br, a fonte Rawline e o Font Awesome (scripts/atualizar_vendor.sh)
+tests/              testes unitários (regras, seções, extração, pipeline, rotas, CSV)
+resultados/         validação atual, cópia do CSV dela, usuários e revisões (criados automaticamente; ver "Resultado")
+dev-resultados/     o mesmo, no modo de desenvolvimento (fora do git)
+Dockerfile          imagem em dois estágios: desenvolvimento (Flask com recarga) e producao (gunicorn)
+docker-compose.yml  produção: app, Caddy, oauth2-proxy e Ollama com GPU (é o que o deploy sobe)
+docker-compose.dev.yml  desenvolvimento: só o app, sem login, com recarga automática (Ollama opcional)
+.env.example, Caddyfile, .dockerignore
 ```
 
-### Critérios avaliados
+As camadas só dependem das de baixo: `rotas` → `servicos` → `avaliacao`/`armazenamento`, e `rotas` → `paginas` → `templates`. Cada rota monta o contexto com a função `contexto()` do módulo da página e chama `render_template`; o Jinja escapa os valores automaticamente. `/static` (CSS, JS, fontes e ícones) é público, no app e no Caddy, porque a página inicial também o usa. As rotas só traduzem HTTP (parâmetros, códigos de resposta) e chamam os serviços, que guardam as regras de negócio (quem pode substituir um PDF, fila, bloqueio durante o lote) e avisam problemas com exceções (`Ocupado`, `NaoEncontrado`, `Proibido`). Os serviços são criados uma vez em `criar_app()` e ficam em `app.extensions['servicos']`; nos testes, `criar_app(cfg, executar=...)` roda as avaliações na hora, sem thread.
 
-Identificação (instituição, componente, docente) · Ementa · Objetivos geral e específicos (basta estarem preenchidos) · Conteúdo programático · Metodologia · Procedimentos de avaliação · Cronograma · Avaliações · Horário de atendimento · Referências (mín. 3 básicas + 5 complementares) · Coerência entre objetivos, metodologia e avaliação.
+Os PDFs ficam na pasta indicada por `PLANOS_HOST_DIR`, montada no container com escrita (o dashboard envia e exclui PDFs). Eles não entram na imagem nem no git.
 
-## Arquivos
+## Interface (Padrão Digital de Governo)
 
-| Arquivo | O que é |
-|---------|---------|
-| `workflows/validacao-planos.json` | Workflow principal de validação (roda todo dia às 5h ou manualmente) |
-| `workflows/dashboard-planos.json` | Workflow do dashboard HTML via webhook |
-| `planos/` | PDFs dos planos de ensino a validar (somente leitura para o n8n) |
-| `resultados/` | CSV gerado pela validação (`validacao_planos.csv`) |
-| `docker-compose.yml` | Stack n8n + Ollama (com GPU NVIDIA) |
-| `validador-planos/` | Validador em Python (Flask + Docker) que substitui o workflow do n8n; ver o README da pasta |
+As páginas seguem o [Padrão Digital de Governo](https://www.gov.br/ds/) (Design System gov.br, `@govbr-ds/core` 3.7): página inicial, dashboard, relatório e Meus planos. Na página inicial, o botão "Entrar com Google" mantém o visual pedido pelas diretrizes do Google.
 
-## Requisitos
+- `templates/_ds.html` carrega o CSS do DS, a fonte e os ícones; `_cabecalho.html` e `_rodape.html` são o cabeçalho e o rodapé no padrão.
+- O cabeçalho tem o menu com texto e ícone (Painel, Administração para administradores, Meus planos) e a conta de quem está logado; abaixo de 992px vira menu hambúrguer (`static/js/cabecalho.js`). O logotipo do IFC entra ao colocar o arquivo oficial em `app/static/img/logo-ifc.svg` (ou `.png`); sem ele, aparece a sigla IFC.
+- `static/css/ds.css` tem os ajustes comuns às páginas migradas; cada página tem o seu CSS para o que é só dela.
+- As bibliotecas ficam copiadas em `static/vendor` (sem CDN). Para trocar de versão, ajuste as versões no topo de `scripts/atualizar_vendor.sh`, rode o script (precisa de npm) e confira as páginas.
+- Só o CSS do DS é usado; os componentes que dependem do JavaScript do DS (menus, upload) ficam de fora por enquanto.
 
-- Docker Desktop
-- GPU NVIDIA (opcional, mas ~10x mais rápido; sem GPU remova o bloco `deploy` do `docker-compose.yml`)
-- Conta Google com um projeto no Google Cloud Console
+## Dashboard
 
-## Setup
+O dashboard (`/dashboard`) mostra os resultados a todos os servidores; o envio e a exclusão de PDFs ficam na página **Administração** (`/administracao`, só para `ADMIN_EMAILS`). As duas têm, logo abaixo do cabeçalho, a barra de status da validação: a última validação ou o andamento (plano atual e barra de progresso, fixa no topo enquanto valida) e, para administradores, o botão **Validar agora**. Ao terminar, abre os resultados novos no dashboard.
 
-### 1. Subir os containers
+Na administração é possível:
+
+- enviar PDFs (arrastando ou escolhendo arquivos; um PDF com o mesmo nome é substituído), abrir e excluir os da pasta, um a um ou todos de uma vez (**Excluir todos**, que não apaga o resultado da validação). Só entram arquivos `.pdf` de até `PDF_MAX_MB` MB (padrão 10) que abram e tenham texto selecionável; digitalizados (só imagem) são recusados com o aviso de que precisam de OCR.
+
+No dashboard é possível:
+
+- abrir o **Relatório** de cada plano avaliado: a avaliação de cada campo ao lado do texto extraído para ele, o texto completo do PDF, o prompt enviado e a resposta da IA. A barra do topo volta ao dashboard já no card do plano (ou `Esc`) e passa para o plano anterior/próximo (ou `←`/`→`). Planos validados antes desta versão só mostram o texto depois de uma nova validação;
+- **revalidar um plano só** (botão ↻ no card, no relatório ou na lista de PDFs, útil depois que o docente corrige o PDF): a linha dele na validação atual é substituída (ou acrescentada, se for um PDF novo), sem rodar o lote;
+- ver os resultados agrupados, com o resumo de cada grupo, escolhendo em **Agrupar por**: curso e período (padrão; ver "Curso e período"), só período, só curso, docente, situação (aprovados, pendentes…) ou sem agrupar. O agrupamento é feito no navegador e a escolha fica guardada nele;
+- baixar o **zip com os PDFs de um grupo** (link no cabeçalho do grupo): leva os planos visíveis nele, respeitando os filtros (só coordenação de curso e administração);
+- filtrar os resultados por texto (disciplina ou docente, sem diferenciar acentos), curso e período e status; os filtros ficam guardados enquanto a aba estiver aberta;
+- baixar o CSV e o **zip com os PDFs** da validação atual (só coordenação de curso e administração; os demais abrem cada plano e PDF pelo card);
+- ir direto ao parecer pelo botão **Revisar** do card, que aparece para a coordenação, o NDE e o NDB do curso do plano;
+- ver quais planos já foram **revisados** pela coordenação, NDE ou NDB (selo "Revisado" e o parecer no card) e agrupar por revisão. Com revisão, vale o status do revisor (ver "Revisão manual").
+
+Enquanto uma validação geral roda, envio e exclusão pelo administrador ficam bloqueados; o envio pelo professor (em "Meus planos") é aceito e avaliado em seguida. O acesso exige login com a conta Google `@ifc.edu.br` (ver "Login"). Qualquer servidor consulta resultados, relatórios e PDFs e entrega os próprios planos; o CSV e os zips ficam com quem tem papel de coordenação em algum curso e com os administradores; só os administradores (`ADMIN_EMAILS`) veem e usam **Validar agora**, ↻ Revalidar, envio e exclusão de quaisquer PDFs.
+
+## Visão da coordenação
+
+Em **Coordenação** (`/coordenacao`), quem tem o papel de coordenador vê a situação dos planos dos cursos que coordena, e a administração vê todos os cursos da validação atual. Cada coordenador tem a sua visão: com mais de um curso, escolhe qual ver. Para o curso e o período escolhidos (padrão: o período mais recente; com mais de um, também "Todos os períodos"), a página mostra:
+
+- **Situação:** total de planos, aprovados, pendentes, reprovados e com erro, com a proporção de cada um. Com revisão vigente, vale o parecer do revisor;
+- **Revisão:** quantos planos já foram revisados, quantos aguardam e em quantos o parecer difere da IA;
+- **O que mais falta nos planos:** os campos que a avaliação automática não aprovou, em número de planos;
+- **Por docente:** planos de cada docente, com a situação e quantos aguardam revisão; quem tem mais pendências aparece primeiro;
+- **Planos:** a lista do curso e período, com os não aprovados e os que aguardam revisão primeiro, e os botões Revisar e Relatório. O **zip com os PDFs do curso** no período fica no topo.
+
+## Curso e período
+
+O cabeçalho do plano gerado pelo SIGAA identifica o componente, o curso e o período (`app/avaliacao/identificacao.py`):
+
+| Oferta | Exemplo no PDF | Curso | Período |
+|---|---|---|---|
+| Graduação (semestral) | `CCC0723 - DESENVOLVIMENTO WEB I (60h) - Turma: 01 (2026.2)` | `CC` (2 primeiras letras do código) → Ciência da Computação | 2º semestre de 2026 |
+| Técnico (anual) | `INC0713-1 - WEB DESIGN (60h) - Turma: 03 (2026)` e `Turma: [TÉCNICO EM INFORMÁTICA INTEGRADO AO ENSINO MÉDIO - IN07 (MT) - A (2026)]` | nome que vem entre colchetes | 2026 (anual) |
+
+O docente vem do bloco "Matrícula Docente(s)" (`1773245 LUCILENE DAL MEDICO BAERLE - 60h`) e é usado no agrupamento por docente e na busca.
+
+A dashboard agrupa os planos por curso e período (o mais recente primeiro; no mesmo ano, 2º semestre, 1º e os anuais) e mostra em cada card o código, a disciplina, a turma e a carga horária. Planos cujo cabeçalho não é reconhecido ficam em "Sem identificação de curso e período". O nome dos cursos de graduação vem da sigla, no dicionário `CURSOS` de `identificacao.py`: para outro curso, acrescente a sigla lá (sem ela, o grupo mostra só a sigla). A identificação é gravada nos detalhes de cada plano (`identificacao_plano`), mas a dashboard a lê de novo do texto já extraído: validações antigas e correções no leitor valem sem validar outra vez.
+
+## Revisão manual (coordenação, NDE, NDB)
+
+Quem é da coordenação, do NDE ou do NDB de um curso confere a avaliação da IA dos planos daquele curso:
+
+- **Quem pode:** o administrador dá o papel em **Administração → Usuários**, na coluna **Revisão** (curso + Coordenação, NDE ou NDB). O curso é o do cabeçalho do plano (ver "Curso e período"); planos sem curso identificado não podem ser revisados. Sem login (`EXIGIR_LOGIN=0`, uso local), qualquer acesso revisa.
+- **Como:** no relatório do plano, o painel **Revisão da coordenação / NDE / NDB** traz o parecer — Aprovado, Ajustes necessários ou Reprovado — e um comentário para o docente, obrigatório quando o plano não é aprovado ou o parecer difere da IA. Dá para alterar o parecer ou desfazer a revisão.
+- **Efeito:** o parecer passa a ser o status oficial do plano: na dashboard (filtros, agrupamento, com o selo "Revisado" e a avaliação da IA ao lado) e em **Meus planos**, onde o professor vê o parecer, quem revisou e o comentário.
+- **PDF novo reabre:** a revisão guarda o tamanho e a data do PDF revisado; se o PDF muda (o professor reenvia, o administrador substitui ou alguém copia outro para a pasta), ela deixa de valer e o plano volta a mostrar a avaliação da IA até uma nova revisão. Revalidar com a IA o mesmo PDF não desfaz a revisão.
+- As revisões ficam em `resultados/revisoes.sqlite3` (uma por plano, a mais recente), à parte do resultado da validação: uma validação geral nova não as apaga.
+
+## Meus planos (entrega pelo professor)
+
+Em `/meus-planos` cada servidor entrega os próprios planos: o PDF enviado vai para a mesma pasta de planos do NDE (é a entrega oficial, no lugar da pasta do Drive) e a avaliação começa logo em seguida, só para ele. A página mostra os planos agrupados por curso e período, com a situação de cada um (na fila, avaliando, resultado com os campos a verificar e link para o relatório); o curso e o período são lidos já no envio, então o plano aparece no grupo certo antes mesmo de ser avaliado. Para corrigir, o professor ajusta no SIGAA e envia o PDF de novo com o mesmo nome, que substitui o anterior.
+
+- O professor só substitui e exclui os planos que ele enviou; um nome já usado por outra pessoa (ou por um PDF que veio do Drive/administrador, sem dono) é recusado, pedindo para renomear.
+- Quem enviou cada PDF fica em `resultados/donos.json` e aparece para o administrador na lista de PDFs da dashboard.
+- As avaliações rodam uma por vez (a GPU é uma só): com outra em andamento, o plano espera na fila, que também vale para o ↻ Revalidar do administrador. A fila fica na memória; se o container reiniciar, os planos que esperavam são avaliados na próxima validação geral.
+
+## Rotas
+
+| Método | Rota | Resposta |
+|---|---|---|
+| POST | `/validar` | `200 {"status":"iniciado"}`, `409` se já houver validação em andamento, `422` se a pasta não tiver PDFs |
+| POST | `/validar?arquivo=nome.pdf` | Revalida só esse plano e atualiza a validação atual; com outra validação rodando, entra na fila (`{"status":"na_fila","posicao":N}`); `404` se o PDF não estiver na pasta |
+| GET | `/status` | Andamento: `rodando`, `total`, `processados`, `atual`, `iniciado_em`, `finalizado_em`, `erro`, `unico` (plano, numa revalidação) e `fila` (planos esperando) |
+| GET | `/dashboard` | Página HTML com os resultados da validação atual |
+| GET | `/coordenacao` | Visão da coordenação (`?curso=CC&periodo=2026.2`); quem não é coordenador nem administrador vai para o dashboard |
+| GET | `/administracao` | Página HTML de gestão dos PDFs e validação; quem não é administrador vai para o dashboard |
+| GET | `/administracao/usuarios` | Usuários (tabela paginada, 20 por página; filtros `q`, `situacao`, `papel`, `ordem`, `pagina`); só administradores |
+| POST | `/administracao/usuarios/papel` | Dá (`acao=adicionar`) ou tira (`acao=remover`) do `email` o `papel` (`coordenador`, `nde` ou `ndb`) no `curso` (sigla); só administradores |
+| POST | `/administracao/usuarios/ativo` | Ativa (`ativo=1`) ou desativa (`ativo=0`) o `email` do formulário e volta à tabela; administradores de `ADMIN_EMAILS` não podem ser desativados |
+| GET | `/planos` | Lista dos PDFs da pasta (`nome`, `dono`, `tamanho`, `modificado`) |
+| POST | `/planos` | Upload (multipart, campo `arquivos`, vários por vez, até `PDF_MAX_MB` por arquivo e 100 MB no total). Responde `salvos` e `recusados` (com o motivo); `409` durante a validação |
+| DELETE | `/planos?arquivo=nome.pdf` | Exclui o PDF; `409` durante a validação |
+| DELETE | `/planos/todos` | Exclui todos os PDFs da pasta (`{"excluidos": N}`); `409` durante a validação |
+| GET | `/relatorio?arquivo=nome.pdf` | Relatório HTML do plano, com o painel de revisão; `404` se o plano não estiver na validação atual |
+| POST | `/revisao` | Parecer (`arquivo`, `status` = `OK`, `PENDENTE` ou `REPROVADO`, `comentario`) ou, com `acao=desfazer`, desfaz a revisão; volta ao relatório. `403` para quem não tem papel no curso do plano |
+| GET | `/validacoes` | Resumo da validação atual (lista com um item; vazia antes da primeira) |
+| GET | `/validacoes/ID/csv` | CSV da validação (coordenação e administração) |
+| GET | `/validacoes/ID/pdfs.zip` | Zip com os PDFs validados (coordenação e administração). Com `?arquivo=a.pdf&arquivo=b.pdf`, só esses (zip de um grupo) e `?nome=` entra no nome do arquivo baixado |
+| GET | `/validacoes/ID/pdf?arquivo=nome.pdf` | O PDF como estava na validação |
+| GET | `/pdf?arquivo=nome.pdf` | O PDF atual da pasta de planos |
+| GET | `/` | Página inicial pública: apresentação do projeto e botão **Entrar com Google** |
+| GET | `/health` | `{"status":"ok"}` |
+| GET | `/meus-planos` | Página de entrega e acompanhamento dos planos de quem está logado |
+| GET | `/meus-planos/lista` | Planos de quem está logado: `nome`, `enviado_em`, `situacao` (`na_fila` com `posicao`, `validando`, `avaliado` com `status`, `obs` e `problemas`, ou `aguardando`) |
+| POST | `/meus-planos` | Entrega (multipart, campo `arquivos`); cada PDF salvo entra na fila de avaliação (`posicao`, 0 se já começou) |
+| DELETE | `/meus-planos?arquivo=nome.pdf` | Exclui um plano próprio; `403` se for de outra pessoa, `409` durante a validação geral |
+
+Com login exigido, toda rota (exceto `/` e `/health`) responde `401` sem o e-mail repassado pelo proxy, e `POST /validar`, `POST /planos`, `DELETE /planos` e `DELETE /planos/todos` respondem `403` para quem não está em `ADMIN_EMAILS`.
+
+Validação automática todos os dias na hora `AGENDAMENTO_HORA` (padrão 5h, fuso `TZ`).
+
+## Resultado
+
+Só a validação atual é guardada, em `resultados/historico/AAAAMMDD-HHMMSS/`: o CSV (`validacao_planos.csv`), os detalhes de cada plano (`detalhes/`, usados no relatório), um resumo (`meta.json`) e uma cópia dos PDFs avaliados (`pdfs/`, para o zip e para abrir o PDF exatamente como foi avaliado). Uma validação geral nova substitui a anterior, que só é apagada quando a nova termina; uma interrompida por erro também vira a atual, com o que chegou a ser validado. Revalidar um plano atualiza a linha dele na validação atual. O agrupamento por curso, período e docente faz o papel de histórico, e as revisões manuais ficam à parte (`revisoes.sqlite3`).
+
+`resultados/validacao_planos.csv` continua sendo gravado com a validação atual, para quem lê o arquivo direto. Ao subir esta versão, as validações anteriores que estavam guardadas são apagadas (fica a mais recente).
+
+## Controle de execução
+
+O estado da validação fica em memória no processo do gunicorn (`app/servicos/validador.py` e `andamento.py`), que roda com um único worker (`-w 1` no `Dockerfile`). Não aumente o número de workers: cada um teria seu próprio estado e duas validações poderiam rodar juntas. Se o container reiniciar no meio de um lote, a validação é perdida e o estado volta a livre; basta iniciar de novo.
+
+## Rodar em desenvolvimento
+
+Para testar na sua máquina, sem Caddy nem Google (com login simulado) e com recarga automática:
 
 ```bash
-docker compose up -d
-docker exec vslongo-workflows-ollama-1 ollama pull qwen2.5:7b
+docker compose -f docker-compose.dev.yml up --build
 ```
 
-> O modelo padrão agora é o **qwen2.5:7b** (melhor que o llama3.2 em português e em saída JSON). Para trocar, edite a constante `OLLAMA_MODEL` no nó **Preparar Prompt**.
+Abra http://localhost:8000. Nesse modo:
 
-- n8n: http://200.135.55.29:9090 (criar conta local no primeiro acesso)
-- Ollama: acessível pelos workflows em `http://ollama:11434` e, do host, em `http://200.135.55.29:11435`
-- Essas portas e o IP ficam no arquivo `.env` (modelo em `.env.example`)
+- **Login simulado** (`LOGIN_SIMULADO=1`): no lugar do Google, "Entrar" leva a `/dev/login`, onde se escolhe uma persona ou se digita qualquer e-mail e nome. As personas cobrem os perfis: administração (`admin@ifc.edu.br`, que o compose põe em `ADMIN_EMAILS`), coordenação e NDE de CC, NDB de IN (já entram com o papel no curso), dois professores sem papel (para testar donos diferentes em "Meus planos") e uma estudante, recusada como no Google (só entram contas `@ifc.edu.br`). O botão **Trocar usuário**, no cabeçalho, volta à escolha. Por baixo, um cookie vira os mesmos cabeçalhos que o Caddy e o oauth2-proxy mandam em produção (`X-Usuario-Email` e o ID token), então login, cadastro, papéis e permissões passam pelo mesmo código. Fora do dev (`LOGIN_SIMULADO` não definido, como no `docker-compose.yml`) nada disso é registrado e o cookie é ignorado. Com `DEV_EXIGIR_LOGIN=0` não há login nenhum (todo acesso conta como administrador). A validação diária automática fica desligada.
+- **Recarga automática:** a pasta do projeto é montada em `/app`, e o servidor do Flask (modo debug) reinicia ao salvar um arquivo `.py`; templates, CSS e JS valem no próximo recarregar da página. Não precisa reconstruir a imagem, só quando mudar o `requirements*.txt`.
+- **Dados separados:** os PDFs vêm da pasta `planos/` do repositório (fora do git) e os resultados, usuários e revisões ficam em `dev-resultados/`, fora do git. O projeto do compose se chama `validador-planos-dev`, então não encosta nos containers nem nos volumes de produção.
+- **Só a sua máquina acessa:** a porta é publicada em `127.0.0.1` (o depurador do Flask não pode ficar exposto na rede).
+- **A IA é opcional.** Sem ela, a interface funciona e as validações terminam em ERRO ("Ollama inacessível"). Para validar de verdade, suba também o Ollama:
+  - **na GPU NVIDIA** (recomendado): `docker compose -f docker-compose.dev.yml --profile ia up --build`. Precisa do Docker com acesso à GPU (no Windows, Docker Desktop com o driver NVIDIA; no Linux, o NVIDIA Container Toolkit); confira com `docker run --rm --gpus all ubuntu nvidia-smi -L`. Numa RTX 3060 (12 GB), o `qwen2.5:7b` roda 100% na GPU: cerca de 2 minutos no primeiro plano (carrega o modelo) e uns 7 s nos seguintes;
+  - **na CPU**, sem GPU: `--profile ia-cpu` no lugar de `--profile ia` (lento: minutos por plano);
+  - os modelos ficam no mesmo volume do `docker-compose.yml` (`validador-planos_ollama-data`): se a produção já rodou nesta máquina, o modelo não é baixado de novo. Senão, uma vez: `docker compose -f docker-compose.dev.yml exec ollama ollama pull qwen2.5:7b` (com `ollama-cpu` no lugar de `ollama` no perfil `ia-cpu`). Para um volume só do dev, use `DEV_OLLAMA_VOLUME=validador-planos-dev-modelos`;
+  - o Ollama do dev fica em http://localhost:11434; o app o acessa pela rede do compose;
+  - ou use um Ollama que já roda no seu computador, ou o do servidor por um túnel SSH (`ssh -p 50026 -N -L 11434:localhost:PORTA usuario@200.135.55.29`, com a `OLLAMA_PORT` do `.env` do servidor no lugar de PORTA): `DEV_OLLAMA_URL=http://host.docker.internal:11434`.
 
-### 2. Google Cloud Console
+Variáveis opcionais (no ambiente ou num `.env`): `DEV_PORT` (padrão 8000), `DEV_ADMIN_EMAILS` (padrão `admin@ifc.edu.br`), `DEV_EXIGIR_LOGIN` (padrão 1), `DEV_PLANOS_DIR` (padrão `./planos`), `DEV_OLLAMA_URL`, `DEV_OLLAMA_MODEL`, `DEV_OLLAMA_NUM_CTX`, `DEV_OLLAMA_PORT` (padrão 11434) e `DEV_OLLAMA_VOLUME`. Comandos úteis:
 
-1. Criar credencial **OAuth 2.0 Client ID** em APIs e Serviços → Credenciais
-2. Adicionar o redirect URI: `http://localhost:5678/rest/oauth2-credential/callback`
-3. Ativar as APIs **Google Drive** e **Google Sheets**
-4. Na Tela de consentimento OAuth, **publicar o app** (senão o token expira a cada 7 dias)
+```bash
+docker compose -f docker-compose.dev.yml exec app pytest -q    # testes dentro do container
+docker compose -f docker-compose.dev.yml logs -f app           # acompanhar o log
+docker compose -f docker-compose.dev.yml down                  # parar
+```
 
-### 3. Importar os workflows no n8n
+## Subir no servidor
 
-1. Add workflow → ⋮ → **Import from file** (para os dois JSONs)
-2. Reconectar as credenciais Google nos nós do Drive e do Sheets
-3. No nó **Registrar no Sheets** e no nó **Ler Validações**: selecionar a planilha (usar "From list" para evitar erro de ID)
-4. A planilha precisa de uma aba chamada `Validações`
-5. Se a planilha já tinha dados de versões antigas, adicionar uma coluna com o cabeçalho `Link PDF` (o dashboard usa essa coluna para o botão "Abrir PDF")
+O `docker-compose.yml` é o de produção e é o padrão do `docker compose`: no servidor (e no deploy automático) basta `docker compose up -d --build`, que constrói o estágio `producao` da imagem (gunicorn com o código copiado).
 
-### 4. Usar
+1. Crie o cliente OAuth no Google (uma vez), com a sua conta `@ifc.edu.br`, em [console.cloud.google.com](https://console.cloud.google.com): crie um projeto; em **Tela de permissão OAuth**, escolha o tipo **Interno** se estiver disponível (só contas da instituição conseguem entrar); em **Credenciais > Criar credenciais > ID do cliente OAuth**, tipo **Aplicativo da Web**, com o URI de redirecionamento `https://APP_HOST/oauth2/callback` (acrescente `:APP_PORT` se não for 443). Guarde o ID e a chave secreta do cliente.
 
-- **Validar**: abrir o workflow principal → **Test workflow** (ou esperar o agendamento das 5h)
-- **Dashboard**: ativar o workflow do dashboard (toggle) e abrir http://200.135.55.29:9090/webhook/dashboard
-  - Cada plano é um card expansível: clique para ver o status e a observação de **cada tópico separadamente**, e use **📄 Abrir PDF** para abrir o arquivo original no Drive
+2. Copie a configuração e ajuste os valores (caminho dos PDFs, portas, `APP_HOST`, cliente OAuth, administradores):
 
-### Usar o Gemini (em vez do Ollama)
+```bash
+cp .env.example .env
+```
 
-O nó **Preparar Prompt** já gera o payload nos dois formatos e o **Parsear Validação** entende as duas respostas. Basta editar o nó **Validar com IA (Ollama)**:
+Gere a chave do cookie de sessão e cole em `COOKIE_SECRET`:
 
-1. **URL**: `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent`
-2. **Headers**: adicionar `x-goog-api-key` com a sua chave (criar em https://aistudio.google.com/apikey)
-3. **Body**: trocar a expressão para `{{ $json.geminiPayload }}`
+```bash
+openssl rand -hex 16
+```
 
-Para voltar ao Ollama, desfaça os três passos.
+3. Suba o validador, o Ollama, o Caddy e o oauth2-proxy:
 
-## Solução de problemas
+```bash
+docker compose up -d --build
+```
 
-| Problema | Causa/Solução |
-|----------|---------------|
-| `redirect_uri_mismatch` no login Google | Adicionar o callback do passo 2 no Cloud Console |
-| `403 access_denied` | App em modo teste: adicionar seu e-mail em "Usuários de teste" ou publicar o app |
-| `invalid grant / refresh token` | Token expirou (app em modo teste) → reconectar credencial e publicar o app |
-| Ollama lento / timeout | Verificar GPU: `docker exec vslongo-workflows-ollama-1 ollama ps` deve mostrar `100% GPU` |
-| Esqueceu a senha do n8n | `docker exec vslongo-workflows-n8n-1 n8n user-management:reset` (workflows são preservados) |
-| Só 1 plano processado | Code nodes devem usar `$input.all()`, nunca `$input.first()` |
-| `Falha ao processar resposta da IA: Unexpected end of JSON input` | Ollama sobrecarregado por requisições simultâneas. O workflow agora processa em blocos de 10 ("Processar em Blocos"), envia 1 requisição por vez ao Ollama com 3 retentativas no nó HTTP. Cada bloco é gravado no Sheets antes do próximo começar. |
-| `Falha ao processar resposta da IA: timeout of 180000ms exceeded` | Uma resposta normal leva ~15–60s. Se travar, confira `ollama ps` (deve estar quase 100% GPU) e se o notebook não entrou em suspensão/economia de energia durante a execução. |
-| Dashboard abre em branco | O nó "Ler Validações" falhou (geralmente token Google expirado): ver a execução em Executions no n8n e reconectar a credencial. |
+4. Baixe o modelo no Ollama (uma vez; fica no volume `ollama-data`):
 
-## Análise dos resultados (monografia)
+```bash
+docker compose exec ollama ollama pull qwen2.5:7b
+```
 
-A planilha gera o dado por critério necessário para comparar o sistema com a avaliação humana (padrão ouro): coeficiente Kappa, acurácia, precisão, recall, F1-score e matriz de confusão. Esse cálculo é feito offline, fora do pipeline.
+5. Abra `https://APP_HOST/dashboard` (ex.: `https://planos.200-135-55-29.sslip.io/dashboard`), entre com a conta Google institucional, envie os PDFs (se a pasta estiver vazia) e clique em **Validar agora**.
+
+## Acesso externo
+
+Só o serviço `caddy` publica portas: `APP_PORT` (a aplicação, com HTTPS e login) e 80 (usada pelo Let's Encrypt para emitir e renovar o certificado; nela o Caddy só responde ao desafio e redireciona para HTTPS). O `app` e o Ollama ficam na rede interna do compose; o Ollama também em `127.0.0.1:OLLAMA_PORT` no host.
+
+- `APP_HOST` é o nome que resolve para o IP público. Sem domínio próprio, `qualquer-nome.200-135-55-29.sslip.io` resolve para 200.135.55.29.
+- O firewall da frente precisa encaminhar as portas 80 e `APP_PORT` para a máquina. Sem a 80 o certificado não é emitido; nesse caso, ou para testar localmente, deixe `APP_HOST` vazio e o Caddy serve HTTP puro em `APP_PORT`.
+- Os certificados ficam no volume `caddy-data`.
+
+## Login
+
+O Caddy consulta o `oauth2-proxy` a cada requisição (`forward_auth`). Sem sessão, o navegador vai para o login do Google; só entram contas de `EMAIL_DOMINIO` (padrão `ifc.edu.br`; alunos usam `@estudantes.ifc.edu.br` e são recusados). Com sessão, o Caddy repassa o e-mail ao app no cabeçalho `X-Usuario-Email`, depois de apagar qualquer valor vindo do navegador; o app só é alcançável pelo Caddy, na rede interna do compose.
+
+- A sessão dura 7 dias (cookie `_planos_login`). **Sair**, no topo da dashboard, encerra a sessão no validador, não na conta Google.
+- Para mudar os administradores, edite `ADMIN_EMAILS` e rode `docker compose up -d app`.
+- O oauth2-proxy também devolve o ID token do Google (`OAUTH2_PROXY_SET_AUTHORIZATION_HEADER`), que o Caddy repassa em `X-Usuario-Token`; o app lê dele o nome da conta.
+
+## Usuários
+
+Todo servidor entra no cadastro (`resultados/usuarios.sqlite3`) no primeiro acesso, com o nome da conta Google; o nome e o último acesso são atualizados nos acessos seguintes. Em **Administração → Usuários** os administradores veem a tabela, buscam por nome ou e-mail, filtram por situação e papel (inclusive "Coordenação/NDE/NDB"), ativam ou desativam contas e, na coluna **Revisão**, dão ou tiram os papéis de coordenação, NDE e NDB em cada curso (ver "Revisão manual"). Os cursos oferecidos são os de `CURSOS` em `identificacao.py` e os que aparecem nos planos. Quem é desativado recebe "Acesso desativado" em qualquer página (403) até ser reativado; nada do que enviou é apagado. Os administradores de `ADMIN_EMAILS` aparecem como protegidos e não podem ser desativados.
+- Fora do Docker (ex.: `flask --app app.web run` para desenvolver), use `EXIGIR_LOGIN=0`: sem login, todo acesso conta como administrador.
+
+## Conferir a extração de um plano
+
+Mostra o texto extraído do PDF e como ele foi separado em seções (com `--prompt`, também o prompt enviado ao Ollama), sem chamar a IA:
+
+```bash
+docker compose exec app python -m app.depurar "2026-2 - Banco Dados II - Leila.pdf" --prompt
+```
+
+## Testes
+
+```bash
+pip install -r requirements-dev.txt
+pytest
+```
+
+Sem Python instalado, rode dentro do container de desenvolvimento: `docker compose -f docker-compose.dev.yml exec app pytest -q`.
+
+## Observações
+
+- O Ollama roda como serviço `ollama` do próprio compose; o validador o alcança pela rede interna em `http://ollama:11434`. No host, ele fica em `OLLAMA_PORT` (padrão 11434), aceitando só conexões locais; para liberar na rede, use `OLLAMA_BIND=0.0.0.0` (o Ollama não tem autenticação). Não altere `OLLAMA_URL` ao trocar a porta. Os modelos ficam no volume `ollama-data` e sobrevivem a `docker compose down` (só `down -v` os apaga). Para usar GPU NVIDIA, descomente o bloco `deploy` do serviço no `docker-compose.yml`.
+- O texto extraído é limpo antes da separação em seções: saem o rodapé do SIGAA ("Este documento foi emitido…", endereço, telefone), o cabeçalho institucional repetido a partir da 2ª página, títulos de bloco e cabeçalhos de tabela, e o bloco "Matrícula Docente(s)" de dentro da ementa (ele vai para a identificação).
+- Horário de atendimento é decidido por regra, sem a IA: OK se a seção informa dia ou hora; INCOMPLETO se só indica onde consultar (quadro de horários, Planus, PTD, site); AUSENTE se vazia.
+- A extração usa `pdfplumber`, que lê só a camada de texto. PDFs escaneados precisam de OCR antes de entrar na pasta: o upload os recusa e, se um deles for copiado direto para a pasta, a validação o marca como `ERRO` ("precisa passar por OCR") sem chamar a IA.
+- Para trocar o modelo, altere `OLLAMA_MODEL` (e, se quiser, `OLLAMA_NUM_CTX`) no `.env`, baixe o modelo com `docker compose exec ollama ollama pull <modelo>` e rode `docker compose up -d`. Um `docker compose restart` não recarrega o `.env`.
+
+## Deploy automático (GitHub Actions)
+
+O workflow `.github/workflows/ci-cd.yml` roda os testes (e constrói a imagem de produção e confere o `docker-compose.dev.yml`) em todo push e pull request. Em push na `master` que passe nos testes, o job de deploy roda **no próprio servidor**, num runner self-hosted: atualiza o clone para o commit testado, executa `docker compose up -d --build` e confere se o app respondeu. Para reimplantar sem commit, use **Actions > CI/CD > Run workflow**.
+
+O deploy reinicia o container `app`: uma validação em andamento naquele momento é perdida (ver "Controle de execução") e precisa ser iniciada de novo.
+
+### Configurar uma vez no servidor
+
+O runner roda como o usuário `fbizotto`, dono do clone em `/home/fbizotto/projetos/fabrica-planos`, onde já estão `.env`, `planos/` e `resultados/` (na raiz do clone). Assim não é preciso mudar dono de pastas nem permissões da home.
+
+O projeto ficava antes na pasta `validador-planos/` do repositório, ao lado do projeto antigo com n8n e do TCC. No primeiro deploy depois da mudança para a raiz, o workflow move sozinho o `.env` e `resultados/` de `validador-planos/` para a raiz (um `.env` do n8n que já estivesse na raiz vira `.env.n8n-antigo`) e troca `PLANOS_HOST_DIR=../planos` por `./planos`. O compose tem nome fixo (`validador-planos`), então os containers e os volumes (modelos do Ollama, certificados do Caddy) continuam os mesmos.
+
+1. **Conferir o acesso ao Docker** sem `sudo` (o runner não usa sudo):
+
+```bash
+docker ps
+# se der "permission denied":
+sudo usermod -aG docker fbizotto   # depois saia e entre de novo na sessão SSH
+```
+
+2. **Conferir o clone**: precisa estar limpo, sem alterações em arquivos versionados.
+
+```bash
+cd /home/fbizotto/projetos/fabrica-planos
+git status --short --untracked-files=no   # não deve listar nada
+```
+
+3. **Instalar o runner**: no GitHub, **Settings > Actions > Runners > New self-hosted runner**, escolha **Linux / x64** e copie os comandos exibidos (a versão e o token mudam). No servidor:
+
+```bash
+mkdir -p ~/actions-runner && cd ~/actions-runner
+# cole aqui o curl de download e o tar xzf exibidos pelo GitHub
+./config.sh --url https://github.com/FabSoftwareVideira/fabrica-planos \
+  --token <TOKEN_EXIBIDO> --name servidor-ifc --labels planos --unattended
+sudo ./svc.sh install fbizotto
+sudo ./svc.sh start
+sudo ./svc.sh status   # deve aparecer "active (running)"
+```
+
+Como serviço, o runner volta sozinho depois de reiniciar o servidor. Em **Settings > Actions > Runners** ele deve aparecer como **Idle**.
+
+4. **Variável do repositório**: em **Settings > Secrets and variables > Actions > Variables > New repository variable**, crie `DEPLOY_DIR` = `/home/fbizotto/projetos/fabrica-planos`.
+
+5. Faça um push na `master` (ou **Actions > CI/CD > Run workflow**) e acompanhe em **Actions**.
+
+### Cuidados
+
+- Não edite arquivos versionados direto no servidor: o deploy para com erro se encontrar alterações locais, para não apagá-las. Configuração do servidor fica no `.env`, fora do git.
+- Se o repositório virar público, restrinja o runner: em **Settings > Actions > General**, exija aprovação para workflows de forks, e nunca rode jobs de `pull_request` no runner self-hosted (o workflow já roda os testes de PR só nos runners do GitHub).

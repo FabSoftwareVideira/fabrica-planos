@@ -1,4 +1,7 @@
-# Configuração específica de cada servidor (use .env.example como base)
 .env
 resultados/
 planos/
+__pycache__/
+.pytest_cache/
+.venv*/
+dev-resultados/

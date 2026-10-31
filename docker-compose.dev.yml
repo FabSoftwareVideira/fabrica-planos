@@ -37,8 +37,8 @@ services:
     volumes:
       # Código do host: o Flask recarrega a cada arquivo salvo
       - .:/app
-      # PDFs: por padrão os de exemplo da pasta planos/ do repositório
-      - "${DEV_PLANOS_DIR:-../planos}:/data/planos"
+      # PDFs: por padrão os da pasta planos/ do repositório (fora do git)
+      - "${DEV_PLANOS_DIR:-./planos}:/data/planos"
       # Resultados, usuários e revisões de desenvolvimento, separados dos de produção
       - ./dev-resultados:/data/resultados
     extra_hosts:
