@@ -1,7 +1,7 @@
 from flask import Blueprint, current_app, render_template, request
 
 from ..paginas import inicio
-from .comum import email, json_, servicos, texto
+from .comum import eh_admin, email, json_, nome, servicos, texto
 
 # Rotas sem login e a barreira de login das demais.
 bp = Blueprint('publico', __name__)
@@ -17,6 +17,20 @@ def exigir_login():
     if (servicos().cfg.exigir_login and not email() and request.path not in PUBLICAS
             and not request.path.startswith(PREFIXOS_PUBLICOS)):
         return texto('Login necessário.', 401)
+    usuario = email()
+    if not usuario or request.path.startswith(PREFIXOS_PUBLICOS):
+        return None
+    # Cadastra no primeiro acesso e guarda o nome; quem foi desativado perde o acesso
+    # (administradores de ADMIN_EMAILS nunca são barrados, para ninguém trancar o sistema).
+    try:
+        cadastro = servicos().usuarios.registrar_acesso(usuario, nome())
+    except Exception:  # o cadastro não pode derrubar o sistema
+        current_app.logger.exception('Falha ao registrar o acesso de %s', usuario)
+        return None
+    if not cadastro['ativo'] and not eh_admin() and request.path not in PUBLICAS:
+        if request.headers.get('Sec-Fetch-Mode') == 'navigate' or 'text/html' in request.headers.get('Accept', ''):
+            return render_template('acesso_desativado.html', email=usuario), 403
+        return json_({'erro': 'Seu acesso foi desativado por um administrador'}, 403)
 
 
 @bp.app_errorhandler(413)

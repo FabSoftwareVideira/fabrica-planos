@@ -1,0 +1,134 @@
+{% extends 'base.html' %}
+{#- Administração > Usuários (só ADMIN_EMAILS): quem já entrou no sistema, com nome (lido no login), papel,
+    situação e acessos; filtros e paginação pela query string, sem JavaScript (paginas/usuarios.py). -#}
+
+{% block titulo %}Usuários · Administração · Validação de Planos de Ensino{% endblock %}
+
+{% block estilos %}
+{% include '_ds.html' %}
+  <link rel="stylesheet" href="{{ estatico('css/usuarios.css') }}">
+{% endblock %}
+
+{% block corpo %}
+{% set avisos = {
+  'ativado': ('success', 'check-circle', 'Usuário ativado. O acesso volta a valer na próxima página que ele abrir.'),
+  'desativado': ('success', 'check-circle', 'Usuário desativado. Ele não consegue mais abrir o sistema.'),
+  'admin': ('danger', 'times-circle', 'Administradores (ADMIN_EMAILS) não podem ser desativados.'),
+  'inexistente': ('danger', 'times-circle', 'Usuário não encontrado.'),
+} %}
+{% with titulo_pagina='Administração', pagina_atual='administracao' %}
+{% include '_cabecalho.html' %}
+{% endwith %}
+{% with aba='usuarios' %}{% include '_abas_admin.html' %}{% endwith %}
+
+<main id="main">
+  <div class="container-lg py-4">
+    {% if aviso in avisos %}{% set tipo, icone, texto_aviso = avisos[aviso] %}
+    <div class="br-message {{ tipo }}" role="status">
+      <div class="icon"><i class="fas fa-{{ icone }} fa-lg" aria-hidden="true"></i></div>
+      <div class="content"><span class="message-body">{{ texto_aviso }}</span></div>
+    </div>
+    {% endif %}
+
+    <section class="br-card">
+      <div class="card-header cab-usuarios">
+        <h2>Usuários</h2>
+        <p class="resumo">{{ contagem.total }} cadastrados · {{ contagem.ativos }} ativos · {{ contagem.inativos }} desativados</p>
+      </div>
+      <div class="card-content">
+        <p class="ajuda">Todo servidor com conta <strong>@ifc.edu.br</strong> entra no cadastro no primeiro acesso, com o nome da conta Google. Desativar bloqueia o acesso sem apagar nada; quem é administrador é definido em ADMIN_EMAILS.</p>
+
+        <form class="filtros" method="get" action="/administracao/usuarios" role="search">
+          <div class="br-input busca">
+            <label for="q">Buscar</label>
+            <input id="q" name="q" type="search" value="{{ f.q }}" placeholder="Nome ou e-mail">
+          </div>
+          <div class="campo">
+            <label for="situacao">Situação</label>
+            <select id="situacao" name="situacao">
+              {% for valor, rotulo in situacoes.items() %}<option value="{{ valor }}"{% if f.situacao == valor %} selected{% endif %}>{{ rotulo }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="campo">
+            <label for="papel">Papel</label>
+            <select id="papel" name="papel">
+              {% for valor, rotulo in papeis.items() %}<option value="{{ valor }}"{% if f.papel == valor %} selected{% endif %}>{{ rotulo }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="campo">
+            <label for="ordem">Ordenar por</label>
+            <select id="ordem" name="ordem">
+              {% for valor, rotulo in ordens.items() %}<option value="{{ valor }}"{% if f.ordem == valor %} selected{% endif %}>{{ rotulo }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="acoes-filtro">
+            <button class="br-button primary small" type="submit"><i class="fas fa-filter" aria-hidden="true"></i> Filtrar</button>
+            {% if filtrando %}<a class="br-button secondary small" href="{{ endereco(q='', situacao='', papel='', pagina=1) }}">Limpar</a>{% endif %}
+          </div>
+        </form>
+
+        {% if usuarios %}
+        <div class="br-table tabela">
+          <table>
+            <caption class="sr-only">Usuários, {{ de }} a {{ ate }} de {{ total }}</caption>
+            <thead>
+              <tr><th scope="col">Nome</th><th scope="col">E-mail</th><th scope="col">Papel</th><th scope="col">Situação</th><th scope="col">Último acesso</th><th scope="col"><span class="sr-only">Ação</span></th></tr>
+            </thead>
+            <tbody>
+              {% for u in usuarios %}
+              <tr class="{{ '' if u.ativo else 'inativo' }}">
+                <td data-rotulo="Nome" class="nome">{{ u.nome or '—' }}{% if u.eu %} <span class="voce">(você)</span>{% endif %}</td>
+                <td data-rotulo="E-mail" class="email">{{ u.email }}</td>
+                <td data-rotulo="Papel">{{ 'Administrador' if u.admin else 'Consulta' }}</td>
+                <td data-rotulo="Situação"><span class="br-tag situacao {{ 'ativo' if u.ativo else 'desativado' }}">{{ 'Ativo' if u.ativo else 'Desativado' }}</span></td>
+                <td data-rotulo="Último acesso" title="Primeiro acesso: {{ u.primeiro }}">{{ u.ultimo }}</td>
+                <td class="acao">
+                  {% if u.admin %}
+                  <span class="protegido" title="Definido em ADMIN_EMAILS"><i class="fas fa-lock" aria-hidden="true"></i> Protegido</span>
+                  {% else %}
+                  <form method="post" action="/administracao/usuarios/ativo">
+                    <input type="hidden" name="email" value="{{ u.email }}">
+                    <input type="hidden" name="ativo" value="{{ '0' if u.ativo else '1' }}">
+                    <input type="hidden" name="voltar" value="{{ endereco() }}">
+                    {% if u.ativo %}
+                    <button class="br-button secondary small desativar" type="submit" aria-label="Desativar {{ u.nome or u.email }}"><i class="fas fa-user-slash" aria-hidden="true"></i> Desativar</button>
+                    {% else %}
+                    <button class="br-button primary small" type="submit" aria-label="Ativar {{ u.nome or u.email }}"><i class="fas fa-user-check" aria-hidden="true"></i> Ativar</button>
+                    {% endif %}
+                  </form>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="rodape-tabela">
+          <span>{{ de }}–{{ ate }} de {{ total }}</span>
+          {% if paginas > 1 %}
+          <nav class="br-pagination paginacao" aria-label="Paginação">
+            <ul>
+              <li>{% if pagina > 1 %}<a class="br-button circle" href="{{ endereco(pagina=pagina - 1) }}" aria-label="Página anterior"><i class="fas fa-angle-left" aria-hidden="true"></i></a>{% else %}<span class="br-button circle" aria-disabled="true"><i class="fas fa-angle-left" aria-hidden="true"></i></span>{% endif %}</li>
+              {% for n in numeros %}
+              {% if n is none %}<li class="reticencias" aria-hidden="true">…</li>
+              {% else %}<li><a class="page{{ ' active' if n == pagina }}" href="{{ endereco(pagina=n) }}"{% if n == pagina %} aria-current="page"{% endif %}>{{ n }}</a></li>{% endif %}
+              {% endfor %}
+              <li>{% if pagina < paginas %}<a class="br-button circle" href="{{ endereco(pagina=pagina + 1) }}" aria-label="Próxima página"><i class="fas fa-angle-right" aria-hidden="true"></i></a>{% else %}<span class="br-button circle" aria-disabled="true"><i class="fas fa-angle-right" aria-hidden="true"></i></span>{% endif %}</li>
+            </ul>
+          </nav>
+          {% endif %}
+        </div>
+        {% else %}
+        <p class="vazio"><i class="fas fa-user-friends" aria-hidden="true"></i> {{ 'Nenhum usuário com esses filtros.' if filtrando else 'Ninguém entrou no sistema ainda.' }}</p>
+        {% endif %}
+      </div>
+    </section>
+  </div>
+</main>
+{% include '_rodape.html' %}
+<script>
+  // Situação, papel e ordem filtram ao trocar; a busca, ao enviar
+  document.querySelectorAll('.filtros select').forEach(s => s.addEventListener('change', () => s.form.submit()));
+</script>
+{% endblock %}

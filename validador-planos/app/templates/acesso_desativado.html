@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+{#- Mostrada a quem teve o acesso desativado por um administrador (rotas/publico.py). -#}
+
+{% block titulo %}Acesso desativado · Validação de Planos de Ensino{% endblock %}
+
+{% block estilos %}
+{% include '_ds.html' %}
+{% endblock %}
+
+{% block corpo %}
+{% with sem_menu=true %}{% include '_cabecalho.html' %}{% endwith %}
+<main id="main">
+  <div class="container-lg py-5">
+    <div class="br-message warning" role="alert">
+      <div class="icon"><i class="fas fa-user-lock fa-lg" aria-hidden="true"></i></div>
+      <div class="content">
+        <span class="message-title">Acesso desativado.</span>
+        <span class="message-body">A conta {{ email }} foi desativada por um administrador do sistema. Se acha que é um engano, procure a coordenação do curso ou a Fábrica de Software do IFC Videira.</span>
+      </div>
+    </div>
+    <p><a class="br-button secondary" href="/oauth2/sign_out?rd=/"><i class="fas fa-sign-out-alt" aria-hidden="true"></i> Sair e entrar com outra conta</a></p>
+  </div>
+</main>
+{% include '_rodape.html' %}
+{% endblock %}

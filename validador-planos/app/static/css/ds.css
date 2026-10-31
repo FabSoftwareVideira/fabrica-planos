@@ -106,3 +106,12 @@ body.validando .barra-status .icone{animation:girar 1.2s linear infinite}
 .barra{height:4px;background:var(--gray-10);overflow:hidden}
 .barra>div{height:100%;width:0;background:var(--interactive);transition:width .4s}
 body.validando #validar{display:none}  /* durante a validação o botão sai e fica só o andamento */
+
+/* Abas da administração (templates/_abas_admin.html) */
+.abas-admin{background:var(--background);border-bottom:1px solid var(--gray-10)}
+.abas-admin .container-lg{display:flex;gap:var(--spacing-scale-base);overflow-x:auto}
+.abas-admin a{display:inline-flex;align-items:center;gap:var(--spacing-scale-base);white-space:nowrap;
+  padding:var(--spacing-scale-2x) var(--spacing-scale-base);color:var(--gray-60);font-weight:var(--font-weight-semi-bold);
+  border-bottom:4px solid transparent;text-decoration:none}
+.abas-admin a:hover{color:var(--interactive);background:var(--gray-2)}
+.abas-admin a.ativa{color:var(--interactive);border-bottom-color:var(--interactive)}

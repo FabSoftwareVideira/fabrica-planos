@@ -23,6 +23,11 @@ class Config:
         return os.path.join(self.resultados_dir, 'historico')
 
     @property
+    def usuarios_path(self):
+        """Cadastro de quem já entrou (nome, ativo, acessos)."""
+        return os.path.join(self.resultados_dir, 'usuarios.sqlite3')
+
+    @property
     def csv_path(self):
         """Cópia do CSV da última validação, no caminho de sempre, para quem lê o arquivo direto."""
         return os.path.join(self.resultados_dir, 'validacao_planos.csv')

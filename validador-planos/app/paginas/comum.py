@@ -45,8 +45,15 @@ def logo_ifc():
 
 def _usuario():
     # Importado aqui: rotas.comum depende do Flask montado, e as rotas importam este pacote
-    from ..rotas.comum import eh_admin, email
-    return {'usuario_email': email(), 'usuario_admin': bool(email()) and eh_admin()}
+    from ..rotas.comum import eh_admin, email, nome, servicos
+    usuario = email()
+    nome_usuario = nome()
+    if usuario and not nome_usuario:  # sem o token nesta requisição, vale o nome guardado no último login
+        try:
+            nome_usuario = (servicos().usuarios.obter(usuario) or {}).get('nome', '')
+        except Exception:
+            nome_usuario = ''
+    return {'usuario_email': usuario, 'usuario_nome': nome_usuario, 'usuario_admin': bool(usuario) and eh_admin()}
 
 
 def ano_atual():

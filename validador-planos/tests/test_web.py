@@ -457,3 +457,86 @@ def test_static_e_publico_para_a_pagina_inicial(com_login):
     assert c.get('/static/vendor/govbr-ds/govbr-ds.min.css').status_code == 200
     assert c.get('/static/../dashboard').status_code in (401, 404)
     assert c.get('/dashboard').status_code == 401
+
+
+# --- Usuários: cadastro no login, nome do token, ativação e tela da administração ---
+
+def _token(**carga):
+    import base64
+    import json
+    parte = base64.urlsafe_b64encode(json.dumps(carga).encode()).decode().rstrip('=')
+    return f'Bearer eyJhbGciOiJSUzI1NiJ9.{parte}.assinatura'
+
+
+def test_login_cadastra_usuario_com_nome_do_token(com_login):
+    c, _ = com_login
+    cab = {**SERVIDOR, 'X-Usuario-Token': _token(email='fulano@ifc.edu.br', name='Fulano  de Tal')}
+    html = c.get('/dashboard', headers=cab).get_data(as_text=True)
+    usuario = _servicos(c).usuarios.obter('fulano@ifc.edu.br')
+    assert usuario['nome'] == 'Fulano de Tal' and usuario['ativo'] == 1
+    assert '<span class="email">Fulano de Tal</span>' in html
+    # Sem o token, vale o nome guardado; token de outra conta é ignorado
+    assert 'Fulano de Tal' in c.get('/meus-planos', headers=SERVIDOR).get_data(as_text=True)
+    outro = {**SERVIDOR, 'X-Usuario-Token': _token(email='outro@ifc.edu.br', name='Intruso')}
+    c.get('/dashboard', headers=outro)
+    assert _servicos(c).usuarios.obter('fulano@ifc.edu.br')['nome'] == 'Fulano de Tal'
+    assert c.get('/dashboard', headers={**SERVIDOR, 'X-Usuario-Token': 'lixo'}).status_code == 200
+
+
+def test_usuario_desativado_perde_acesso_e_admin_nao_pode_ser_desativado(com_login):
+    c, _ = com_login
+    c.get('/dashboard', headers=SERVIDOR)
+    c.get('/dashboard', headers=ADMIN)
+    r = c.post('/administracao/usuarios/ativo', headers=ADMIN,
+               data={'email': 'fulano@ifc.edu.br', 'ativo': '0', 'voltar': '/administracao/usuarios?q=fulano'})
+    assert r.status_code == 303 and r.headers['Location'].endswith('/administracao/usuarios?q=fulano&aviso=desativado')
+    bloqueado = c.get('/dashboard', headers={**SERVIDOR, 'Accept': 'text/html'})
+    assert bloqueado.status_code == 403 and 'Acesso desativado' in bloqueado.get_data(as_text=True)
+    api = c.get('/planos', headers=SERVIDOR)
+    assert api.status_code == 403 and 'desativado' in api.get_json()['erro']
+    assert c.get('/', headers=SERVIDOR).status_code == 200  # a página inicial continua aberta
+
+    r = c.post('/administracao/usuarios/ativo', headers=ADMIN, data={'email': 'admin@ifc.edu.br', 'ativo': '0'})
+    assert r.headers['Location'].endswith('aviso=admin')
+    assert _servicos(c).usuarios.obter('admin@ifc.edu.br')['ativo'] == 1
+    # Redirecionamento só para a própria tela; origem de outro site é recusada
+    r = c.post('/administracao/usuarios/ativo', headers=ADMIN,
+               data={'email': 'fulano@ifc.edu.br', 'ativo': '1', 'voltar': 'https://mal.example/'})
+    assert r.headers['Location'].endswith('/administracao/usuarios?aviso=ativado')
+    assert c.get('/dashboard', headers=SERVIDOR).status_code == 200
+    assert c.post('/administracao/usuarios/ativo', headers={**ADMIN, 'Origin': 'https://mal.example'},
+                  data={'email': 'fulano@ifc.edu.br', 'ativo': '0'}).status_code == 403
+    # Quem só consulta não chega à tela nem altera
+    assert c.get('/administracao/usuarios', headers=SERVIDOR).status_code == 302
+    c.post('/administracao/usuarios/ativo', headers=SERVIDOR, data={'email': 'fulano@ifc.edu.br', 'ativo': '0'})
+    assert _servicos(c).usuarios.obter('fulano@ifc.edu.br')['ativo'] == 1
+
+
+def test_tela_de_usuarios_filtra_e_pagina(com_login):
+    c, _ = com_login
+    usuarios = _servicos(c).usuarios
+    for i in range(45):
+        usuarios.registrar_acesso(f'pessoa{i:02d}@ifc.edu.br', f'Pessoa {i:02d}')
+    usuarios.registrar_acesso('admin@ifc.edu.br', 'Chefe')
+    usuarios.definir_ativo('pessoa07@ifc.edu.br', False)
+
+    html = c.get('/administracao/usuarios?ordem=email', headers=ADMIN).get_data(as_text=True)
+    assert 'aria-current="page"><i class="fas fa-users"' in html and '46 cadastrados · 45 ativos · 1 desativados' in html
+    assert '1–20 de 46' in html and 'pessoa18@ifc.edu.br' in html and 'pessoa19@ifc.edu.br' not in html
+    assert 'href="/administracao/usuarios?ordem=email&amp;pagina=3"' in html
+    assert 'Protegido' in html and '(você)' in html  # o admin aparece primeiro na ordem por e-mail
+
+    html = c.get('/administracao/usuarios?ordem=email&pagina=3', headers=ADMIN).get_data(as_text=True)
+    assert '41–46 de 46' in html and 'pessoa44@ifc.edu.br' in html
+    html = c.get('/administracao/usuarios?ordem=email&pagina=99', headers=ADMIN).get_data(as_text=True)
+    assert '41–46 de 46' in html  # página além do fim mostra a última
+
+    html = c.get('/administracao/usuarios?situacao=inativos', headers=ADMIN).get_data(as_text=True)
+    assert '1–1 de 1' in html and 'pessoa07@ifc.edu.br' in html and '>Ativar<' not in html and 'Ativar' in html
+    html = c.get('/administracao/usuarios?q=pessoa 1', headers=ADMIN).get_data(as_text=True)
+    assert '1–10 de 10' in html
+    html = c.get('/administracao/usuarios?papel=admin', headers=ADMIN).get_data(as_text=True)
+    assert '1–1 de 1' in html and 'Chefe' in html
+    html = c.get('/administracao/usuarios?q=ninguem', headers=ADMIN).get_data(as_text=True)
+    assert 'Nenhum usuário com esses filtros.' in html
+    assert 'href="/administracao/usuarios"' in c.get('/administracao', headers=ADMIN).get_data(as_text=True)

@@ -1,3 +1,5 @@
+import base64
+import json
 from functools import wraps
 
 from flask import Response, current_app, jsonify, request
@@ -13,6 +15,25 @@ def servicos():
 def email():
     """E-mail de quem fez login, repassado pelo proxy; vazio sem login."""
     return (request.headers.get('X-Usuario-Email') or '').strip().lower()
+
+
+def nome():
+    """Nome de quem fez login, lido do ID token do Google que o oauth2-proxy repassa (via Caddy) em
+    X-Usuario-Token; vazio se não vier. A assinatura não é conferida: o cabeçalho tem a mesma origem
+    confiável do e-mail (o Caddy apaga o que vem do navegador e só ele o preenche)."""
+    token = (request.headers.get('X-Usuario-Token') or '').strip()
+    if token.lower().startswith('bearer '):
+        token = token[7:].strip()
+    partes = token.split('.')
+    if len(partes) != 3:
+        return ''
+    try:
+        carga = json.loads(base64.urlsafe_b64decode(partes[1] + '=' * (-len(partes[1]) % 4)))
+    except (ValueError, TypeError):
+        return ''
+    if not isinstance(carga, dict) or str(carga.get('email', '')).strip().lower() not in ('', email()):
+        return ''
+    return ' '.join(str(carga.get('name') or '').split())[:120]
 
 
 def eh_admin():

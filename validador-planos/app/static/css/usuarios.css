@@ -1,0 +1,59 @@
+/* Administração > Usuários (sobre o Design System gov.br e ds.css): filtros, tabela e paginação. */
+h2{font-size:var(--font-size-scale-up-02);margin:0}
+.cab-usuarios{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:var(--spacing-scale-base)}
+.resumo{margin:0;color:var(--gray-60);font-size:var(--font-size-scale-down-01)}
+.ajuda{margin:0 0 var(--spacing-scale-2x);color:var(--gray-60);font-size:var(--font-size-scale-down-01)}
+.br-message{margin-bottom:var(--spacing-scale-2x)}
+
+/* Filtros */
+.filtros{display:flex;flex-wrap:wrap;align-items:flex-end;gap:var(--spacing-scale-2x);margin-bottom:var(--spacing-scale-2x)}
+.filtros .busca{flex:1 1 240px}
+.filtros .campo{display:flex;flex-direction:column;flex:0 1 170px}
+.filtros label{font-weight:var(--font-weight-semi-bold);font-size:var(--font-size-scale-down-01);margin-bottom:var(--spacing-scale-half)}
+.filtros select{height:40px;border:1px solid var(--gray-40);border-radius:var(--surface-rounder-sm);padding:0 var(--spacing-scale-base);
+  background:var(--background);font:inherit;color:var(--color)}
+.filtros select:focus{outline:2px solid var(--focus-color);outline-offset:2px}
+.acoes-filtro{display:flex;gap:var(--spacing-scale-base)}
+
+/* Tabela */
+.tabela{overflow-x:auto}
+.tabela table{width:100%;border-collapse:collapse;font-size:var(--font-size-scale-down-01)}
+.tabela th{text-align:left;background:var(--gray-2);color:var(--gray-80);font-weight:var(--font-weight-semi-bold);
+  padding:var(--spacing-scale-base) var(--spacing-scale-2x);border-bottom:1px solid var(--gray-20);white-space:nowrap}
+.tabela td{padding:var(--spacing-scale-base) var(--spacing-scale-2x);border-bottom:1px solid var(--gray-10);vertical-align:middle}
+.tabela tbody tr:hover{background:var(--gray-2)}
+.tabela .nome{font-weight:var(--font-weight-semi-bold)}
+.tabela .email{overflow-wrap:anywhere;color:var(--gray-70)}
+.tabela .voce{font-weight:normal;color:var(--gray-50)}
+.tabela tr.inativo .nome,.tabela tr.inativo .email{color:var(--gray-40)}
+.tabela .acao{text-align:right;white-space:nowrap}
+.tabela .acao form{margin:0}
+.situacao{font-size:var(--font-size-scale-down-02);border-radius:var(--surface-rounder-pill);padding:2px 10px;font-weight:var(--font-weight-semi-bold)}
+.situacao.ativo{background:#e3f5e1;color:#168821}
+.situacao.desativado{background:var(--gray-10);color:var(--gray-60)}
+.desativar{color:var(--danger) !important}
+.protegido{color:var(--gray-50);font-size:var(--font-size-scale-down-01)}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* Paginação */
+.rodape-tabela{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:var(--spacing-scale-base);
+  margin-top:var(--spacing-scale-2x);color:var(--gray-60);font-size:var(--font-size-scale-down-01)}
+.paginacao ul{display:flex;align-items:center;gap:var(--spacing-scale-half);list-style:none;margin:0;padding:0}
+.paginacao .page{display:inline-flex;align-items:center;justify-content:center;min-width:32px;height:32px;padding:0 6px;
+  border-radius:var(--surface-rounder-pill);color:var(--interactive);font-weight:var(--font-weight-semi-bold);text-decoration:none}
+.paginacao .page:hover{background:var(--gray-5)}
+.paginacao .page.active{background:var(--interactive);color:#fff}
+.paginacao span.br-button{opacity:.35;pointer-events:none}
+.paginacao .reticencias{color:var(--gray-40);padding:0 4px}
+.vazio{color:var(--gray-60);text-align:center;padding:var(--spacing-scale-4x) 0;margin:0}
+
+/* Celular: cada usuário vira um cartão, com o rótulo antes de cada valor */
+@media (max-width:767px){
+  .tabela thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+  .tabela table,.tabela tbody,.tabela tr,.tabela td{display:block;width:100%}
+  .tabela tr{border:1px solid var(--gray-10);border-radius:var(--surface-rounder-md);margin-bottom:var(--spacing-scale-2x);padding:var(--spacing-scale-base) 0}
+  .tabela td{border:0;padding:var(--spacing-scale-half) var(--spacing-scale-2x);display:flex;gap:var(--spacing-scale-base)}
+  .tabela td[data-rotulo]::before{content:attr(data-rotulo);flex:0 0 105px;color:var(--gray-50);font-weight:normal}
+  .tabela .acao{text-align:left;padding-top:var(--spacing-scale-base)}
+  .filtros .campo{flex:1 1 140px}
+}

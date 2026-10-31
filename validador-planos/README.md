@@ -86,6 +86,8 @@ Em `/meus-planos` cada servidor entrega os próprios planos: o PDF enviado vai p
 | GET | `/status` | Andamento: `rodando`, `total`, `processados`, `atual`, `iniciado_em`, `finalizado_em`, `erro`, `unico` (plano, numa revalidação) e `fila` (planos esperando) |
 | GET | `/dashboard?validacao=ID` | Página HTML com os resultados; sem `validacao`, a última |
 | GET | `/administracao` | Página HTML de gestão dos PDFs e validação; quem não é administrador vai para o dashboard |
+| GET | `/administracao/usuarios` | Usuários (tabela paginada, 20 por página; filtros `q`, `situacao`, `papel`, `ordem`, `pagina`); só administradores |
+| POST | `/administracao/usuarios/ativo` | Ativa (`ativo=1`) ou desativa (`ativo=0`) o `email` do formulário e volta à tabela; administradores de `ADMIN_EMAILS` não podem ser desativados |
 | GET | `/planos` | Lista dos PDFs da pasta (`nome`, `dono`, `tamanho`, `modificado`) |
 | POST | `/planos` | Upload (multipart, campo `arquivos`, vários por vez, até `PDF_MAX_MB` por arquivo e 100 MB no total). Responde `salvos` e `recusados` (com o motivo); `409` durante a validação |
 | DELETE | `/planos?arquivo=nome.pdf` | Exclui o PDF; `409` durante a validação |
@@ -161,6 +163,11 @@ O Caddy consulta o `oauth2-proxy` a cada requisição (`forward_auth`). Sem sess
 
 - A sessão dura 7 dias (cookie `_planos_login`). **Sair**, no topo da dashboard, encerra a sessão no validador, não na conta Google.
 - Para mudar os administradores, edite `ADMIN_EMAILS` e rode `docker compose up -d app`.
+- O oauth2-proxy também devolve o ID token do Google (`OAUTH2_PROXY_SET_AUTHORIZATION_HEADER`), que o Caddy repassa em `X-Usuario-Token`; o app lê dele o nome da conta.
+
+## Usuários
+
+Todo servidor entra no cadastro (`resultados/usuarios.sqlite3`) no primeiro acesso, com o nome da conta Google; o nome e o último acesso são atualizados nos acessos seguintes. Em **Administração → Usuários** os administradores veem a tabela, buscam por nome ou e-mail, filtram por situação e papel e ativam ou desativam contas. Quem é desativado recebe "Acesso desativado" em qualquer página (403) até ser reativado; nada do que enviou é apagado. Os administradores de `ADMIN_EMAILS` aparecem como protegidos e não podem ser desativados.
 - Fora do Docker (ex.: `flask --app app.web run` para desenvolver), use `EXIGIR_LOGIN=0`: sem login, todo acesso conta como administrador.
 
 ## Conferir a extração de um plano

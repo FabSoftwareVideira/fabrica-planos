@@ -13,23 +13,27 @@
 	# CSS, JS, fontes e ícones: públicos (a página inicial usa o Design System gov.br) e sem nada sigiloso
 	handle /static/* {
 		request_header -X-Usuario-Email
+		request_header -X-Usuario-Token
 		reverse_proxy app:8000
 	}
 
 	# Página inicial, pública: apresenta o projeto e tem o botão de login
 	handle / {
 		request_header -X-Usuario-Email
+		request_header -X-Usuario-Token
 		reverse_proxy app:8000
 	}
 
 	handle {
-		# route mantém a ordem: o cabeçalho vindo do navegador é apagado antes de o oauth2-proxy
-		# preencher o e-mail de quem fez login; o app confia nele para saber quem é administrador.
+		# route mantém a ordem: os cabeçalhos vindos do navegador são apagados antes de o oauth2-proxy
+		# preencher o e-mail de quem fez login e o ID token do Google (de onde o app lê o nome);
+		# o app confia neles para saber quem é e se é administrador.
 		route {
 			request_header -X-Usuario-Email
+			request_header -X-Usuario-Token
 			forward_auth oauth2-proxy:4180 {
 				uri /oauth2/auth
-				copy_headers X-Auth-Request-Email>X-Usuario-Email
+				copy_headers X-Auth-Request-Email>X-Usuario-Email Authorization>X-Usuario-Token
 				# Sem sessão, só a navegação (abrir a página) vai para o login. Requisições da página
 				# (fetch de /status, /planos) recebem 401: se fossem redirecionadas, cada uma iniciaria
 				# outro login e trocaria o cookie CSRF do que está em andamento ("CSRF token" na volta).
