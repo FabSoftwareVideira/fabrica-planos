@@ -104,7 +104,9 @@ def test_validar_sem_planos(cliente):
 def test_dashboard_tem_controles(cliente):
     c, _ = cliente
     html = c.get('/dashboard').get_data(as_text=True)
-    assert 'id="validar"' in html and 'id="soltar"' in html
+    assert 'id="validar"' in html and 'id="soltar"' not in html  # envio de PDFs fica na administração
+    adm = c.get('/administracao').get_data(as_text=True)
+    assert 'id="soltar"' in adm and 'id="lista"' in adm and 'id="validar"' in adm
 
 
 def _execucao(c, nomes, quando, validacao=None, pdfs=()):
@@ -289,7 +291,9 @@ def test_servidor_consulta_mas_nao_administra(com_login):
     # Quem está logado aparece no cabeçalho; o papel, logo abaixo
     assert 'fulano@ifc.edu.br' in html and 'Consulta:' in html and 'href="/oauth2/sign_out"' in html
     assert 'id="validar"' not in html and 'id="soltar"' not in html and 'class="revalidar"' not in html
-    assert 'ADMIN = false;' in html and 'href="/meus-planos"' in html
+    assert 'ADMIN = false;' in html and 'href="/meus-planos"' in html and 'href="/administracao"' not in html
+    r = c.get('/administracao', headers=SERVIDOR)
+    assert r.status_code == 302 and r.headers['Location'].endswith('/dashboard')
     assert 'id="revalidar"' not in c.get('/relatorio?arquivo=a.pdf', headers=SERVIDOR).get_data(as_text=True)
     assert c.get('/pdf?arquivo=a.pdf', headers=SERVIDOR).status_code == 200
 
@@ -305,7 +309,9 @@ def test_servidor_consulta_mas_nao_administra(com_login):
 def test_admin_administra(com_login):
     c, planos = com_login
     html = c.get('/dashboard', headers=ADMIN).get_data(as_text=True)
-    assert 'admin@ifc.edu.br' in html and 'Administrador:' in html and 'id="validar"' in html and 'id="soltar"' in html
+    assert 'admin@ifc.edu.br' in html and 'Administrador:' in html and 'id="validar"' in html
+    assert 'href="/administracao"' in html
+    assert 'id="soltar"' in c.get('/administracao', headers=ADMIN).get_data(as_text=True)
     r = c.post('/planos', headers=ADMIN, data=_envio(('b.pdf', PDF)), content_type='multipart/form-data')
     assert r.status_code == 200
     assert c.delete('/planos?arquivo=b.pdf', headers=ADMIN).status_code == 200
@@ -432,7 +438,7 @@ def test_meus_planos_agrupados_por_curso_e_periodo(com_login, monkeypatch):
 def test_paginas_usam_css_e_js_de_static_com_versao(cliente):
     import re
     c, _ = cliente
-    for pagina in ('/dashboard', '/meus-planos'):
+    for pagina in ('/dashboard', '/meus-planos', '/administracao'):
         html = c.get(pagina).get_data(as_text=True)
         arquivos = re.findall(r'(?:href|src)="(/static/[^"?]+)\?v=[0-9a-f]{10}"', html)
         assert arquivos, pagina

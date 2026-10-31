@@ -1,0 +1,11 @@
+{#- Barra de status da validação, logo abaixo do cabeçalho (dashboard e administração). Mostra a última
+    validação ou o andamento; enquanto valida, fica fixa no topo com a barra de progresso (static/js/status.js).
+    Administradores têm o botão "Validar agora". -#}
+<section class="barra-status" aria-label="Situação da validação">
+  <div class="container-lg">
+    <i class="fas fa-sync-alt icone" aria-hidden="true"></i>
+    <p class="msg" id="status-msg" role="status">Carregando…</p>
+    {% if admin %}<button class="br-button primary small" id="validar" type="button"><i class="fas fa-play" aria-hidden="true"></i> Validar agora</button>{% endif %}
+  </div>
+  <div class="barra" id="barra" hidden><div></div></div>
+</section>

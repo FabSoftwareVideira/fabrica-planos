@@ -1,28 +1,6 @@
-/* Dashboard (sobre o Design System gov.br e ds.css): painéis, resumo, filtros e cards dos planos. */
+/* Dashboard (sobre o Design System gov.br e ds.css): resultados, resumo, filtros e cards dos planos. */
 h2{font-size:var(--font-size-scale-up-02);margin:0}
 .papel{margin:0 0 var(--spacing-scale-2x);font-size:var(--font-size-scale-down-01);color:var(--gray-60)}
-.linha{display:flex;align-items:center;gap:var(--spacing-scale-2x);flex-wrap:wrap}
-.linha .msg{margin:0}
-
-/* Painéis de validação e de PDFs lado a lado em telas largas */
-.paineis{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(420px,100%),1fr));gap:0 var(--spacing-scale-3x)}
-.cab-planos{display:flex;align-items:center;justify-content:space-between;gap:var(--spacing-scale-base)}
-.excluir{color:var(--danger)}
-.excluir:disabled,.revalidar:disabled{color:var(--gray-20);cursor:not-allowed}
-
-/* Barra de progresso da validação */
-.barra{height:8px;background:var(--gray-10);border-radius:var(--surface-rounder-pill);overflow:hidden;margin-top:var(--spacing-scale-2x)}
-.barra>div{height:100%;width:0;background:var(--interactive);transition:width .4s}
-
-/* Lista dos PDFs da pasta (montada por dashboard.js) */
-.arquivos{list-style:none;margin:var(--spacing-scale-2x) 0 0;padding:0;max-height:320px;overflow:auto}
-.arquivos li{display:flex;align-items:center;flex-wrap:wrap;gap:var(--spacing-scale-half) var(--spacing-scale-2x);
-  padding:var(--spacing-scale-base) var(--spacing-scale-half);border-top:1px solid var(--gray-10);font-size:var(--font-size-scale-down-01)}
-.arquivos li a{flex:1 1 220px;overflow-wrap:anywhere;font-weight:var(--font-weight-semi-bold)}
-.arquivos li span{color:var(--gray-50);white-space:nowrap}
-.arquivos button{border:0;background:none;font:inherit;cursor:pointer;color:var(--interactive);font-weight:var(--font-weight-semi-bold);
-  padding:var(--spacing-scale-half)}
-.arquivos button.excluir{color:var(--danger)}
 
 /* Cabeçalho dos resultados: título, validação exibida e downloads */
 .cab-resultados{display:flex;align-items:center;gap:var(--spacing-scale-base) var(--spacing-scale-2x);flex-wrap:wrap;
@@ -52,7 +30,6 @@ select:focus,.busca input:focus{outline:2px solid var(--focus-color,#c2850c);out
   padding:0 var(--spacing-scale-2x);height:32px;font:inherit;font-size:var(--font-size-scale-down-01);font-weight:var(--font-weight-semi-bold);cursor:pointer}
 .chip[aria-pressed="true"]{background:var(--interactive);color:var(--pure-0)}
 .contagem{font-size:var(--font-size-scale-down-01);color:var(--gray-60);margin-left:auto}
-.plano[hidden],.grupo[hidden]{display:none}
 
 /* Grupos (curso e período, docente...) montados por dashboard.js */
 .cab-grupo{display:flex;align-items:baseline;gap:var(--spacing-scale-base) var(--spacing-scale-2x);flex-wrap:wrap;
@@ -73,6 +50,7 @@ select:focus,.busca input:focus{outline:2px solid var(--focus-color,#c2850c);out
 .plano .acoes{display:flex;flex-wrap:wrap;align-items:center;gap:var(--spacing-scale-base) var(--spacing-scale-2x)}
 .plano .acoes a,.plano .revalidar{font-size:var(--font-size-scale-down-01);font-weight:var(--font-weight-semi-bold);white-space:nowrap}
 .revalidar{border:0;background:none;color:var(--interactive);font:inherit;cursor:pointer;padding:0}
+.revalidar:disabled{color:var(--gray-20);cursor:not-allowed}
 .plano .seta{color:var(--gray-50);font-size:var(--font-size-scale-down-01);white-space:nowrap}
 .plano .seta i{transition:transform .2s}
 .plano[open] .seta i{transform:rotate(180deg)}

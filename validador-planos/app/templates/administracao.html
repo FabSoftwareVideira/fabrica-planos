@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+{#- Administração (só ADMIN_EMAILS): validação e gestão dos PDFs da pasta de planos (envio, lista, exclusão).
+    A lista vem de /planos (static/js/administracao.js); o andamento, de /status (static/js/status.js). -#}
+
+{% block titulo %}Administração · Validação de Planos de Ensino{% endblock %}
+
+{% block estilos %}
+{% include '_ds.html' %}
+  <link rel="stylesheet" href="{{ estatico('css/administracao.css') }}">
+{% endblock %}
+
+{% block corpo %}
+{% with titulo_pagina='Administração', email=usuario, links=[('Painel', '/dashboard', 'chart-bar'), ('Meus planos', '/meus-planos', 'folder-open')] %}
+{% include '_cabecalho.html' %}
+{% endwith %}
+{% include '_status.html' %}
+
+<main id="main">
+  <div class="container-lg py-4">
+    <section class="br-card">
+      <div class="card-header cab-planos">
+        <h2>Planos (PDFs) <span class="contagem" id="qtd-planos"></span></h2>
+        <button class="br-button small excluir" id="excluir-todos" type="button"><i class="fas fa-trash-alt" aria-hidden="true"></i> Excluir todos</button>
+      </div>
+      <div class="card-content">
+        <p class="ajuda">Os PDFs desta pasta são os planos avaliados em cada validação. Os professores também entregam os seus em "Meus planos", e eles aparecem aqui.</p>
+        <div class="soltar" id="soltar">
+          <i class="fas fa-cloud-upload-alt fa-2x" aria-hidden="true"></i>
+          <p class="mb-2"><span class="so-mouse">Arraste PDFs para cá ou </span>
+            <button class="br-button secondary small" id="escolher" type="button"><i class="fas fa-file-pdf" aria-hidden="true"></i> Escolher arquivos</button></p>
+          <input type="file" id="arquivo" accept="application/pdf,.pdf" multiple hidden>
+          <p class="dica">Somente PDF com texto selecionável (não digitalizado), até {{ max_mb }} MB por arquivo.</p>
+        </div>
+        <p class="msg" id="envio-msg" role="status" hidden></p>
+        <ul class="arquivos" id="lista"><li><span class="msg">Carregando…</span></li></ul>
+      </div>
+    </section>
+  </div>
+</main>
+
+{% include '_rodape.html' %}
+{% endblock %}
+
+{% block scripts %}
+<script>const MAX_MB = {{ max_mb }}, ADMIN = true;</script>
+<script src="{{ estatico('js/status.js') }}"></script>
+<script src="{{ estatico('js/administracao.js') }}"></script>
+{% endblock %}

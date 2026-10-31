@@ -1,11 +1,19 @@
-from flask import Blueprint, request
+from flask import Blueprint, redirect, render_template, request
 
 from ..avaliacao import pipeline
+from ..paginas import administracao
 from ..servicos.planos import NaoEncontrado, Ocupado
-from .comum import json_, ocupado, servicos, somente_admin
+from .comum import eh_admin, email, json_, ocupado, servicos, somente_admin
 
 # Só administradores (ADMIN_EMAILS): disparar validações e enviar/excluir quaisquer PDFs da pasta.
 bp = Blueprint('administracao', __name__)
+
+
+@bp.get('/administracao')
+def pagina():
+    if not eh_admin():  # quem só consulta vai para os resultados
+        return redirect('/dashboard')
+    return render_template('administracao.html', **administracao.contexto(email(), servicos().cfg.pdf_max_mb))
 
 
 @bp.post('/validar')

@@ -58,3 +58,16 @@ main{flex:1}
 .soltar.ativo{border-color:var(--interactive);background:var(--blue-5)}
 .dica{font-size:var(--font-size-scale-down-01);color:var(--gray-50);margin:0}
 @media (hover:none){.so-mouse{display:none}}  /* no celular não há arrastar e soltar */
+
+/* Barra de status da validação (dashboard e administração): fixa no topo enquanto uma validação roda */
+.barra-status{background:var(--pure-0);border-bottom:1px solid var(--gray-10)}
+.barra-status>.container-lg{display:flex;align-items:center;gap:var(--spacing-scale-base) var(--spacing-scale-2x);flex-wrap:wrap;
+  padding-top:var(--spacing-scale-base);padding-bottom:var(--spacing-scale-base)}
+.barra-status .icone{color:var(--interactive)}
+.barra-status .msg{margin:0;flex:1 1 220px;font-size:var(--font-size-scale-down-01)}
+body.validando .barra-status{position:sticky;top:0;z-index:20;box-shadow:0 2px 6px rgba(0,0,0,.12)}
+body.validando .barra-status .icone{animation:girar 1.2s linear infinite}
+@keyframes girar{to{transform:rotate(360deg)}}
+.barra{height:4px;background:var(--gray-10);overflow:hidden}
+.barra>div{height:100%;width:0;background:var(--interactive);transition:width .4s}
+body.validando #validar{display:none}  /* durante a validação o botão sai e fica só o andamento */

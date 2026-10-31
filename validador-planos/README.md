@@ -38,10 +38,14 @@ As páginas seguem o [Padrão Digital de Governo](https://www.gov.br/ds/) (Desig
 
 ## Dashboard
 
-Em `/dashboard` é possível:
+O dashboard (`/dashboard`) mostra os resultados a todos os servidores; o envio e a exclusão de PDFs ficam na página **Administração** (`/administracao`, só para `ADMIN_EMAILS`). As duas têm, logo abaixo do cabeçalho, a barra de status da validação: a última validação ou o andamento (plano atual e barra de progresso, fixa no topo enquanto valida) e, para administradores, o botão **Validar agora**. Ao terminar, abre os resultados novos no dashboard.
 
-- iniciar a validação (botão **Validar agora**) e acompanhar o progresso (plano atual, barra de andamento); ao terminar, a página abre os resultados novos;
-- enviar PDFs (arrastando ou escolhendo arquivos; um PDF com o mesmo nome é substituído), abrir e excluir os da pasta, um a um ou todos de uma vez (**Excluir todos**, que não apaga o histórico). Só entram arquivos `.pdf` de até `PDF_MAX_MB` MB (padrão 10) que abram e tenham texto selecionável; digitalizados (só imagem) são recusados com o aviso de que precisam de OCR;
+Na administração é possível:
+
+- enviar PDFs (arrastando ou escolhendo arquivos; um PDF com o mesmo nome é substituído), abrir e excluir os da pasta, um a um ou todos de uma vez (**Excluir todos**, que não apaga o histórico). Só entram arquivos `.pdf` de até `PDF_MAX_MB` MB (padrão 10) que abram e tenham texto selecionável; digitalizados (só imagem) são recusados com o aviso de que precisam de OCR.
+
+No dashboard é possível:
+
 - abrir o **Relatório** de cada plano avaliado: a avaliação de cada campo ao lado do texto extraído para ele, o texto completo do PDF, o prompt enviado e a resposta da IA. A barra do topo volta ao dashboard já no card do plano (ou `Esc`) e passa para o plano anterior/próximo (ou `←`/`→`). Planos validados antes desta versão só mostram o texto depois de uma nova validação;
 - **revalidar um plano só** (botão ↻ no card, no relatório ou na lista de PDFs, útil depois que o docente corrige o PDF): a linha dele na última validação é substituída (ou acrescentada, se for um PDF novo), sem rodar o lote;
 - ver os resultados agrupados, com o resumo de cada grupo, escolhendo em **Agrupar por**: curso e período (padrão; ver "Curso e período"), só período, só curso, docente, situação (aprovados, pendentes…) ou sem agrupar. O agrupamento é feito no navegador e a escolha fica guardada nele;
@@ -79,7 +83,8 @@ Em `/meus-planos` cada servidor entrega os próprios planos: o PDF enviado vai p
 | POST | `/validar` | `200 {"status":"iniciado"}`, `409` se já houver validação em andamento, `422` se a pasta não tiver PDFs |
 | POST | `/validar?arquivo=nome.pdf` | Revalida só esse plano e atualiza a última validação; com outra validação rodando, entra na fila (`{"status":"na_fila","posicao":N}`); `404` se o PDF não estiver na pasta |
 | GET | `/status` | Andamento: `rodando`, `total`, `processados`, `atual`, `iniciado_em`, `finalizado_em`, `erro`, `unico` (plano, numa revalidação) e `fila` (planos esperando) |
-| GET | `/dashboard?validacao=ID` | Página HTML com os controles e os resultados; sem `validacao`, a última |
+| GET | `/dashboard?validacao=ID` | Página HTML com os resultados; sem `validacao`, a última |
+| GET | `/administracao` | Página HTML de gestão dos PDFs e validação; quem não é administrador vai para o dashboard |
 | GET | `/planos` | Lista dos PDFs da pasta (`nome`, `dono`, `tamanho`, `modificado`) |
 | POST | `/planos` | Upload (multipart, campo `arquivos`, vários por vez, até `PDF_MAX_MB` por arquivo e 100 MB no total). Responde `salvos` e `recusados` (com o motivo); `409` durante a validação |
 | DELETE | `/planos?arquivo=nome.pdf` | Exclui o PDF; `409` durante a validação |

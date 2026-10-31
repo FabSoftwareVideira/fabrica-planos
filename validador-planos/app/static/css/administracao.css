@@ -1,0 +1,17 @@
+/* Administração (sobre o Design System gov.br e ds.css): gestão dos PDFs da pasta de planos. */
+h2{font-size:var(--font-size-scale-up-02);margin:0}
+.cab-planos{display:flex;align-items:center;justify-content:space-between;gap:var(--spacing-scale-base)}
+.ajuda{margin:0;color:var(--gray-60);font-size:var(--font-size-scale-down-01)}
+.excluir{color:var(--danger)}
+.excluir:disabled,.arquivos button:disabled{color:var(--gray-20);cursor:not-allowed}
+
+/* Lista dos PDFs da pasta (montada por administracao.js) */
+.arquivos{list-style:none;margin:var(--spacing-scale-2x) 0 0;padding:0}
+.arquivos li{display:flex;align-items:center;flex-wrap:wrap;gap:var(--spacing-scale-half) var(--spacing-scale-2x);
+  padding:var(--spacing-scale-base) var(--spacing-scale-half);border-top:1px solid var(--gray-10);font-size:var(--font-size-scale-down-01)}
+.arquivos li a{flex:1 1 220px;overflow-wrap:anywhere;font-weight:var(--font-weight-semi-bold)}
+.arquivos li span{color:var(--gray-50);white-space:nowrap}
+.arquivos button{border:0;background:none;font:inherit;cursor:pointer;color:var(--interactive);font-weight:var(--font-weight-semi-bold);
+  padding:var(--spacing-scale-half)}
+.arquivos button.excluir{color:var(--danger)}
+

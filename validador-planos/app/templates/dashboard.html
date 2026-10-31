@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% from '_macros.html' import tag_status %}
-{#- Dashboard: painel de validação, gestão dos PDFs (administradores), histórico, resumo e um card por plano.
-    O andamento (/status), a lista de PDFs (/planos), os filtros e o agrupamento ficam em static/js/dashboard.js.
+{#- Dashboard: resultados da validação (histórico, resumo, filtros e um card por plano), para todos os servidores.
+    A gestão dos PDFs fica em Administração; a barra de status, em _status.html (static/js/status.js).
     No Padrão Digital de Governo (Design System gov.br). -#}
 
 {% block estilos %}
@@ -10,60 +10,18 @@
 {% endblock %}
 
 {% block corpo %}
-{% with titulo_pagina='Painel de validação', email=usuario, links=[('Meus planos', '/meus-planos', 'folder-open')] %}
+{% with titulo_pagina='Painel de validação', email=usuario,
+         links=([('Administração', '/administracao', 'cog')] if admin else []) + [('Meus planos', '/meus-planos', 'folder-open')] %}
 {% include '_cabecalho.html' %}
 {% endwith %}
+{% include '_status.html' %}
 
 <main id="main">
   <div class="container-lg py-4">
     {% if usuario %}
-    <p class="papel"><i class="fas fa-{{ 'user-shield' if admin else 'user' }}" aria-hidden="true"></i> {{ 'Administrador: envia PDFs e dispara validações' if admin else 'Consulta: vê resultados, relatórios e PDFs' }}</p>
+    <p class="papel"><i class="fas fa-{{ 'user-shield' if admin else 'user' }}" aria-hidden="true"></i> {{ 'Administrador: envia PDFs e dispara validações' if admin else 'Consulta: vê resultados, relatórios e PDFs' }}
+      {%- if not admin %} · para entregar o seu plano, use <a href="/meus-planos">Meus planos</a>{% endif %}</p>
     {% endif %}
-
-    <div class="paineis">
-      <section class="br-card">
-        <div class="card-header"><h2>Validação</h2></div>
-        <div class="card-content">
-          <div class="linha">
-            {% if admin %}<button class="br-button primary" id="validar" type="button"><i class="fas fa-play" aria-hidden="true"></i> Validar agora</button>{% endif %}
-            <p class="msg" id="status-msg" role="status">Carregando…</p>
-          </div>
-          <div class="barra" id="barra" hidden><div></div></div>
-        </div>
-      </section>
-
-      {% if admin %}
-      {# Só para administradores: envio e exclusão dos PDFs. #}
-      <section class="br-card">
-        <div class="card-header cab-planos">
-          <h2>Planos (PDFs) <span class="contagem" id="qtd-planos"></span></h2>
-          <button class="br-button small excluir" id="excluir-todos" type="button"><i class="fas fa-trash-alt" aria-hidden="true"></i> Excluir todos</button>
-        </div>
-        <div class="card-content">
-          <div class="soltar" id="soltar">
-            <i class="fas fa-cloud-upload-alt fa-2x" aria-hidden="true"></i>
-            <p class="mb-2"><span class="so-mouse">Arraste PDFs para cá ou </span>
-              <button class="br-button secondary small" id="escolher" type="button"><i class="fas fa-file-pdf" aria-hidden="true"></i> Escolher arquivos</button></p>
-            <input type="file" id="arquivo" accept="application/pdf,.pdf" multiple hidden>
-            <p class="dica">Somente PDF com texto selecionável (não digitalizado), até {{ max_mb }} MB por arquivo.</p>
-          </div>
-          <p class="msg" id="envio-msg" role="status" hidden></p>
-          <ul class="arquivos" id="lista"></ul>
-        </div>
-      </section>
-      {% else %}
-      {# No lugar do painel de PDFs: leva o professor à entrega do próprio plano. #}
-      <section class="br-card">
-        <div class="card-header"><h2>Entregar plano de ensino</h2></div>
-        <div class="card-content">
-          <div class="linha">
-            <p class="msg">Envie o PDF do seu plano e acompanhe a avaliação automática.</p>
-            <a class="br-button primary" href="/meus-planos"><i class="fas fa-folder-open" aria-hidden="true"></i> Meus planos</a>
-          </div>
-        </div>
-      </section>
-      {% endif %}
-    </div>
 
     {% if execucao is none %}
     <div class="cab-resultados"><h2>Resultados</h2></div>
@@ -161,5 +119,6 @@
 
 {% block scripts %}
 <script>const MAX_MB = {{ max_mb }}, ADMIN = {{ 'true' if admin else 'false' }};</script>
+<script src="{{ estatico('js/status.js') }}"></script>
 <script src="{{ estatico('js/dashboard.js') }}"></script>
 {% endblock %}
