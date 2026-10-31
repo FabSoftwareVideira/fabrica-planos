@@ -59,13 +59,13 @@ def _card(indice, linha, validacao, pdfs_guardados, ultima, ident=None, docentes
         + (' data-pdf="1"' if linha.get('Arquivo') in pdfs_guardados else '')
         + _atributos_grupo(ident, docentes) + ' '
         'style="background:#fff;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.1);margin-bottom:12px">'
-        '<summary style="display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer;list-style:none">'
-        '<span style="flex:1;min-width:0"><span style="font-weight:600">' + escape(nome) + '</span>' + sub + '</span>'
-        + selo(linha.get('Status Geral', ''))
-        + link + '<span style="color:#9ca3af;font-size:12px">▼ detalhes</span></summary>'
-        '<div style="padding:0 16px 16px">'
+        # Título e ações quebram em duas linhas quando não cabem lado a lado (celular).
+        '<summary><span class="titulo"><span class="nome">' + escape(nome) + '</span>' + sub + '</span>'
+        '<span class="acoes">' + selo(linha.get('Status Geral', ''))
+        + link + '<span class="seta">▼ detalhes</span></span></summary>'
+        '<div class="corpo">'
         + ('<p style="margin:0 0 12px;font-size:13px;color:#6b7280">' + escape(observacao) + '</p>' if observacao else '')
-        + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px">'
+        + '<div class="topicos">'
         + ''.join(topicos) + '</div></div></details>'
     )
 
@@ -126,6 +126,48 @@ ESTILO = (
     '.plano{scroll-margin-top:16px;transition:box-shadow .3s}'
     '.plano.destaque{box-shadow:0 0 0 3px #93c5fd !important}'
     '.usuario{margin:-16px 0 24px;font-size:14px;color:#6b7280}.usuario a{color:#2563eb}'
+    '.pagina{max-width:1100px;margin:0 auto;padding:32px 16px}'
+    '.pagina>h1{margin:0 0 24px}'
+    '.resumo{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:24px}'
+    '.cartao{background:#fff;border-radius:12px;padding:20px;box-shadow:0 1px 3px rgba(0,0,0,.1)}'
+    '.cartao .rot{font-size:13px;color:#6b7280}'
+    '.cartao .num{font-size:32px;font-weight:700}'
+    '.cartao .num span{font-size:14px;color:#9ca3af;font-weight:400}'
+    '.plano>summary{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:14px 16px;cursor:pointer;'
+    'list-style:none}'
+    '.plano .titulo{flex:1 1 280px;min-width:0;overflow-wrap:anywhere}'
+    '.plano .nome{font-weight:600}'
+    '.plano .acoes{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px}'
+    '.plano .seta{color:#9ca3af;font-size:12px;white-space:nowrap}'
+    '.plano .corpo{padding:0 16px 16px}'
+    '.topicos{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(240px,100%),1fr));gap:10px}'
+    # Celular: menos margem, campos ocupando a linha toda e fonte de 16px nos campos (o iOS dá zoom abaixo disso).
+    '@media (max-width:600px){'
+    '.pagina{padding:20px 12px 32px}'
+    '.pagina>h1{font-size:22px;margin-bottom:16px}'
+    '.usuario{margin:-8px 0 16px}'
+    '.painel{padding:16px}'
+    '.resumo{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:16px}'
+    '.cartao{padding:12px 14px}'
+    '.cartao .num{font-size:24px}'
+    '.cab-resultados{margin-top:24px}'
+    '.cab-resultados h2{flex-basis:100%}'
+    '.cab-resultados select{flex:1 1 100%}'
+    '.filtros{padding:12px}'
+    '.filtros input,.filtros select,.cab-resultados select{font-size:16px}'
+    '.filtros input,.filtros select{flex:1 1 100%}'
+    '.agrupar{flex:1 1 100%}'
+    '.agrupar select{flex:1 1 auto;min-width:0}'
+    '.contagem{margin-left:0}'
+    '.plano>summary{padding:12px 14px}'
+    '.plano .corpo{padding:0 14px 14px}'
+    '.arquivos li{flex-wrap:wrap;gap:2px 12px}'
+    '.arquivos li a{flex-basis:100%}'
+    '.arquivos li span{margin-right:auto}'
+    '.soltar{padding:14px}'
+    '.cab-grupo{font-size:16px}'
+    '.cab-grupo a{margin-left:0}'
+    '}'
 )
 
 PAINEL_VALIDACAO = (
@@ -537,18 +579,14 @@ def gerar_html(linhas, max_mb=10, execucoes=(), execucao=None, usuario='', admin
     def pct(n):
         return round(n / total * 100) if total else 0
 
-    cartoes = (
-        '<div style="background:#fff;border-radius:12px;padding:20px;box-shadow:0 1px 3px rgba(0,0,0,.1)">'
-        '<div style="font-size:13px;color:#6b7280">Total de planos</div>'
-        '<div style="font-size:32px;font-weight:700">' + str(total) + '</div></div>'
-    )
+    cartoes = ('<div class="cartao"><div class="rot">Total de planos</div><div class="num">' + str(total)
+               + '</div></div>')
     for rotulo, valor, cor in (('Aprovados', ok, '#22c55e'), ('Pendentes', pendente, '#eab308'),
                                ('Com problemas', problema, '#ef4444')):
         cartoes += (
-            '<div style="background:#fff;border-radius:12px;padding:20px;box-shadow:0 1px 3px rgba(0,0,0,.1);'
-            'border-left:4px solid ' + cor + '"><div style="font-size:13px;color:#6b7280">' + rotulo + '</div>'
-            '<div style="font-size:32px;font-weight:700;color:' + cor + '">' + str(valor)
-            + ' <span style="font-size:14px;color:#9ca3af">(' + str(pct(valor)) + '%)</span></div></div>'
+            '<div class="cartao" style="border-left:4px solid ' + cor + '"><div class="rot">' + rotulo + '</div>'
+            '<div class="num" style="color:' + cor + '">' + str(valor)
+            + ' <span>(' + str(pct(valor)) + '%)</span></div></div>'
         )
 
     if execucao is not None and linhas:
@@ -571,12 +609,11 @@ def gerar_html(linhas, max_mb=10, execucoes=(), execucao=None, usuario='', admin
         '<title>Validação de Planos de Ensino</title>'
         '<style>details summary::-webkit-details-marker{display:none}' + ESTILO + '</style></head>'
         '<body style="margin:0;font-family:system-ui,-apple-system,sans-serif;background:#f3f4f6;color:#111827">'
-        '<div style="max-width:1100px;margin:0 auto;padding:32px 16px">'
-        '<h1 style="margin:0 0 24px">📋 Validação de Planos de Ensino</h1>' + _usuario(usuario, admin)
+        '<div class="pagina">'
+        '<h1>📋 Validação de Planos de Ensino</h1>' + _usuario(usuario, admin)
         + PAINEL_VALIDACAO.replace('{BOTAO}', '<button class="botao" id="validar">▶ Validar agora</button>' if admin else '')
         + (PAINEL_PLANOS.replace('{MAX_MB}', str(max_mb)) if admin else PAINEL_ENTREGA)
         + _cabecalho_resultados(list(execucoes), execucao) +
-        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:24px">'
-        + cartoes + '</div>' + corpo +
+        '<div class="resumo">' + cartoes + '</div>' + corpo +
         '</div><script>const MAX_MB = ' + str(int(max_mb)) + ', ADMIN = ' + ('true' if admin else 'false') + ';' + SCRIPT + '</script></body></html>'
     )

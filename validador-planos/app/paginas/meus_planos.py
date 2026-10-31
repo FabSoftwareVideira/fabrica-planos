@@ -18,6 +18,7 @@ ESTILO = ESTILO_DASHBOARD + (
     '.meus .acoes a{color:#2563eb;font-weight:600;text-decoration:none}'
     '.selo{color:#fff;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;white-space:nowrap}'
     '.aviso{background:#eff6ff;color:#1e40af;border-radius:8px;padding:10px 14px;font-size:14px;margin:0 0 16px}'
+    '@media (max-width:600px){.meus li{padding:12px 2px}.meus .acoes{gap:10px 16px}}'
 )
 
 CORPO = (
@@ -162,8 +163,8 @@ def gerar_html(email='', max_mb=10):
         '<meta name="viewport" content="width=device-width, initial-scale=1">'
         '<title>Meus planos · Validação de Planos de Ensino</title><style>' + ESTILO + '</style></head>'
         '<body style="margin:0;font-family:system-ui,-apple-system,sans-serif;background:#f3f4f6;color:#111827">'
-        '<div style="max-width:900px;margin:0 auto;padding:32px 16px">'
-        '<h1 style="margin:0 0 24px">📋 Meus planos de ensino</h1>' + usuario
+        '<div class="pagina" style="max-width:900px">'
+        '<h1>📋 Meus planos de ensino</h1>' + usuario
         + CORPO.replace('{MAX_MB}', str(max_mb)) +
         '</div><script>const MAX_MB = ' + str(int(max_mb)) + ';' + SCRIPT + '</script></body></html>'
     )

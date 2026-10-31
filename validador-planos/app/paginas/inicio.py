@@ -29,6 +29,8 @@ ESTILO = (
     '.status{display:flex;flex-wrap:wrap;gap:16px;margin-top:16px;font-size:14px;color:#4b5563}'
     '.status b{color:#fff;border-radius:10px;padding:2px 8px;font-size:11px;margin-right:6px}'
     '.rodape{text-align:center;font-size:13px;color:#9ca3af;margin-top:32px}'
+    '@media (max-width:600px){.pagina{padding:32px 16px}.topo{margin-bottom:28px}.topo p{font-size:16px}'
+    '.painel{padding:18px}}'
 )
 
 # Marca "G" do Google, como pedem as diretrizes do botão "Fazer login com o Google".

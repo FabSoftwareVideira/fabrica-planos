@@ -42,6 +42,20 @@ ESTILO = (
     'pre.vazio{color:#dc2626;font-family:inherit}'
     'details.caixa>summary{cursor:pointer;font-weight:600}'
     'details.caixa pre{max-height:600px}'
+    '.curto{display:none}'
+    # Celular: barra de navegação compacta (rótulos curtos) para não ocupar meia tela fixa no topo.
+    '@media (max-width:600px){'
+    '.nav>div{padding:8px 12px;gap:4px}'
+    '.nav a,.nav span.off,.nav .revalidar{padding:6px 8px}'
+    '.longo{display:none}.curto{display:inline}'
+    '.nav .pos{font-size:12px}'
+    '.pagina{padding:16px 12px 32px}'
+    'h1{font-size:20px}'
+    '.meta{gap:6px 14px;font-size:13px}'
+    '.caixa{padding:14px}'
+    '.cab{flex-wrap:wrap}'
+    'pre{font-size:12px;max-height:260px}'
+    '}'
 )
 
 
@@ -102,12 +116,13 @@ def _navegacao(linhas, indice, validacao, eh_ultima, data, pode_revalidar):
         rotulo += ' · validação anterior de ' + escape(data)
     return (
         '<nav class="nav"><div>'
-        '<a class="voltar" href="' + dashboard + '#plano-' + str(indice) + '" data-tecla="Escape">← Voltar ao dashboard</a>'
+        '<a class="voltar" href="' + dashboard + '#plano-' + str(indice) + '" data-tecla="Escape">← <span class="longo">Voltar ao dashboard</span>'
+        '<span class="curto">Dashboard</span></a>'
         + _link_plano(linhas, indice - 1, validacao, '‹ Anterior', 'ArrowLeft')
         + _link_plano(linhas, indice + 1, validacao, 'Próximo ›', 'ArrowRight')
         + '<span class="pos">' + rotulo + '</span>'
         + ('<button type="button" class="revalidar" id="revalidar" data-arquivo="'
-           + escape(linhas[indice].get('Arquivo', ''), quote=True) + '">↻ Revalidar este plano</button>'
+           + escape(linhas[indice].get('Arquivo', ''), quote=True) + '">↻ Revalidar<span class="longo"> este plano</span></button>'
            if pode_revalidar else '')
         + '</div></nav>'
     )
@@ -123,12 +138,13 @@ ATALHOS = (
 # Revalida o plano (atualiza a última validação), acompanha /status e recarrega o relatório ao terminar.
 REVALIDAR = r"""
 const botao = document.getElementById('revalidar');
+const rotuloRevalidar = botao && botao.innerHTML;
 if (botao) botao.onclick = async () => {
   botao.disabled = true; botao.textContent = 'Revalidando…';
   let r, d = {};
   try { r = await fetch('/validar?arquivo=' + encodeURIComponent(botao.dataset.arquivo), { method: 'POST' }); d = await r.json(); }
   catch { r = { ok: false }; d = { mensagem: 'Sem conexão com o servidor' }; }
-  if (!r.ok) { alert(d.mensagem || d.erro || 'Não foi possível revalidar'); botao.disabled = false; botao.textContent = '↻ Revalidar este plano'; return; }
+  if (!r.ok) { alert(d.mensagem || d.erro || 'Não foi possível revalidar'); botao.disabled = false; botao.innerHTML = rotuloRevalidar; return; }
   const esperar = async () => {
     try { const s = await (await fetch('/status')).json(); if (!s.rodando) { location.reload(); return; } } catch {}
     setTimeout(esperar, 2000);
