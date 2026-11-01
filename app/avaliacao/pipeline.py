@@ -126,6 +126,37 @@ def revalidar(cfg, andamento, nome):
         andamento.finalizar(erro)
 
 
+def nomes_na_validacao(cfg):
+    """Arquivos com avaliação na validação atual (que pode ter planos cujo PDF já saiu da pasta)."""
+    execucoes = historico.listar(cfg.historico_dir)
+    if not execucoes:
+        return []
+    return [l.get('Arquivo') for l in csvsaida.ler_csv(execucoes[0].csv_path)]
+
+
+def remover_da_validacao(cfg, nomes):
+    """Tira planos excluídos da validação atual: a linha do CSV, os detalhes, a cópia do PDF e as contagens.
+    Chamar com a trava do validador."""
+    execucoes = historico.listar(cfg.historico_dir)
+    if not execucoes:
+        return
+    execucao = execucoes[0]
+    linhas = csvsaida.ler_csv(execucao.csv_path)
+    restantes = [l for l in linhas if l.get('Arquivo') not in nomes]
+    if len(restantes) != len(linhas):
+        csvsaida.escrever_csv(execucao.csv_path, restantes)
+        csvsaida.escrever_csv(cfg.csv_path, restantes)
+        meta = execucao.meta() or {}
+        meta.update(total=len(restantes), processados=len(restantes), **historico.contar(restantes))
+        historico.gravar_meta(execucao, meta)
+    for nome in nomes:
+        detalhes.remover(execucao.detalhes_dir, nome)
+        copia = os.path.join(execucao.pdfs_dir, nome)
+        if os.path.isfile(copia):
+            os.remove(copia)
+    log.info('Removido(s) da validação %s: %s', execucao.id, ', '.join(nomes))
+
+
 def _registrar(cfg, execucao, linhas, nomes, iniciado_em, erro):
     """Fecha a execução no histórico (mesmo interrompida, com o que foi validado) e poda as antigas."""
     try:

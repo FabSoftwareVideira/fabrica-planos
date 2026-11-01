@@ -1,46 +1,69 @@
 // Administração: envio, lista e exclusão dos PDFs da pasta de planos. MAX_MB vem da página;
 // $, msg, hora, corpo e rodando vêm de status.js (carregado antes).
+// Excluir aparece só nos planos que quem vê enviou (ou sem dono) e apaga também a avaliação; nos de
+// outras pessoas, Ocultar tira o plano do painel sem apagar nada (Mostrar desfaz).
 function kb(n) { return n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB'; }
+
+function botao(classe, icone, rotulo, acao) {
+  const b = document.createElement('button');
+  b.type = 'button'; b.className = classe; b.innerHTML = `<i class="fas ${icone}" aria-hidden="true"></i> ${rotulo}`;
+  b.disabled = rodando; b.onclick = acao;
+  return b;
+}
 
 async function carregarPlanos() {
   const { planos = [] } = await corpo(await fetch('/planos'));
   $('qtd-planos').textContent = `(${planos.length})`;
   const itens = planos.map(p => {
     const li = document.createElement('li');
-    const a = document.createElement('a');
-    a.href = '/pdf?arquivo=' + encodeURIComponent(p.nome); a.target = '_blank'; a.rel = 'noopener';
-    a.innerHTML = '<i class="fas fa-file-pdf" aria-hidden="true"></i> '; a.append(p.nome);
+    let titulo;
+    if (p.na_pasta) {
+      titulo = document.createElement('a');
+      titulo.href = '/pdf?arquivo=' + encodeURIComponent(p.nome); titulo.target = '_blank'; titulo.rel = 'noopener';
+    } else {  // o PDF já saiu da pasta; resta a avaliação na validação atual
+      titulo = document.createElement('a');
+      titulo.href = '/relatorio?arquivo=' + encodeURIComponent(p.nome);
+    }
+    titulo.innerHTML = '<i class="fas fa-file-pdf" aria-hidden="true"></i> '; titulo.append(p.nome);
     const info = document.createElement('span');
-    info.textContent = kb(p.tamanho) + ' · ' + hora(p.modificado) + (p.dono ? ' · ' + p.dono : '');
-    const val = document.createElement('button');
-    val.type = 'button'; val.className = 'revalidar'; val.innerHTML = '<i class="fas fa-redo" aria-hidden="true"></i> Validar'; val.disabled = rodando; val.dataset.arquivo = p.nome;
-    val.title = 'Valida só este PDF e atualiza a última validação';
-    const del = document.createElement('button');
-    del.type = 'button'; del.className = 'excluir'; del.innerHTML = '<i class="fas fa-trash-alt" aria-hidden="true"></i> Excluir'; del.disabled = rodando;
-    del.onclick = () => excluir(p.nome);
-    li.append(a, info, val, del);
+    const partes = p.na_pasta ? [kb(p.tamanho), hora(p.modificado)] : ['só a avaliação (PDF excluído)'];
+    if (p.dono) partes.push(p.dono);
+    if (p.oculto) partes.push('oculto do painel');
+    info.textContent = partes.join(' · ');
+    const acoes = [];
+    if (p.na_pasta) {
+      const val = botao('revalidar', 'fa-redo', 'Validar', null);
+      val.dataset.arquivo = p.nome; val.title = 'Valida só este PDF e atualiza a última validação';
+      acoes.push(val);
+    }
+    if (p.oculto) acoes.push(botao('ocultar', 'fa-eye', 'Mostrar', () => mostrar(p.nome)));
+    else if (!p.pode_excluir) acoes.push(botao('ocultar', 'fa-eye-slash', 'Ocultar', () => ocultar(p.nome)));
+    if (p.pode_excluir) acoes.push(botao('excluir', 'fa-trash-alt', 'Excluir', () => excluir(p.nome)));
+    li.append(titulo, info, ...acoes);
     return li;
   });
   if (!itens.length) { const li = document.createElement('li'); li.innerHTML = '<span>Nenhum PDF na pasta.</span>'; itens.push(li); }
   $('lista').replaceChildren(...itens);
-  $('excluir-todos').hidden = !planos.length;
 }
 
-async function excluirTodos() {
-  const n = document.querySelectorAll('#lista a').length;
-  if (!confirm(`Excluir todos os ${n} PDF(s) da pasta? Os resultados do histórico não são apagados.`)) return;
-  const r = await fetch('/planos/todos', { method: 'DELETE' });
+async function acaoNoPlano(url, metodo, sucesso) {
+  const r = await fetch(url, { method: metodo });
   const d = await corpo(r);
-  msg($('envio-msg'), r.ok ? `${d.excluidos} PDF(s) excluído(s).` : (d.erro || d.mensagem || 'Falha ao excluir'), r.ok ? 'ok' : 'erro');
+  msg($('envio-msg'), r.ok ? sucesso : (d.erro || d.mensagem || 'Falha na operação'), r.ok ? 'ok' : 'erro');
   carregarPlanos();
 }
 
-async function excluir(nome) {
-  if (!confirm(`Excluir "${nome}"?`)) return;
-  const r = await fetch('/planos?arquivo=' + encodeURIComponent(nome), { method: 'DELETE' });
-  const d = await corpo(r);
-  msg($('envio-msg'), r.ok ? `"${nome}" excluído.` : (d.erro || d.mensagem || 'Falha ao excluir'), r.ok ? 'ok' : 'erro');
-  carregarPlanos();
+function excluir(nome) {
+  if (!confirm(`Excluir "${nome}"? O PDF e a avaliação dele no painel serão apagados.`)) return;
+  acaoNoPlano('/planos?arquivo=' + encodeURIComponent(nome), 'DELETE', `"${nome}" excluído, com a avaliação.`);
+}
+
+function ocultar(nome) {
+  acaoNoPlano('/planos/ocultar?arquivo=' + encodeURIComponent(nome), 'POST', `"${nome}" oculto do painel.`);
+}
+
+function mostrar(nome) {
+  acaoNoPlano('/planos/ocultar?arquivo=' + encodeURIComponent(nome), 'DELETE', `"${nome}" de volta ao painel.`);
 }
 
 // Checagem prévia no navegador (o servidor repete todas e ainda confere se o PDF tem texto).
@@ -72,7 +95,6 @@ async function enviar(arquivos) {
   if (salvos.length) carregarPlanos();
 }
 
-$('excluir-todos').onclick = excluirTodos;
 $('escolher').onclick = () => $('arquivo').click();
 $('arquivo').onchange = e => { enviar([...e.target.files]); e.target.value = ''; };
 const zona = $('soltar');

@@ -47,7 +47,9 @@ O dashboard (`/dashboard`) mostra os resultados a todos os servidores; o envio e
 
 Na administração é possível:
 
-- enviar PDFs (arrastando ou escolhendo arquivos; um PDF com o mesmo nome é substituído), abrir e excluir os da pasta, um a um ou todos de uma vez (**Excluir todos**, que não apaga o resultado da validação). Só entram arquivos `.pdf` de até `PDF_MAX_MB` MB (padrão 10) que abram e tenham texto selecionável; digitalizados (só imagem) são recusados com o aviso de que precisam de OCR.
+- enviar PDFs (arrastando ou escolhendo arquivos; um PDF com o mesmo nome é substituído, se for dele ou sem dono). O administrador fica registrado como dono do que envia. Só entram arquivos `.pdf` de até `PDF_MAX_MB` MB (padrão 10) que abram e tenham texto selecionável; digitalizados (só imagem) são recusados com o aviso de que precisam de OCR;
+- **excluir** os planos que ele enviou e os sem dono (copiados direto para a pasta ou enviados antes do registro de dono). Excluir apaga o PDF e também a avaliação dele na validação atual (linha do CSV, detalhes, cópia do PDF) e a revisão, então o plano sai do painel. Não há mais "Excluir todos";
+- **ocultar do painel** os planos de outras pessoas, que ele não pode excluir: somem do dashboard e da visão da coordenação, mas o PDF, a avaliação e a revisão continuam (o CSV e o zip da validação também os trazem). **Mostrar** desfaz, e uma versão nova do PDF volta a aparecer sozinha. A lista também traz os planos que só restaram na avaliação (PDF já excluído), para limpá-los ou ocultá-los.
 
 No dashboard é possível:
 
@@ -60,7 +62,7 @@ No dashboard é possível:
 - ir direto ao parecer pelo botão **Revisar** do card, que aparece para a coordenação, o NDE e o NDB do curso do plano;
 - ver quais planos já foram **revisados** pela coordenação, NDE ou NDB (selo "Revisado" e o parecer no card) e agrupar por revisão. Com revisão, vale o status do revisor (ver "Revisão manual").
 
-Enquanto uma validação geral roda, envio e exclusão pelo administrador ficam bloqueados; o envio pelo professor (em "Meus planos") é aceito e avaliado em seguida. O acesso exige login com a conta Google `@ifc.edu.br` (ver "Login"). Qualquer servidor consulta resultados, relatórios e PDFs e entrega os próprios planos; o CSV e os zips ficam com quem tem papel de coordenação em algum curso e com os administradores; só os administradores (`ADMIN_EMAILS`) veem e usam **Validar agora**, ↻ Revalidar, envio e exclusão de quaisquer PDFs.
+Enquanto uma validação geral roda, envio e exclusão pelo administrador ficam bloqueados; o envio pelo professor (em "Meus planos") é aceito e avaliado em seguida. O acesso exige login com a conta Google `@ifc.edu.br` (ver "Login"). Qualquer servidor consulta resultados, relatórios e PDFs e entrega os próprios planos; o CSV e os zips ficam com quem tem papel de coordenação em algum curso e com os administradores; só os administradores (`ADMIN_EMAILS`) veem e usam **Validar agora**, ↻ Revalidar, envio de PDFs, exclusão dos que enviaram (ou sem dono) e ocultar os demais do painel.
 
 ## Visão da coordenação
 
@@ -99,7 +101,7 @@ Quem é da coordenação, do NDE ou do NDB de um curso confere a avaliação da 
 
 Em `/meus-planos` cada servidor entrega os próprios planos: o PDF enviado vai para a mesma pasta de planos do NDE (é a entrega oficial, no lugar da pasta do Drive) e a avaliação começa logo em seguida, só para ele. A página mostra os planos agrupados por curso e período, com a situação de cada um (na fila, avaliando, resultado com os campos a verificar e link para o relatório); o curso e o período são lidos já no envio, então o plano aparece no grupo certo antes mesmo de ser avaliado. Para corrigir, o professor ajusta no SIGAA e envia o PDF de novo com o mesmo nome, que substitui o anterior.
 
-- O professor só substitui e exclui os planos que ele enviou; um nome já usado por outra pessoa (ou por um PDF que veio do Drive/administrador, sem dono) é recusado, pedindo para renomear.
+- O professor só substitui e exclui os planos que ele enviou; um nome já usado por outra pessoa (ou por um PDF que veio do Drive/administrador, sem dono) é recusado, pedindo para renomear. Excluir apaga também a avaliação e a revisão do plano.
 - Quem enviou cada PDF fica em `resultados/donos.json` e aparece para o administrador na lista de PDFs da dashboard.
 - As avaliações rodam uma por vez (a GPU é uma só): com outra em andamento, o plano espera na fila, que também vale para o ↻ Revalidar do administrador. A fila fica na memória; se o container reiniciar, os planos que esperavam são avaliados na próxima validação geral.
 
@@ -116,10 +118,11 @@ Em `/meus-planos` cada servidor entrega os próprios planos: o PDF enviado vai p
 | GET | `/administracao/usuarios` | Usuários (tabela paginada, 20 por página; filtros `q`, `situacao`, `papel`, `ordem`, `pagina`); só administradores |
 | POST | `/administracao/usuarios/papel` | Dá (`acao=adicionar`) ou tira (`acao=remover`) do `email` o `papel` (`coordenador`, `nde` ou `ndb`) no `curso` (sigla); só administradores |
 | POST | `/administracao/usuarios/ativo` | Ativa (`ativo=1`) ou desativa (`ativo=0`) o `email` do formulário e volta à tabela; administradores de `ADMIN_EMAILS` não podem ser desativados |
-| GET | `/planos` | Lista dos PDFs da pasta (`nome`, `dono`, `tamanho`, `modificado`) |
-| POST | `/planos` | Upload (multipart, campo `arquivos`, vários por vez, até `PDF_MAX_MB` por arquivo e 100 MB no total). Responde `salvos` e `recusados` (com o motivo); `409` durante a validação |
-| DELETE | `/planos?arquivo=nome.pdf` | Exclui o PDF; `409` durante a validação |
-| DELETE | `/planos/todos` | Exclui todos os PDFs da pasta (`{"excluidos": N}`); `409` durante a validação |
+| GET | `/planos` | Lista dos PDFs da pasta e dos planos que só restaram na avaliação (`nome`, `dono`, `tamanho`, `modificado`, `na_pasta`, `oculto`, `pode_excluir`) |
+| POST | `/planos` | Upload (multipart, campo `arquivos`, vários por vez, até `PDF_MAX_MB` por arquivo e 100 MB no total). Responde `salvos` e `recusados` (com o motivo; um nome de outra pessoa é recusado); `409` durante a validação |
+| DELETE | `/planos?arquivo=nome.pdf` | Exclui o PDF e a avaliação dele; `403` se o plano for de outra pessoa, `404` se não estiver na pasta nem na validação, `409` durante a validação |
+| POST | `/planos/ocultar?arquivo=nome.pdf` | Oculta o plano do painel, sem apagar nada; `404` se não estiver na pasta nem na validação |
+| DELETE | `/planos/ocultar?arquivo=nome.pdf` | Volta a mostrar o plano no painel |
 | GET | `/relatorio?arquivo=nome.pdf` | Relatório HTML do plano, com o painel de revisão; `404` se o plano não estiver na validação atual |
 | POST | `/revisao` | Parecer (`arquivo`, `status` = `OK`, `PENDENTE` ou `REPROVADO`, `comentario`) ou, com `acao=desfazer`, desfaz a revisão; volta ao relatório. `403` para quem não tem papel no curso do plano |
 | GET | `/validacoes` | Resumo da validação atual (lista com um item; vazia antes da primeira) |
@@ -134,7 +137,7 @@ Em `/meus-planos` cada servidor entrega os próprios planos: o PDF enviado vai p
 | POST | `/meus-planos` | Entrega (multipart, campo `arquivos`); cada PDF salvo entra na fila de avaliação (`posicao`, 0 se já começou) |
 | DELETE | `/meus-planos?arquivo=nome.pdf` | Exclui um plano próprio; `403` se for de outra pessoa, `409` durante a validação geral |
 
-Com login exigido, toda rota (exceto `/` e `/health`) responde `401` sem o e-mail repassado pelo proxy, e `POST /validar`, `POST /planos`, `DELETE /planos` e `DELETE /planos/todos` respondem `403` para quem não está em `ADMIN_EMAILS`.
+Com login exigido, toda rota (exceto `/` e `/health`) responde `401` sem o e-mail repassado pelo proxy, e `POST /validar`, `POST /planos`, `DELETE /planos` e `/planos/ocultar` respondem `403` para quem não está em `ADMIN_EMAILS`.
 
 Validação automática todos os dias na hora `AGENDAMENTO_HORA` (padrão 5h, fuso `TZ`).
 

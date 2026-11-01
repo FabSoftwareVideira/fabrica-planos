@@ -207,16 +207,105 @@ def test_zip_csv_e_pdf_da_ultima_validacao(cliente):
     assert [v['id'] for v in c.get('/validacoes').json['validacoes']] == [nova.id, antiga.id]
 
 
-def test_excluir_todos(cliente):
+def test_nao_ha_mais_excluir_todos(cliente):
     c, planos = cliente
+    (planos / 'a.pdf').write_bytes(PDF)
+    assert c.delete('/planos/todos').status_code in (404, 405)
+    assert (planos / 'a.pdf').exists()
+
+
+def test_excluir_tira_o_plano_da_validacao_e_do_painel(cliente):
+    from app.armazenamento import csvsaida, detalhes
+    c, planos = cliente
+    s = _servicos(c)
+    c.post('/planos', data=_envio(('a.pdf', PDF), ('b.pdf', PDF)), content_type='multipart/form-data')
+    execucao = _execucao(c, ['a.pdf', 'b.pdf'], 10, pdfs=['a.pdf', 'b.pdf'])
     for nome in ('a.pdf', 'b.pdf'):
-        (planos / nome).write_bytes(PDF)
-    _servicos(c).validador.andamento.iniciar(1)
-    assert c.delete('/planos/todos').status_code == 409
-    _servicos(c).validador.andamento.finalizar()
-    r = c.delete('/planos/todos')
-    assert r.json == {'excluidos': 2}
-    assert list(planos.iterdir()) == []
+        detalhes.salvar(execucao.detalhes_dir, nome, {'texto': nome})
+    s.planos.revisoes.salvar('a.pdf', 'x', 'OK', 'OK', '', 'CC', 'coord@ifc.edu.br', 'Coord', 'coordenador')
+    assert 'href="/relatorio?arquivo=a.pdf"' in c.get('/dashboard').get_data(as_text=True)
+
+    assert c.delete('/planos?arquivo=a.pdf').status_code == 200
+    assert not (planos / 'a.pdf').exists()
+    assert [l['Arquivo'] for l in csvsaida.ler_csv(execucao.csv_path)] == ['b.pdf']
+    assert execucao.meta()['total'] == 1 and execucao.meta()['ok'] == 1
+    assert detalhes.ler(execucao.detalhes_dir, 'a.pdf') is None and detalhes.ler(execucao.detalhes_dir, 'b.pdf')
+    assert execucao.pdfs() == ['b.pdf']
+    assert s.planos.revisoes.obter('a.pdf') is None
+    html = c.get('/dashboard').get_data(as_text=True)
+    assert 'href="/relatorio?arquivo=a.pdf"' not in html and 'href="/relatorio?arquivo=b.pdf"' in html
+    assert c.get('/relatorio?arquivo=a.pdf').status_code == 404
+
+
+def test_lista_traz_avaliacoes_sem_pdf_para_limpar(cliente):
+    from app.armazenamento import csvsaida
+    c, planos = cliente
+    (planos / 'a.pdf').write_bytes(PDF)
+    execucao = _execucao(c, ['a.pdf', 'velho.pdf'], 10)  # velho.pdf saiu da pasta antes desta versão
+    lista = {p['nome']: p for p in c.get('/planos').json['planos']}
+    assert lista['a.pdf']['na_pasta'] and not lista['velho.pdf']['na_pasta']
+    assert lista['velho.pdf']['pode_excluir']  # sem dono: o administrador limpa
+    assert c.delete('/planos?arquivo=velho.pdf').status_code == 200
+    assert [l['Arquivo'] for l in csvsaida.ler_csv(execucao.csv_path)] == ['a.pdf']
+    assert [p['nome'] for p in c.get('/planos').json['planos']] == ['a.pdf']
+    assert c.delete('/planos?arquivo=velho.pdf').status_code == 404
+
+
+def test_admin_so_exclui_os_proprios_e_oculta_os_dos_outros(com_login):
+    from app.armazenamento import csvsaida, donos
+    c, planos = com_login
+    s = _servicos(c)
+    (planos / 'prof.pdf').write_bytes(PDF)
+    donos.definir(s.cfg.resultados_dir, 'prof.pdf', 'fulano@ifc.edu.br')
+    (planos / 'solto.pdf').write_bytes(PDF)  # copiado direto para a pasta: sem dono
+    c.post('/planos', headers=ADMIN, data=_envio(('meu.pdf', PDF)), content_type='multipart/form-data')
+    assert s.planos.dono('meu.pdf') == 'admin@ifc.edu.br'
+    execucao = _execucao(c, ['meu.pdf', 'prof.pdf', 'solto.pdf'], 10)
+
+    lista = {p['nome']: p for p in c.get('/planos', headers=ADMIN).json['planos']}
+    assert lista['meu.pdf']['pode_excluir'] and lista['solto.pdf']['pode_excluir']
+    assert not lista['prof.pdf']['pode_excluir']
+
+    # O plano de outra pessoa: não exclui nem substitui, mas oculta do painel
+    r = c.delete('/planos?arquivo=prof.pdf', headers=ADMIN)
+    assert r.status_code == 403 and 'ocultados' in r.json['erro']
+    r = c.post('/planos', headers=ADMIN, data=_envio(('prof.pdf', PDF)), content_type='multipart/form-data')
+    assert r.status_code == 400 and 'outra pessoa' in r.json['recusados'][0]['motivo']
+    assert (planos / 'prof.pdf').exists() and s.planos.dono('prof.pdf') == 'fulano@ifc.edu.br'
+
+    assert c.post('/planos/ocultar?arquivo=prof.pdf', headers=ADMIN).status_code == 200
+    html = c.get('/dashboard', headers=SERVIDOR).get_data(as_text=True)
+    assert 'href="/relatorio?arquivo=prof.pdf"' not in html and 'href="/relatorio?arquivo=meu.pdf"' in html
+    assert 'prof.pdf' in [l['Arquivo'] for l in csvsaida.ler_csv(execucao.csv_path)]  # a avaliação continua
+    assert c.get('/planos', headers=ADMIN).json['planos'][1]['oculto']
+    assert c.delete('/planos/ocultar?arquivo=prof.pdf', headers=ADMIN).status_code == 200
+    assert 'href="/relatorio?arquivo=prof.pdf"' in c.get('/dashboard', headers=SERVIDOR).get_data(as_text=True)
+
+    # Os próprios e os sem dono: exclui
+    assert c.delete('/planos?arquivo=meu.pdf', headers=ADMIN).status_code == 200
+    assert c.delete('/planos?arquivo=solto.pdf', headers=ADMIN).status_code == 200
+    assert [l['Arquivo'] for l in csvsaida.ler_csv(execucao.csv_path)] == ['prof.pdf']
+    assert c.post('/planos/ocultar?arquivo=sumiu.pdf', headers=ADMIN).status_code == 404
+
+
+def test_versao_nova_do_pdf_volta_ao_painel(cliente):
+    c, planos = cliente
+    c.post('/planos', data=_envio(('a.pdf', PDF)), content_type='multipart/form-data')
+    _execucao(c, ['a.pdf'], 10)
+    c.post('/planos/ocultar?arquivo=a.pdf')
+    assert 'href="/relatorio?arquivo=a.pdf"' not in c.get('/dashboard').get_data(as_text=True)
+    c.post('/planos', data=_envio(('a.pdf', PDF)), content_type='multipart/form-data')
+    assert 'href="/relatorio?arquivo=a.pdf"' in c.get('/dashboard').get_data(as_text=True)
+
+
+def test_professor_exclui_o_proprio_plano_com_a_avaliacao(com_login):
+    from app.armazenamento import csvsaida, donos
+    c, planos = com_login
+    (planos / 'meu.pdf').write_bytes(PDF)
+    donos.definir(_servicos(c).cfg.resultados_dir, 'meu.pdf', 'fulano@ifc.edu.br')
+    execucao = _execucao(c, ['meu.pdf'], 10)
+    assert c.delete('/meus-planos?arquivo=meu.pdf', headers=SERVIDOR).status_code == 200
+    assert csvsaida.ler_csv(execucao.csv_path) == []
 
 
 def test_revalidar_pela_rota(cliente, monkeypatch):
@@ -289,7 +378,8 @@ def test_servidor_consulta_mas_nao_administra(com_login):
     assert c.post('/planos', headers=SERVIDOR, data=_envio(('b.pdf', PDF)),
                   content_type='multipart/form-data').status_code == 403
     assert c.delete('/planos?arquivo=a.pdf', headers=SERVIDOR).status_code == 403
-    assert c.delete('/planos/todos', headers=SERVIDOR).status_code == 403
+    assert c.post('/planos/ocultar?arquivo=a.pdf', headers=SERVIDOR).status_code == 403
+    assert c.delete('/planos/ocultar?arquivo=a.pdf', headers=SERVIDOR).status_code == 403
     assert (planos / 'a.pdf').exists()
 
 

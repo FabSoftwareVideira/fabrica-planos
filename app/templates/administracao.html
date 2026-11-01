@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
-{#- Administração (só ADMIN_EMAILS): validação e gestão dos PDFs da pasta de planos (envio, lista, exclusão).
+{#- Administração (só ADMIN_EMAILS): validação e gestão dos PDFs da pasta de planos (envio, lista, exclusão
+    dos próprios e ocultar do painel os de outras pessoas).
     A lista vem de /planos (static/js/administracao.js); o andamento, de /status (static/js/status.js). -#}
 
 {% block titulo %}Administração · Validação de Planos de Ensino{% endblock %}
@@ -21,10 +22,10 @@
     <section class="br-card">
       <div class="card-header cab-planos">
         <h2>Planos (PDFs) <span class="contagem" id="qtd-planos"></span></h2>
-        <button class="br-button small excluir" id="excluir-todos" type="button"><i class="fas fa-trash-alt" aria-hidden="true"></i> Excluir todos</button>
       </div>
       <div class="card-content">
-        <p class="ajuda">Os PDFs desta pasta são os planos avaliados em cada validação. Os professores também entregam os seus em "Meus planos", e eles aparecem aqui.</p>
+        <p class="ajuda">Os PDFs desta pasta são os planos avaliados em cada validação. Os professores também entregam os seus em "Meus planos", e eles aparecem aqui.
+          Você exclui só os planos que enviou (ou sem dono), junto com a avaliação deles; os de outras pessoas podem ser ocultados do painel, sem apagar nada.</p>
         <div class="soltar" id="soltar">
           <i class="fas fa-cloud-upload-alt fa-2x" aria-hidden="true"></i>
           <p class="mb-2"><span class="so-mouse">Arraste PDFs para cá ou </span>

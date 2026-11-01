@@ -3,11 +3,11 @@ from flask import Blueprint, redirect, render_template, request
 from ..armazenamento.usuarios import PAPEIS_CURSO
 from ..avaliacao import pipeline
 from ..paginas import administracao, usuarios
-from ..servicos.planos import NaoEncontrado, Ocupado
+from ..servicos.planos import NaoEncontrado, Ocupado, Proibido
 from .comum import eh_admin, email, json_, mesma_origem, ocupado, servicos, somente_admin
 
-# Só administradores (ADMIN_EMAILS): disparar validações, enviar/excluir quaisquer PDFs da pasta,
-# ativar/desativar usuários e dar os papéis de coordenação/NDE/NDB nos cursos.
+# Só administradores (ADMIN_EMAILS): disparar validações, enviar PDFs, excluir os que enviaram (ou sem dono),
+# ocultar do painel os de outras pessoas, ativar/desativar usuários e dar os papéis de coordenação/NDE/NDB.
 bp = Blueprint('administracao', __name__)
 
 
@@ -105,7 +105,7 @@ def enviar_planos():
     if not arquivos:
         return json_({'erro': 'Nenhum arquivo enviado'}, 400)
     try:
-        salvos, recusados = servicos().planos.enviar(arquivos)
+        salvos, recusados = servicos().planos.enviar(arquivos, email())
     except Ocupado:
         return ocupado()
     return json_({'salvos': salvos, 'recusados': recusados}, 200 if salvos else 400)
@@ -114,22 +114,41 @@ def enviar_planos():
 @bp.delete('/planos')
 @somente_admin
 def excluir_plano():
+    """Exclui o PDF e a avaliação dele; só os planos que o administrador enviou ou sem dono."""
     nome = request.args.get('arquivo', '')
     if not pipeline.nome_valido(nome):
         return json_({'erro': 'Arquivo inválido'}, 400)
     try:
-        servicos().planos.excluir(nome)
+        servicos().planos.excluir(nome, email())
     except Ocupado:
         return ocupado()
     except NaoEncontrado:
         return json_({'erro': 'Arquivo não encontrado'}, 404)
+    except Proibido:
+        return json_({'erro': 'Você só pode excluir os planos que enviou; os de outras pessoas podem ser '
+                              'ocultados do painel'}, 403)
     return json_({'excluido': nome})
 
 
-@bp.delete('/planos/todos')
+@bp.post('/planos/ocultar')
 @somente_admin
-def excluir_todos():
+def ocultar_plano():
+    """Tira o plano do painel sem apagar o PDF nem a avaliação (DELETE volta a mostrar)."""
+    nome = request.args.get('arquivo', '')
+    if not pipeline.nome_valido(nome):
+        return json_({'erro': 'Arquivo inválido'}, 400)
     try:
-        return json_({'excluidos': servicos().planos.excluir_todos()})
-    except Ocupado:
-        return ocupado()
+        servicos().planos.ocultar(nome, email())
+    except NaoEncontrado:
+        return json_({'erro': 'Arquivo não encontrado'}, 404)
+    return json_({'oculto': nome})
+
+
+@bp.delete('/planos/ocultar')
+@somente_admin
+def mostrar_plano():
+    nome = request.args.get('arquivo', '')
+    if not pipeline.nome_valido(nome):
+        return json_({'erro': 'Arquivo inválido'}, 400)
+    servicos().planos.mostrar(nome, email())
+    return json_({'mostrado': nome})

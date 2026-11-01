@@ -3,7 +3,7 @@ import os
 import unicodedata
 from datetime import datetime
 
-from ..armazenamento import csvsaida, detalhes, donos, historico
+from ..armazenamento import csvsaida, detalhes, donos, historico, ocultos
 from ..avaliacao import identificacao, pipeline
 from ..avaliacao.extrator import PdfIlegivel, extrair_texto
 
@@ -26,12 +26,17 @@ class PastaDePlanos:
     """Os PDFs da pasta de planos: envio (conferido), listagem e exclusão, pelo administrador ou pelo
     próprio professor ("Meus planos"), com o registro de quem enviou cada um.
 
+    Cada um só exclui (e substitui) os planos que enviou; o administrador também os sem dono (copiados
+    direto para a pasta ou enviados antes do registro de dono). Excluir tira o plano também da validação
+    atual e apaga a revisão dele. Os planos de outras pessoas o administrador só pode ocultar do painel.
+
     Usa a trava do validador para não mexer nos PDFs enquanto um lote é validado.
     """
 
-    def __init__(self, cfg, validador):
+    def __init__(self, cfg, validador, revisoes=None):
         self.cfg = cfg
         self.validador = validador
+        self.revisoes = revisoes
 
     def caminho(self, nome):
         return os.path.join(self.cfg.planos_dir, nome)
@@ -39,24 +44,45 @@ class PastaDePlanos:
     def existe(self, nome):
         return os.path.isfile(self.caminho(nome))
 
+    def dono(self, nome):
+        return donos.ler(self.cfg.resultados_dir).get(nome, {}).get('email', '')
+
+    def pode_excluir(self, nome, email):
+        """O administrador exclui os planos que enviou e os sem dono."""
+        dono = self.dono(nome)
+        return not dono or dono == email
+
+    def nomes_ocultos(self):
+        return set(ocultos.ler(self.cfg.resultados_dir))
+
     def listar(self):
+        """PDFs da pasta e, depois deles, os planos que só restaram na validação atual (PDF já excluído),
+        para o administrador poder limpá-los ou ocultá-los."""
         dono_de = donos.ler(self.cfg.resultados_dir)
+        oculto = self.nomes_ocultos()
         planos = []
-        for nome in pipeline.listar_pdfs(self.cfg.planos_dir):
+        na_pasta = pipeline.listar_pdfs(self.cfg.planos_dir)
+        for nome in na_pasta:
             info = os.stat(self.caminho(nome))
             planos.append({
                 'nome': nome,
                 'dono': dono_de.get(nome, {}).get('email', ''),
                 'tamanho': info.st_size,
                 'modificado': datetime.fromtimestamp(info.st_mtime).isoformat(timespec='seconds'),
+                'na_pasta': True,
+                'oculto': nome in oculto,
             })
+        for nome in sorted(set(pipeline.nomes_na_validacao(self.cfg)) - set(na_pasta)):
+            planos.append({'nome': nome, 'dono': dono_de.get(nome, {}).get('email', ''), 'tamanho': None,
+                           'modificado': None, 'na_pasta': False, 'oculto': nome in oculto})
         return planos
 
     # Envio --------------------------------------------------------------------------------------
 
-    def enviar(self, arquivos):
-        """Envio pelo administrador: grava os PDFs válidos, substituindo os de mesmo nome. Devolve
-        (salvos, recusados). Levanta Ocupado durante a validação."""
+    def enviar(self, arquivos, email=''):
+        """Envio pelo administrador: grava os PDFs válidos, registrando-o como dono, e substitui só os de
+        mesmo nome que ele enviou ou sem dono. Devolve (salvos, recusados). Levanta Ocupado durante a
+        validação."""
         salvos, recusados = [], []
         with self.validador.trava:
             if self.validador.andamento.rodando:
@@ -64,10 +90,17 @@ class PastaDePlanos:
             for arquivo in arquivos:
                 nome = nome_enviado(arquivo)
                 substituido = self.existe(nome)
-                motivo = self._motivo_recusa(nome, arquivo) or self._salvar(arquivo, nome)[0]
+                motivo = self._motivo_recusa(nome, arquivo)
+                if not motivo and substituido and not self.pode_excluir(nome, email):
+                    motivo = 'Já existe na pasta um plano com esse nome, enviado por outra pessoa; renomeie o arquivo'
+                texto = None
+                if not motivo:
+                    motivo, texto = self._salvar(arquivo, nome)
                 if motivo:
                     recusados.append({'nome': nome, 'motivo': motivo})
                     continue
+                donos.definir(self.cfg.resultados_dir, nome, email, identificacao.extrair(texto))
+                ocultos.mostrar(self.cfg.resultados_dir, [nome])  # versão nova volta a aparecer no painel
                 salvos.append({'nome': nome, 'substituido': substituido})
         log.info('Upload: %d salvo(s), %d recusado(s)', len(salvos), len(recusados))
         return salvos, recusados
@@ -93,6 +126,7 @@ class PastaDePlanos:
                     continue
                 # Curso e período já no envio: o plano aparece no grupo certo antes de ser avaliado.
                 donos.definir(self.cfg.resultados_dir, nome, email, identificacao.extrair(texto))
+                ocultos.mostrar(self.cfg.resultados_dir, [nome])  # versão nova volta a aparecer no painel
                 salvos.append({'nome': nome, 'substituido': existe})
         for salvo in salvos:  # a avaliação começa já, ou espera a vez na fila
             salvo['posicao'] = self.validador.enfileirar(salvo['nome'])
@@ -126,39 +160,55 @@ class PastaDePlanos:
 
     # Exclusão -----------------------------------------------------------------------------------
 
-    def excluir(self, nome):
-        with self.validador.trava:
-            if self.validador.andamento.rodando:
-                raise Ocupado
-            if not self.existe(nome):
-                raise NaoEncontrado
-            os.remove(self.caminho(nome))
-            donos.remover(self.cfg.resultados_dir, [nome])
-        log.info('Plano excluído: %s', nome)
+    def _conhecido(self, nome):
+        """Na pasta ou com avaliação na validação atual."""
+        return self.existe(nome) or nome in pipeline.nomes_na_validacao(self.cfg)
 
-    def excluir_todos(self):
-        """Esvazia a pasta de planos. O histórico (e os PDFs da última validação, para o zip) continuam."""
+    def _apagar(self, nome):
+        """Com a trava: o PDF, o registro de dono, a marca de oculto, a avaliação na validação atual e a
+        revisão. Excluir é definitivo; para só tirar do painel existe ocultar."""
+        if self.existe(nome):
+            os.remove(self.caminho(nome))
+        donos.remover(self.cfg.resultados_dir, [nome])
+        ocultos.mostrar(self.cfg.resultados_dir, [nome])
+        pipeline.remover_da_validacao(self.cfg, [nome])
+        if self.revisoes is not None:
+            self.revisoes.remover(nome)
+
+    def excluir(self, nome, email=''):
+        """Exclusão pelo administrador: só os planos que ele enviou ou sem dono (Proibido nos demais)."""
         with self.validador.trava:
             if self.validador.andamento.rodando:
                 raise Ocupado
-            nomes = pipeline.listar_pdfs(self.cfg.planos_dir)
-            for nome in nomes:
-                os.remove(self.caminho(nome))
-            donos.remover(self.cfg.resultados_dir, nomes)
-        log.info('Todos os planos excluídos: %d arquivo(s)', len(nomes))
-        return len(nomes)
+            if not self._conhecido(nome):
+                raise NaoEncontrado
+            if not self.pode_excluir(nome, email):
+                raise Proibido
+            self._apagar(nome)
+        log.info('Plano excluído (%s): %s', email, nome)
 
     def excluir_do_professor(self, nome, email):
         with self.validador.trava:
-            if donos.ler(self.cfg.resultados_dir).get(nome, {}).get('email') != email:
+            if self.dono(nome) != email:
                 raise Proibido
             if self.validador.em_avaliacao(nome):
                 raise Ocupado
-            if self.existe(nome):
-                os.remove(self.caminho(nome))
-            donos.remover(self.cfg.resultados_dir, [nome])
+            self._apagar(nome)
             self.validador.remover_da_fila(nome)
         log.info('Meus planos (%s): excluído %s', email, nome)
+
+    # Ocultar do painel -----------------------------------------------------------------------------
+
+    def ocultar(self, nome, email):
+        """Tira o plano do dashboard e da visão da coordenação, sem apagar o PDF nem a avaliação."""
+        if not self._conhecido(nome):
+            raise NaoEncontrado
+        ocultos.ocultar(self.cfg.resultados_dir, nome, email)
+        log.info('Plano ocultado do painel (%s): %s', email, nome)
+
+    def mostrar(self, nome, email):
+        ocultos.mostrar(self.cfg.resultados_dir, [nome])
+        log.info('Plano de volta ao painel (%s): %s', email, nome)
 
     def cursos(self):
         """{sigla: nome} dos cursos conhecidos: os de identificacao.CURSOS e os dos planos na pasta e na

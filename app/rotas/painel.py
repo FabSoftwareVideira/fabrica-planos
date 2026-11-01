@@ -24,6 +24,8 @@ def dados_da_validacao():
     da revisão vigente. Usados pelo dashboard e pela visão da coordenação."""
     execucao = resultado_atual()
     linhas = csvsaida.ler_csv(execucao.csv_path) if execucao else []
+    ocultos = servicos().planos.nomes_ocultos()  # tirados do painel pelo administrador (PDF e avaliação ficam)
+    linhas = [l for l in linhas if l.get('Arquivo') not in ocultos]
     # Curso, período e docentes de cada plano, lidos do texto guardado nos detalhes.
     dets = {l.get('Arquivo'): detalhes.ler(execucao.detalhes_dir, l.get('Arquivo')) for l in linhas}
     idents = {nome: identificacao.de_detalhes(det) for nome, det in dets.items()}
@@ -114,4 +116,8 @@ def pdf():
 
 @bp.get('/planos')
 def listar_planos():
-    return json_({'planos': servicos().planos.listar()})
+    pasta = servicos().planos
+    planos = pasta.listar()
+    for plano in planos:  # o botão Excluir só nos planos que quem vê pode excluir; nos demais, Ocultar
+        plano['pode_excluir'] = eh_admin() and pasta.pode_excluir(plano['nome'], email())
+    return json_({'planos': planos})

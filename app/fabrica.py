@@ -31,8 +31,9 @@ def criar_app(cfg=None, executar=None):
     app = Flask(__name__)
     app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # soma dos PDFs de um envio
     usuarios = Usuarios(cfg.usuarios_path)
-    app.extensions['servicos'] = Servicos(cfg, validador, PastaDePlanos(cfg, validador), usuarios,
-                                           Revisao(cfg, Revisoes(cfg.revisoes_path), usuarios))
+    revisoes = Revisoes(cfg.revisoes_path)  # excluir um plano também apaga a revisão dele
+    app.extensions['servicos'] = Servicos(cfg, validador, PastaDePlanos(cfg, validador, revisoes), usuarios,
+                                           Revisao(cfg, revisoes, usuarios))
     paginas.registrar(app)
     rotas.registrar(app)
     if cfg.login_simulado:  # só em desenvolvimento (docker-compose.dev.yml)

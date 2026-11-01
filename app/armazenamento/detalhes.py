@@ -24,3 +24,10 @@ def ler(pasta, nome):
     except (FileNotFoundError, ValueError):
         return None
 
+
+def remover(pasta, nome):
+    try:
+        os.remove(_caminho(pasta, nome))
+    except FileNotFoundError:
+        pass
+
