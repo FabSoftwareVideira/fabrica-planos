@@ -75,11 +75,13 @@ AVISOS_REVISAO = {
 }
 
 
-def contexto_revisao(revisao, papel, ident, aviso=''):
-    """Painel de revisão manual: o parecer vigente e, para quem tem papel no curso, o formulário."""
+def contexto_revisao(revisao, papel, ident, aviso='', proprio=False):
+    """Painel de revisão manual: o parecer vigente e, para quem tem papel no curso, o formulário.
+    `proprio`: quem está vendo enviou o plano, então não o revisa (o painel explica por quê)."""
     return {
         'revisao': revisao,
         'papel_revisor': papel,
+        'plano_proprio': proprio,
         'curso': (ident or {}).get('curso', ''),
         'opcoes_revisao': STATUS_REVISAO,
         'aviso_revisao': AVISOS_REVISAO.get(aviso),

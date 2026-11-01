@@ -1,7 +1,7 @@
 import logging
 import os
 
-from ..armazenamento import historico
+from ..armazenamento import donos, historico
 from ..armazenamento.usuarios import PAPEIS_CURSO
 
 log = logging.getLogger(__name__)
@@ -53,12 +53,22 @@ class Revisao:
         r = self.revisoes.obter(nome)
         return r if r and r['assinatura'] == self.assinatura(nome) else None
 
-    def papel(self, email, ident):
+    def eh_autor(self, email, nome):
+        """Quem enviou o plano (em "Meus planos" ou pela administração) não pode revisá-lo nem desfazer a
+        revisão dele: o parecer fica com outro membro da coordenação, do NDE ou do NDB. Só com login exigido."""
+        if not self.cfg.exigir_login or not email:
+            return False
+        return donos.ler(self.cfg.resultados_dir).get(nome, {}).get('email') == email
+
+    def papel(self, email, ident, nome=None):
         """Rótulo do papel do usuário no curso do plano ('Coordenação', 'NDE'…), ou '' se não pode revisar.
-        Sem login exigido (uso local), todo acesso pode revisar."""
+        Sem login exigido (uso local), todo acesso pode revisar. Com `nome`, quem enviou aquele plano não o
+        revisa (ver eh_autor)."""
         if not self.cfg.exigir_login:
             return 'Administração local'
         if not email or not ident:
+            return ''
+        if nome is not None and self.eh_autor(email, nome):
             return ''
         papeis = [p for curso, p in self.usuarios.papeis(email) if curso == ident['sigla_curso']]
         for chave in PAPEIS_CURSO:  # coordenação primeiro
@@ -69,7 +79,7 @@ class Revisao:
     def registrar(self, nome, email, nome_revisor, ident, status, comentario, status_ia):
         """Grava o parecer. O comentário é obrigatório quando o plano não é aprovado ou quando o parecer
         discorda da IA (o professor precisa saber o que mudar)."""
-        papel = self.papel(email, ident)
+        papel = self.papel(email, ident, nome)
         if not papel:
             raise Proibido
         comentario = (comentario or '').strip()[:2000]
@@ -83,7 +93,7 @@ class Revisao:
         return revisao
 
     def desfazer(self, nome, email, ident):
-        if not self.papel(email, ident):
+        if not self.papel(email, ident, nome):
             raise Proibido
         self.revisoes.remover(nome)
         log.info('Revisão de %s desfeita por %s', nome, email)

@@ -72,6 +72,9 @@
         {% elif not papel_revisor %}
         <p class="nota">Aguardando a revisão da coordenação, do NDE ou do NDB{% if curso %} de {{ curso }}{% endif %}. Até lá, vale a avaliação da IA.</p>
         {% endif %}
+        {% if plano_proprio %}
+        <p class="nota">Você enviou este plano, então não pode revisá-lo: o parecer fica com outro membro da coordenação, do NDE ou do NDB.</p>
+        {% endif %}
 
         {% if papel_revisor %}
         <form class="form-revisao" method="post" action="/revisao">

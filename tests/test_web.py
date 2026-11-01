@@ -801,6 +801,30 @@ def test_so_coordenacao_e_administracao_baixam_csv_e_zip(com_login):
         assert 'EXPORTAR = true' in c.get('/dashboard', headers=cab).get_data(as_text=True)
 
 
+def test_quem_enviou_o_plano_nao_o_revisa(com_login):
+    from app.armazenamento import donos
+    c, planos = com_login
+    _plano_cc(c, planos, status='PENDENTE')
+    donos.definir(_servicos(c).cfg.resultados_dir, 'web.pdf', 'nde@ifc.edu.br')  # o próprio NDE enviou
+    _dar_papel(c, 'nde@ifc.edu.br')
+    _dar_papel(c, 'outro@ifc.edu.br')
+    OUTRO = {'X-Usuario-Email': 'outro@ifc.edu.br'}
+
+    html = c.get('/relatorio?arquivo=web.pdf', headers=NDE).get_data(as_text=True)
+    assert 'action="/revisao"' not in html and 'Você enviou este plano' in html
+    assert 'class="revisar"' not in c.get('/dashboard', headers=NDE).get_data(as_text=True)
+    r = c.post('/revisao', headers=NDE, data={'arquivo': 'web.pdf', 'status': 'OK', 'comentario': 'ok'})
+    assert r.status_code == 403 and 'Você enviou este plano' in r.get_data(as_text=True)
+    assert _servicos(c).revisao.vigente('web.pdf') is None
+
+    # Outro membro revisa; o autor também não desfaz a revisão dele
+    assert 'class="revisar"' in c.get('/dashboard', headers=OUTRO).get_data(as_text=True)
+    r = c.post('/revisao', headers=OUTRO, data={'arquivo': 'web.pdf', 'status': 'OK', 'comentario': 'Completo.'})
+    assert 'aviso=salva' in r.headers['Location']
+    assert c.post('/revisao', headers=NDE, data={'arquivo': 'web.pdf', 'acao': 'desfazer'}).status_code == 403
+    assert _servicos(c).revisao.vigente('web.pdf')['status'] == 'OK'
+
+
 def test_card_tem_botao_revisar_para_quem_pode_revisar(com_login):
     c, planos = com_login
     _plano_cc(c, planos)
