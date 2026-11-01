@@ -6,6 +6,26 @@
 # *_CPUS), para que um não derrube os outros projetos da VPS. Passar do teto de memória reinicia só aquele
 # container. O número de CPUs não pode passar do que a máquina tem (o Docker recusa).
 services:
+  preparar-pastas:
+    # Roda a cada deploy, antes do app, e termina: passa as pastas de dados do servidor para o usuário do app
+    # (UID 10001, ver Dockerfile). Assim uma VPS nova (o Docker cria as pastas que faltam como root) e arquivos
+    # copiados com outro dono (backup, cp -a) não precisam de chown manual.
+    image: busybox:1.36
+    restart: "no"
+    command: ["chown", "-R", "10001:10001", "/data/planos", "/data/resultados"]
+    volumes:
+      - "${PLANOS_HOST_DIR:-/srv/validador-planos/planos}:/data/planos"
+      - "${RESULTADOS_HOST_DIR:-/srv/validador-planos/resultados}:/data/resultados"
+    network_mode: none
+    # Só as capacidades de trocar o dono e de percorrer pastas de outro dono
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_READ_SEARCH
+
   app:
     build:
       context: .
@@ -32,6 +52,8 @@ services:
       - "${PLANOS_HOST_DIR:-/srv/validador-planos/planos}:/data/planos"
       - "${RESULTADOS_HOST_DIR:-/srv/validador-planos/resultados}:/data/resultados"
     depends_on:
+      preparar-pastas:
+        condition: service_completed_successfully
       ollama:
         condition: service_healthy
     # Saudável quando o gunicorn responde /health (a imagem não tem curl: usa o Python dela)

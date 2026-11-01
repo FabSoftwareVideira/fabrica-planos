@@ -193,10 +193,10 @@ Em produção o validador roda no [Dokploy](https://dokploy.com), que gerencia o
 
 1. **Cliente OAuth no Google**, com a sua conta `@ifc.edu.br`, em [console.cloud.google.com](https://console.cloud.google.com): crie um projeto; em **Tela de permissão OAuth**, escolha o tipo **Interno** se estiver disponível (só contas da instituição conseguem entrar); em **Credenciais > Criar credenciais > ID do cliente OAuth**, tipo **Aplicativo da Web**, com o URI de redirecionamento `https://SEU_DOMINIO/oauth2/callback`. Guarde o ID e a chave secreta. Se o cliente já existe, só confira o URI (sem porta, se antes havia uma).
 
-2. **Pastas de dados** no servidor (o container do app roda como root e grava nelas):
+2. **Pastas de dados** no servidor: não precisam de nenhum passo manual. O app roda com um usuário sem privilégios (UID `10001`, ver `Dockerfile`), e a cada deploy o serviço `preparar-pastas` do `docker-compose.yml` roda antes dele: o Docker cria as pastas de `PLANOS_HOST_DIR` e `RESULTADOS_HOST_DIR` se não existirem, e o serviço passa tudo nelas para o UID `10001`. Isso também corrige arquivos copiados para lá com outro dono (backup, `cp -a`) no próximo deploy. Se copiar arquivos com o sistema já no ar e não quiser esperar o deploy, rode:
 
 ```bash
-sudo mkdir -p /srv/validador-planos/planos /srv/validador-planos/resultados
+sudo chown -R 10001:10001 /srv/validador-planos
 ```
 
 3. **Instalar o Dokploy** (como root; ele precisa das portas 80, 443 e 3000 livres):
@@ -257,6 +257,8 @@ docker compose down
 sudo mkdir -p /srv/validador-planos
 sudo cp -a resultados ../planos /srv/validador-planos/
 ```
+
+O dono dos arquivos copiados não importa: no deploy, o serviço `preparar-pastas` os passa para o usuário do app.
 
 4. **Instalar o Dokploy e criar o recurso** (passos 3 a 6 acima). No Environment, reaproveite os valores do `.env` antigo; `APP_HOST` e `APP_PORT` não são mais usados (o domínio vai na aba Domains). Se o domínio antigo usava uma porta (ex.: `:8443`), atualize o URI de redirecionamento no Google para o domínio sem porta.
 
