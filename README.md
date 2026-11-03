@@ -49,13 +49,13 @@ A produção roda no [Dokploy](https://dokploy.com), como recurso do tipo **Dock
 2. No Dokploy, cadastre o repositório (branch `master`, arquivo `./docker-compose.yml`) e **desligue o Autodeploy**.
 3. Em **Environment**, cole o `.env.example` e preencha os valores. Cada variável está explicada nele.
 4. Em **Domains**, aponte o domínio para o serviço `caddy`, porta `80`, com HTTPS.
-5. Faça o deploy do projeto Open WebUI conforme [`open-webui/README.md`](./open-webui/README.md) antes do validador.
+5. Faça o deploy do projeto OpenHands conforme [`open-webui/README.md`](./open-webui/README.md) antes do validador.
 
-#### Open WebUI e acesso ao Ollama por outros projetos
+#### OpenHands e acesso ao Ollama por outros projetos
 
-O Ollama e o Open WebUI ficam juntos em um projeto Compose independente na pasta [`open-webui/`](./open-webui/), implantável separadamente no Dokploy apontando para este repositório GitHub e usando o arquivo `./open-webui/docker-compose.yml`. Assim, o Ollama não é reiniciado junto com o validador.
+O OpenHands e o Ollama ficam em um projeto Compose independente na pasta [`open-webui/`](./open-webui/), implantável separadamente no Dokploy apontando para este repositório GitHub e usando o arquivo `./open-webui/docker-compose.yml`. Assim, o Ollama não é reiniciado junto com o validador.
 
-Implante esse projeto primeiro: ele cria a rede Docker compartilhada `ollama-shared` se ainda não existir. Depois, implante ou atualize o validador. No recurso independente do Dokploy, configure as variáveis de [`open-webui/.env.example`](./open-webui/.env.example), incluindo `OPEN_WEBUI_SECRET_KEY`. Configure o domínio para o serviço `open-webui`, porta `8080`, com HTTPS. Para criar a conta administrativa inicial, habilite temporariamente `OPEN_WEBUI_ENABLE_SIGNUP=true`, registre a conta e volte para `false`, fazendo novo deploy. Os dados e contas ficam no volume `open-webui-data`; os modelos do Ollama ficam em outro volume persistente criado automaticamente pelo Compose.
+Implante primeiro esse projeto: ele cria a rede `ollama-shared` e inicia o Ollama; depois implante o validador. No recurso do OpenHands, configure `LOCAL_BACKEND_API_KEY` e `OH_SECRET_KEY` conforme [`open-webui/.env.example`](./open-webui/.env.example), e configure o domínio do serviço `openhands` na porta `8000`, com HTTPS. O OpenHands acessa o Ollama em `http://ollama:11434`; os projetos, dados do Agent Canvas e modelos ficam em volumes persistentes.
 
 O serviço `app` do validador também se conecta à rede compartilhada e acessa a API em `http://ollama:11434`. Outros projetos na mesma máquina podem usar o mesmo endereço anexando seus serviços à rede externa `ollama-shared`. Exemplo no Compose consumidor:
 
@@ -73,7 +73,7 @@ networks:
     external: true
 ```
 
-Essa rede dá acesso à API do Ollama sem abrir a porta `11434` para a internet. Por padrão, a porta publicada no host só aceita conexões locais. Como o Ollama não oferece autenticação, só conecte à rede serviços confiáveis. Mantenha o projeto Open WebUI em execução para garantir que a rede exista; outros Compose a declaram como externa e não a removem.
+Essa rede dá acesso à API do Ollama sem abrir a porta `11434` para a internet. Por padrão, a porta publicada no host só aceita conexões locais. Como o Ollama não oferece autenticação, só conecte à rede serviços confiáveis. Mantenha este projeto em execução para garantir que a rede exista; outros Compose a declaram como externa e não a removem. O agente OpenHands pode executar comandos e alterar arquivos montados em `/projects`, portanto proteja seu domínio com autenticação ou VPN e limite os diretórios disponibilizados.
 
 Os PDFs e os resultados ficam em pastas fixas do servidor (padrão `/srv/validador-planos/`), preparadas automaticamente a cada deploy. Faça backup de `/srv/validador-planos/resultados`, onde ficam os usuários, as revisões e a validação atual.
 

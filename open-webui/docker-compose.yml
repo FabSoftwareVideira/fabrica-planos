@@ -9,6 +9,7 @@ services:
       - "${OLLAMA_BIND:-127.0.0.1}:${OLLAMA_PORT:-11434}:11434"
     environment:
       TZ: ${TZ:-America/Sao_Paulo}
+      OLLAMA_CONTEXT_LENGTH: ${OLLAMA_CONTEXT_LENGTH:-32768}
       OLLAMA_MAX_LOADED_MODELS: ${OLLAMA_MAX_LOADED_MODELS:-1}
       OLLAMA_NUM_PARALLEL: ${OLLAMA_NUM_PARALLEL:-1}
     volumes:
@@ -37,39 +38,25 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  open-webui:
-    image: ghcr.io/open-webui/open-webui:main
+  openhands:
+    image: ghcr.io/openhands/agent-canvas:latest
     restart: unless-stopped
     environment:
-      OLLAMA_BASE_URL: http://ollama:11434
-      WEBUI_SECRET_KEY: ${OPEN_WEBUI_SECRET_KEY:?Configure OPEN_WEBUI_SECRET_KEY}
-      WEBUI_AUTH: "true"
-      ENABLE_SIGNUP: ${OPEN_WEBUI_ENABLE_SIGNUP:-false}
+      PORT: "8000"
+      LOCAL_BACKEND_API_KEY: ${LOCAL_BACKEND_API_KEY:?Configure uma chave forte}
+      OH_SECRET_KEY: ${OH_SECRET_KEY:?Configure uma chave forte}
+      AGENT_CANVAS_DISABLE_TELEMETRY: "true"
     expose:
-      - "8080"
+      - "8000"
     volumes:
-      - open-webui-data:/app/backend/data
+      - openhands-data:/home/openhands/.openhands
+      - openhands-projects:/projects
     networks:
       - dokploy-network
       - ollama-shared
     depends_on:
       ollama:
         condition: service_healthy
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
-    deploy:
-      resources:
-        limits:
-          memory: 1g
-          cpus: "1"
-          pids: 256
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
 
 networks:
   dokploy-network:
@@ -78,5 +65,6 @@ networks:
     name: ollama-shared
 
 volumes:
-  open-webui-data:
+  openhands-data:
+  openhands-projects:
   ollama-data:

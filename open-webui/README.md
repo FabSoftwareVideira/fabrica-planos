@@ -1,14 +1,26 @@
-# Open WebUI
+# OpenHands
 
-Projeto Docker Compose independente do validador. Ele executa o Open WebUI e o Ollama na GPU e cria a rede Docker compartilhada `ollama-shared`. Para implantá-lo no Dokploy:
+Projeto Docker Compose independente do validador. Ele executa o OpenHands Agent Canvas e o Ollama na GPU, e cria a rede Docker compartilhada `ollama-shared` para outros projetos.
+
+## Deploy no Dokploy
 
 1. Crie outro recurso **Docker Compose** vinculado ao repositório GitHub `FabSoftwareVideira/fabrica-planos`.
 2. Configure o arquivo Compose como `./open-webui/docker-compose.yml`.
-3. Configure as variáveis de `.env.example`. `OPEN_WEBUI_SECRET_KEY` deve ser uma chave aleatória persistente (por exemplo, `openssl rand -hex 32`). O Compose cria volumes persistentes para o WebUI e para os modelos do Ollama.
-4. Implante este projeto antes do Compose do validador. O Compose cria a rede Docker `ollama-shared` automaticamente se ela ainda não existir.
-5. Configure o domínio do Dokploy para o serviço `open-webui`, porta `8080`, com HTTPS.
-6. Baixe o modelo necessário pelo terminal do container `ollama`, por exemplo `ollama pull qwen2.5:7b`.
+3. Configure `LOCAL_BACKEND_API_KEY` e `OH_SECRET_KEY` com valores aleatórios fortes e persistentes (por exemplo, gere cada um com `openssl rand -hex 32`).
+4. Configure o domínio do Dokploy para o serviço `openhands`, porta `8000`, com HTTPS.
+5. Baixe o modelo desejado no terminal do container `ollama`, por exemplo `ollama pull qwen2.5-coder:14b`.
 
-Para criar a primeira conta administrativa, defina temporariamente `OPEN_WEBUI_ENABLE_SIGNUP=true`, registre a conta e depois volte para `false` e faça novo deploy. Os dados e as contas ficam no volume `open-webui-data`.
+Os volumes `openhands-data`, `openhands-projects` e `ollama-data` persistem as configurações, os arquivos de projeto e os modelos. O conteúdo de `/projects` fica acessível ao agente.
 
-O Ollama deste projeto usa `http://ollama:11434`; serviços de outros Compose também podem acessar esse endereço ao se conectarem à mesma rede externa. A porta publicada no host, por padrão, só aceita conexões locais. O Ollama não oferece autenticação, portanto conecte à rede compartilhada apenas serviços confiáveis. Como o volume usa o nome padrão do novo projeto, os modelos armazenados no volume antigo não são reaproveitados e precisam ser baixados novamente.
+## Configurar o Ollama
+
+No OpenHands, abra **Settings → LLM → Add LLM Profile → Advanced** e configure:
+
+- **Model:** `openai/qwen2.5-coder:14b` (ou outro modelo disponível no Ollama)
+- **Provider Connection:** crie ou selecione uma conexão com Base URL `http://ollama:11434/v1` e uma API key fictícia, como `local-llm`
+
+Modelos locais usados com agentes precisam de uma janela de contexto grande; o Compose configura 32k por padrão. Reduza `OLLAMA_CONTEXT_LENGTH` se faltar VRAM. O validador e outros projetos podem usar o mesmo Ollama na rede externa `ollama-shared`.
+
+## Segurança
+
+O agente pode executar comandos e modificar arquivos dentro do ambiente de trabalho. Proteja o domínio com autenticação ou VPN e só monte em `/projects` repositórios nos quais o agente possa trabalhar. Não monte o socket do Docker nem habilite modo privilegiado, salvo se aceitar conscientemente o risco adicional.
