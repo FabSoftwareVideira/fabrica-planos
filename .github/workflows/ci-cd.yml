@@ -37,9 +37,10 @@ jobs:
       # Garante que a imagem de produção ainda constrói antes de chegar ao servidor
       - run: docker build --target producao -t validador-planos:ci .
 
-      # E que os compose de produção (Dokploy) e de desenvolvimento continuam válidos
+      # E que os Compose de produção, desenvolvimento e Open WebUI continuam válidos
       - run: docker compose -f docker-compose.yml config --quiet
       - run: docker compose -f docker-compose.dev.yml config --quiet
+      - run: OPEN_WEBUI_SECRET_KEY=ci-placeholder docker compose -f open-webui/docker-compose.yml config --quiet
 
   deploy:
     needs: testes

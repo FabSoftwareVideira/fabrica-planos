@@ -1,5 +1,5 @@
 # Produção no Dokploy (recurso do tipo Docker Compose): app com gunicorn atrás do Caddy interno e do
-# oauth2-proxy (login com Google), e o Ollama com GPU. O domínio e o HTTPS ficam com o Traefik do Dokploy,
+# oauth2-proxy (login com Google). O domínio e o HTTPS ficam com o Traefik do Dokploy,
 # configurados na tela do Dokploy para o serviço caddy (porta 80). As variáveis vêm da aba Environment
 # (modelo em .env.example). Para desenvolver na sua máquina, use docker-compose.dev.yml.
 # Limites de hardware: cada serviço tem teto de memória e de CPU (ajustáveis pelas variáveis *_MEMORIA e
@@ -33,10 +33,13 @@ services:
     restart: unless-stopped
     # Sem "ports" e fora da rede do Dokploy: só o caddy (login) alcança o app e repassa o e-mail de quem
     # entrou; só os e-mails de ADMIN_EMAILS enviam/excluem PDFs e disparam validações.
+    networks:
+      - default
+      - ollama-shared
     environment:
       - PLANOS_DIR=/data/planos
       - RESULTADOS_DIR=/data/resultados
-      # Ollama do serviço abaixo, alcançado pelo nome do serviço na rede do compose
+      # Ollama do projeto Open WebUI, alcançado pela rede Docker compartilhada
       - OLLAMA_URL=${OLLAMA_URL}
       - OLLAMA_MODEL=${OLLAMA_MODEL}
       - OLLAMA_NUM_CTX=${OLLAMA_NUM_CTX}
@@ -54,8 +57,6 @@ services:
     depends_on:
       preparar-pastas:
         condition: service_completed_successfully
-      ollama:
-        condition: service_healthy
     # Saudável quando o gunicorn responde /health (a imagem não tem curl: usa o Python dela)
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
@@ -174,56 +175,10 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  ollama:
-    image: ollama/ollama:latest
-    restart: unless-stopped
-    ports:
-      # Acesso ao Ollama pelo host; o app usa a rede interna e não depende desta porta.
-      # Por padrão só aceita conexões da própria máquina (o Ollama não tem autenticação).
-      - "${OLLAMA_BIND:-127.0.0.1}:${OLLAMA_PORT:-11434}:11434"
-    environment:
-      - TZ=${TZ}
-      # Um modelo carregado e uma geração por vez (o validador avalia um plano por vez): menos memória na GPU
-      - OLLAMA_MAX_LOADED_MODELS=1
-      - OLLAMA_NUM_PARALLEL=1
-    # Sem ganhar privilégios depois de iniciar; as capacidades ficam, porque o acesso à GPU depende delas
-    security_opt:
-      - no-new-privileges:true
-    volumes:
-      # Modelos baixados persistem entre recriações do container
-      - ollama-data:/root/.ollama
-    healthcheck:
-      test: ["CMD", "ollama", "list"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 10s
-    # Com o modelo na GPU, a memória do sistema serve para carregá-lo (qwen2.5:7b tem ~4,7 GB) e para o que
-    # não couber na placa. Teto baixo demais faz o modelo carregar devagar ou o container reiniciar.
-    deploy:
-      resources:
-        limits:
-          memory: ${OLLAMA_MEMORIA:-8g}
-          cpus: "${OLLAMA_CPUS:-2}"
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
-    # Logs do Docker giram em até 3 arquivos de 10 MB (sem isso crescem até encher o disco)
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-
 networks:
   # Rede do Traefik do Dokploy (criada na instalação do Dokploy)
   dokploy-network:
     external: true
-
-volumes:
-  # Modelos baixados. Nome fixo: reaproveita o volume do deploy anterior (validador-planos_ollama-data)
-  # e não depende do nome que o Dokploy dá ao projeto.
-  ollama-data:
-    name: ${OLLAMA_VOLUME:-validador-planos_ollama-data}
+  ollama-shared:
+    name: ollama-shared
+    external: true
