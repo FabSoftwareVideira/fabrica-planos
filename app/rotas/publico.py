@@ -3,14 +3,17 @@ from urllib.parse import quote
 from flask import Blueprint, current_app, redirect, render_template, request
 
 from ..paginas import inicio
+from . import govbr
 from .comum import eh_admin, email, json_, mesma_origem, nome, servicos, texto
 
 # Rotas sem login e a barreira de login das demais.
 bp = Blueprint('publico', __name__)
 
-PUBLICAS = {'/', '/health'}
+PUBLICAS = {'/', '/health', '/entrar'}
 # CSS, JS, fontes e ícones: a página inicial (pública) também usa, e nada ali é sigiloso
 PREFIXOS_PUBLICOS = ('/static/',)
+# Login com gov.br (ida, volta e saída) e a verificação de sessão consultada pelo Caddy (rotas/govbr.py)
+PREFIXOS_LOGIN = ('/auth/',)
 
 
 # Com o login simulado (desenvolvimento), a página de login e a saída também são públicas
@@ -42,6 +45,8 @@ def exigir_login():
     # O proxy só deixa passar quem fez login; isto barra quem chegar ao app sem passar por ele.
     cfg = servicos().cfg
     if cfg.login_simulado and request.path.startswith(PREFIXOS_LOGIN_SIMULADO):
+        return None
+    if request.path.startswith(PREFIXOS_LOGIN):
         return None
     if (cfg.exigir_login and not email() and request.path not in PUBLICAS
             and not request.path.startswith(PREFIXOS_PUBLICOS)):
@@ -83,7 +88,9 @@ def grande_demais(_erro):
 @bp.get('/')
 def raiz():
     """Página inicial pública, com o botão de login."""
-    return render_template('inicio.html', **inicio.contexto())
+    cfg = servicos().cfg
+    rd = govbr.destino(request.args.get('rd', ''))
+    return render_template('inicio.html', **inicio.contexto(rd, cfg.govbr_ativo, cfg.login_google or cfg.login_simulado))
 
 
 @bp.get('/health')

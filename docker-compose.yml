@@ -48,6 +48,17 @@ services:
       - AGENDAR=1
       - EXIGIR_LOGIN=1
       - ADMIN_EMAILS=${ADMIN_EMAILS}
+      - EMAIL_DOMINIO=${EMAIL_DOMINIO:-ifc.edu.br}
+      # Login com gov.br (rotas/govbr.py): ligado quando há cliente, segredo e SEGREDO_SESSAO. O app também
+      # responde ao Caddy se há sessão (/auth/verificar), conferindo a do Google no oauth2-proxy.
+      - GOVBR_CLIENT_ID=${GOVBR_CLIENT_ID:-}
+      - GOVBR_CLIENT_SECRET=${GOVBR_CLIENT_SECRET:-}
+      - GOVBR_AMBIENTE=${GOVBR_AMBIENTE:-producao}
+      - GOVBR_REDIRECT_URI=${GOVBR_REDIRECT_URI:-}
+      - GOVBR_LOGOUT_URI=${GOVBR_LOGOUT_URI:-}
+      - SEGREDO_SESSAO=${SEGREDO_SESSAO:-}
+      - LOGIN_GOOGLE=${LOGIN_GOOGLE:-1}
+      - COOKIE_SECURE=${COOKIE_SECURE:-true}
       - TZ=${TZ}
     volumes:
       # Pastas fixas do servidor, fora do código: o Dokploy clona o repositório de novo a cada deploy, e

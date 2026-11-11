@@ -365,7 +365,7 @@ def test_servidor_consulta_mas_nao_administra(com_login):
     _execucao(c, ['a.pdf'], 10)
     html = c.get('/dashboard', headers=SERVIDOR).get_data(as_text=True)
     # Quem está logado e o papel aparecem no cabeçalho
-    assert 'fulano@ifc.edu.br' in html and 'papel-usuario">Consulta<' in html and 'href="/oauth2/sign_out"' in html
+    assert 'fulano@ifc.edu.br' in html and 'papel-usuario">Consulta<' in html and 'href="/auth/sair"' in html
     assert 'id="validar"' not in html and 'id="soltar"' not in html and 'class="revalidar"' not in html
     assert 'ADMIN = false,' in html and 'href="/meus-planos"' in html and 'href="/administracao"' not in html
     r = c.get('/administracao', headers=SERVIDOR)
@@ -946,3 +946,142 @@ def test_excluir_o_plano_apaga_o_pdf_assinado(cliente):
     assert c.delete('/planos?arquivo=a.pdf').status_code == 200
     assert 'a.pdf' not in assinaturas.ler(res)
     assert not os.path.exists(assinaturas.caminho_pdf(res, 'a.pdf'))
+
+
+# Login com gov.br -------------------------------------------------------------------------------------
+
+GOVBR = dict(exigir_login=True, admins=frozenset({'admin@ifc.edu.br'}), govbr_client_id='cliente',
+             govbr_client_secret='segredo', segredo_sessao='chave-de-teste', cookie_seguro=False,
+             govbr_redirect_uri='https://planos.labia.ifc.edu.br/auth/govbr/callback',
+             govbr_logout_uri='https://planos.labia.ifc.edu.br/auth/gov/logout')
+
+
+class _Resposta:
+    def __init__(self, status=200, corpo=None, cabecalhos=None):
+        self.status_code, self._corpo, self.headers = status, corpo or {}, cabecalhos or {}
+
+    def json(self):
+        return self._corpo
+
+    def raise_for_status(self):
+        if self.status_code >= 400:
+            import requests
+            raise requests.HTTPError(str(self.status_code))
+
+
+def _id_token(**carga):
+    import base64
+    import json
+    parte = base64.urlsafe_b64encode(json.dumps(carga).encode()).decode().rstrip('=')
+    return f'eyJhbGciOiJSUzI1NiJ9.{parte}.assinatura'
+
+
+def _login_govbr(c, monkeypatch, rd='/meus-planos', **claims):
+    """Ida ao gov.br e volta com um ID token com estes claims (o endpoint de token é simulado)."""
+    from urllib.parse import parse_qs, urlsplit
+    import requests
+    r = c.get('/auth/govbr/login?rd=' + rd)
+    assert r.status_code == 302
+    ida = parse_qs(urlsplit(r.headers['Location']).query)
+    padrao = {'iss': 'https://sso.acesso.gov.br/', 'aud': 'cliente', 'nonce': ida['nonce'][0], 'exp': 9999999999,
+              'sub': '12345678900', 'name': 'Fulano de Tal', 'email': 'fulano@ifc.edu.br', 'email_verified': True}
+    padrao.update(claims)
+    pedidos = []
+
+    def post(url, **kw):
+        pedidos.append((url, kw))
+        return _Resposta(corpo={'id_token': _id_token(**padrao), 'access_token': 'x'})
+    monkeypatch.setattr(requests, 'post', post)
+    volta = c.get(f"/auth/govbr/callback?code=abc&state={ida['state'][0]}")
+    return ida, volta, pedidos
+
+
+def test_pagina_inicial_mostra_os_logins_ligados(fabrica):
+    c, _ = fabrica(exigir_login=True)
+    html = c.get('/').get_data(as_text=True)
+    assert '/oauth2/start?rd=/dashboard' in html and '/auth/govbr/login' not in html
+    c, _ = fabrica(**GOVBR)
+    html = c.get('/?rd=/meus-planos').get_data(as_text=True)
+    assert 'href="/auth/govbr/login?rd=/meus-planos"' in html and '/oauth2/start?rd=/meus-planos' in html
+    c, _ = fabrica(**dict(GOVBR, login_google=False))
+    html = c.get('/').get_data(as_text=True)
+    assert '/auth/govbr/login' in html and '/oauth2/start' not in html
+    # Para onde o Caddy manda quem abre uma página sem login
+    assert c.get('/entrar?rd=/dashboard').headers['Location'] == '/auth/govbr/login?rd=/dashboard'
+    assert c.get('/entrar?rd=//outro.site').headers['Location'] == '/auth/govbr/login?rd=/dashboard'
+
+
+def test_login_govbr_com_email_institucional(fabrica, monkeypatch):
+    c, _ = fabrica(**GOVBR)
+    assert c.get('/auth/verificar').status_code == 401
+    ida, volta, pedidos = _login_govbr(c, monkeypatch)
+    assert ida['code_challenge_method'] == ['S256'] and ida['scope'] == ['openid email profile']
+    assert ida['redirect_uri'] == ['https://planos.labia.ifc.edu.br/auth/govbr/callback']
+    assert volta.status_code == 302 and volta.headers['Location'] == '/meus-planos'
+    url, kw = pedidos[0]
+    assert url == 'https://sso.acesso.gov.br/token' and kw['auth'] == ('cliente', 'segredo')
+    assert kw['data']['code'] == 'abc' and len(kw['data']['code_verifier']) >= 43
+
+    # O Caddy pergunta ao app e recebe o e-mail e o nome
+    r = c.get('/auth/verificar')
+    assert r.status_code == 200 and r.headers['X-Usuario-Email'] == 'fulano@ifc.edu.br'
+    html = c.get('/meus-planos', headers={k: r.headers[k] for k in ('X-Usuario-Email', 'X-Usuario-Token')}).get_data(as_text=True)
+    assert 'Fulano de Tal' in html
+
+    # Sair apaga a sessão e passa pelo /logout do gov.br, que volta em /auth/gov/logout
+    r = c.get('/auth/sair')
+    assert r.headers['Location'] == ('https://sso.acesso.gov.br/logout?post_logout_redirect_uri='
+                                     'https%3A%2F%2Fplanos.labia.ifc.edu.br%2Fauth%2Fgov%2Flogout')
+    assert c.get('/auth/verificar').status_code == 401
+    assert c.get('/auth/gov/logout').headers['Location'] == '/oauth2/sign_out?rd=/'
+    # Sem sessão gov.br (entrou pelo Google), não passa pelo gov.br
+    assert c.get('/auth/sair').headers['Location'] == '/oauth2/sign_out?rd=/'
+
+
+def test_login_govbr_recusado(fabrica, monkeypatch):
+    c, _ = fabrica(**GOVBR)
+    _, volta, _ = _login_govbr(c, monkeypatch, email='fulano@gmail.com')
+    assert volta.status_code == 403 and 'e-mail institucional' in volta.get_data(as_text=True)
+    _, volta, _ = _login_govbr(c, monkeypatch, email_verified=False)
+    assert volta.status_code == 403
+    _, volta, _ = _login_govbr(c, monkeypatch, email='fulano@estudantes.ifc.edu.br')
+    assert volta.status_code == 403
+    for claims in ({'nonce': 'outro'}, {'aud': 'outro-cliente'}, {'iss': 'https://falso.example/'}, {'exp': 1}):
+        _, volta, _ = _login_govbr(c, monkeypatch, **claims)
+        assert volta.status_code == 400, claims
+    assert c.get('/auth/verificar').status_code == 401
+    # state que não é o da ida (outra aba, ou forjado)
+    c.get('/auth/govbr/login')
+    assert c.get('/auth/govbr/callback?code=abc&state=forjado').status_code == 400
+    # Cookie de sessão adulterado
+    c.set_cookie('_planos_govbr', 'eyJlbWFpbCI6ImFkbWluQGlmYy5lZHUuYnIifQ.xxx.yyy')
+    assert c.get('/auth/verificar').status_code == 401
+
+
+def test_verificar_aceita_sessao_do_google(fabrica, monkeypatch):
+    import requests
+    c, _ = fabrica(**GOVBR)
+    chamadas = []
+
+    def get(url, **kw):
+        chamadas.append((url, kw['headers']))
+        return _Resposta(202, cabecalhos={'X-Auth-Request-Email': 'ciclana@ifc.edu.br', 'Authorization': 'Bearer t'})
+    monkeypatch.setattr(requests, 'get', get)
+    c.set_cookie('_planos_login', 'sessao-google')
+    r = c.get('/auth/verificar')
+    assert r.status_code == 200 and r.headers['X-Usuario-Email'] == 'ciclana@ifc.edu.br'
+    assert r.headers['X-Usuario-Token'] == 'Bearer t'
+    assert chamadas[0][0] == 'http://oauth2-proxy:4180/oauth2/auth' and '_planos_login=sessao-google' in chamadas[0][1]['Cookie']
+    monkeypatch.setattr(requests, 'get', lambda url, **kw: _Resposta(401))
+    assert c.get('/auth/verificar').status_code == 401
+    # Com o Google desligado, nem pergunta ao oauth2-proxy
+    c, _ = fabrica(**dict(GOVBR, login_google=False))
+    c.set_cookie('_planos_login', 'sessao-google')
+    monkeypatch.setattr(requests, 'get', get)
+    assert c.get('/auth/verificar').status_code == 401
+
+
+def test_login_govbr_desligado_sem_credenciais(fabrica):
+    c, _ = fabrica(exigir_login=True)
+    assert c.get('/auth/govbr/login').status_code == 404
+    assert c.get('/entrar?rd=/dashboard').headers['Location'] == '/oauth2/start?rd=/dashboard'

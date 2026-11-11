@@ -1,4 +1,5 @@
-# Proxy interno do validador: login com a conta Google institucional (oauth2-proxy) e repasse ao app.
+# Proxy interno do validador: login com gov.br (feito pelo app) ou com a conta Google institucional
+# (oauth2-proxy) e repasse ao app.
 # Fica atrás do Traefik do Dokploy, que recebe o domínio e cuida do HTTPS; aqui é HTTP puro na porta 80,
 # sem porta publicada no host (ver docker-compose.yml).
 {
@@ -27,6 +28,14 @@
 		reverse_proxy oauth2-proxy:4180
 	}
 
+	# Login com gov.br (ida, retorno em /auth/govbr/callback e saída) e a escolha do login: públicos, no app
+	@login path /auth/* /entrar
+	handle @login {
+		request_header -X-Usuario-Email
+		request_header -X-Usuario-Token
+		reverse_proxy app:8000
+	}
+
 	# CSS, JS, fontes e ícones: públicos (a página inicial usa o Design System gov.br) e sem nada sigiloso
 	handle /static/* {
 		request_header -X-Usuario-Email
@@ -49,22 +58,23 @@
 	}
 
 	handle {
-		# route mantém a ordem: os cabeçalhos vindos do navegador são apagados antes de o oauth2-proxy
-		# preencher o e-mail de quem fez login e o ID token do Google (de onde o app lê o nome);
-		# o app confia neles para saber quem é e se é administrador.
+		# route mantém a ordem: os cabeçalhos vindos do navegador são apagados antes de a verificação
+		# preencher o e-mail de quem fez login e o token com o nome; o app confia neles para saber quem é e
+		# se é administrador. A verificação (/auth/verificar, no app) aceita a sessão gov.br do app ou a do
+		# Google, que ela confere no oauth2-proxy.
 		route {
 			request_header -X-Usuario-Email
 			request_header -X-Usuario-Token
-			forward_auth oauth2-proxy:4180 {
-				uri /oauth2/auth
-				copy_headers X-Auth-Request-Email>X-Usuario-Email Authorization>X-Usuario-Token
+			forward_auth app:8000 {
+				uri /auth/verificar
+				copy_headers X-Usuario-Email X-Usuario-Token
 				# Sem sessão, só a navegação (abrir a página) vai para o login. Requisições da página
 				# (fetch de /status, /planos) recebem 401: se fossem redirecionadas, cada uma iniciaria
 				# outro login e trocaria o cookie CSRF do que está em andamento ("CSRF token" na volta).
 				@sem_login status 401
 				handle_response @sem_login {
 					@navegacao header Sec-Fetch-Mode navigate
-					redir @navegacao /oauth2/start?rd={uri}
+					redir @navegacao /entrar?rd={uri}
 					respond "Login necessário" 401
 				}
 			}

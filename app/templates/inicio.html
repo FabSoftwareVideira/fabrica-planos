@@ -17,10 +17,13 @@
     <div class="container-lg">
       <h1>Validação de Planos de Ensino</h1>
       <p class="chamada">Conferência automática dos planos de ensino do IFC: cada plano é lido e avaliado seção por seção, apontando o que está completo e o que precisa de ajuste antes da publicação.</p>
-      {# /dashboard exige login: sem sessão, o proxy leva ao Google e volta para o painel. #}
-      <a class="google" href="/dashboard">
+      {# Botões dos logins ligados (gov.br e/ou Google); depois do login, volta para `rd` (padrão: o painel). #}
+      <div class="logins" id="entrar">
+        {% if url_govbr %}<a class="govbr" href="{{ url_govbr }}"><i class="fas fa-user" aria-hidden="true"></i> Entrar com <strong>gov.br</strong></a>{% endif %}
+        {% if url_google %}<a class="google" href="{{ url_google }}">
         {%- include 'logo_google.svg' -%}
-        Entrar com Google</a>
+        Entrar com Google</a>{% endif %}
+      </div>
       <p class="restrito"><i class="fas fa-lock" aria-hidden="true"></i> Acesso restrito a servidores, com a conta institucional @ifc.edu.br.</p>
     </div>
   </section>
@@ -53,7 +56,7 @@
 
     <div class="br-message info">
       <div class="icon"><i class="fas fa-shield-alt fa-lg" aria-hidden="true"></i></div>
-      <div class="content"><span class="message-title">Privacidade.</span> <span class="message-body">A IA roda no próprio servidor do campus: o conteúdo dos planos não é enviado a serviços externos. O login com Google serve apenas para confirmar que quem acessa é servidor da instituição.</span></div>
+      <div class="content"><span class="message-title">Privacidade.</span> <span class="message-body">A IA roda no próprio servidor do campus: o conteúdo dos planos não é enviado a serviços externos. O login (gov.br ou Google) serve apenas para confirmar que quem acessa é servidor da instituição, pelo e-mail institucional.</span></div>
     </div>
   </div>
 </main>

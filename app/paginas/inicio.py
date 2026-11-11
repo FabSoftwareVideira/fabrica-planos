@@ -13,5 +13,9 @@ LEGENDA = [('OK', '#22c55e', 'campo completo'), ('INCOMPLETO', '#eab308', 'falta
            ('AUSENTE', '#ef4444', 'campo vazio ou não encontrado')]
 
 
-def contexto():
-    return {'passos': PASSOS, 'campos': CAMPOS_COLUNA, 'legenda': LEGENDA}
+def contexto(rd='/dashboard', govbr=False, google=True):
+    """`rd`: para onde voltar depois do login; `govbr`/`google`: quais botões de login mostrar."""
+    from urllib.parse import quote
+    return {'passos': PASSOS, 'campos': CAMPOS_COLUNA, 'legenda': LEGENDA,
+            'url_govbr': '/auth/govbr/login?rd=' + quote(rd) if govbr else '',
+            'url_google': '/oauth2/start?rd=' + quote(rd) if google else ''}

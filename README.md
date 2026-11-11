@@ -7,9 +7,9 @@ Aplicação web do IFC Videira que avalia os planos de ensino (PDFs do SIGAA) co
 - Em **Meus planos**, cada professor entrega e acompanha os próprios planos. A **coordenação, o NDE e o NDB** de cada curso revisam a avaliação da IA, e o parecer deles passa a valer.
 - Depois de aprovado na revisão, o professor **assina o plano com a conta gov.br** (em [assinador.iti.br](https://assinador.iti.br)) e envia o PDF assinado em **Meus planos**. O app confere a assinatura, que precisa ser de um certificado das autoridades em [`app/certificados/`](app/certificados/LEIA-ME.md), e se o conteúdo é o do plano aprovado.
 - A **administração** envia PDFs, dispara validações (também roda todo dia, às 5h) e gerencia usuários e papéis.
-- O acesso é feito com a conta Google institucional (`@ifc.edu.br`).
+- O acesso é feito com a conta **gov.br** ou com a conta Google institucional. Nos dois casos vale o e-mail `@ifc.edu.br`: no gov.br, ele precisa estar cadastrado e verificado na conta.
 
-Feito em Python 3.12 com Flask e gunicorn, e páginas no [Padrão Digital de Governo](https://www.gov.br/ds/). Em produção, roda em Docker atrás de Caddy e oauth2-proxy.
+Feito em Python 3.12 com Flask e gunicorn, e páginas no [Padrão Digital de Governo](https://www.gov.br/ds/). Em produção, roda em Docker atrás de Caddy e oauth2-proxy (Google); o login gov.br é feito pelo próprio app.
 
 ## Como rodar
 
@@ -46,7 +46,7 @@ docker compose -f docker-compose.dev.yml exec app pytest -q
 
 A produção roda no [Dokploy](https://dokploy.com), como recurso do tipo **Docker Compose**, usando o `docker-compose.yml` da raiz. Para configurar:
 
-1. Crie um cliente OAuth no [Google Cloud](https://console.cloud.google.com) (tipo **Aplicativo da Web**), com o URI de redirecionamento `https://SEU_DOMINIO/oauth2/callback`.
+1. Crie um cliente OAuth no [Google Cloud](https://console.cloud.google.com) (tipo **Aplicativo da Web**), com o URI de redirecionamento `https://SEU_DOMINIO/oauth2/callback`. Para o login gov.br, peça a integração com o Login Único com o endereço de retorno `https://SEU_DOMINIO/auth/govbr/callback` e o de saída `https://SEU_DOMINIO/auth/gov/logout`, e preencha as variáveis `GOVBR_*` e `SEGREDO_SESSAO`. Com `LOGIN_GOOGLE=0`, fica só o gov.br.
 2. No Dokploy, cadastre o repositório (branch `master`, arquivo `./docker-compose.yml`) e **desligue o Autodeploy**.
 3. Em **Environment**, cole o `.env.example` e preencha os valores. Cada variável está explicada nele.
 4. Em **Domains**, aponte o domínio para o serviço `caddy`, porta `80`, com HTTPS.

@@ -11,6 +11,13 @@
 .google:hover{box-shadow:0 2px 8px rgba(0,0,0,.18);text-decoration:none;color:#1f1f1f}
 .google svg{width:20px;height:20px}
 
+/* Botões de login lado a lado (um embaixo do outro no celular) */
+.logins{display:flex;flex-wrap:wrap;justify-content:center;gap:var(--spacing-scale-2x)}
+/* "Entrar com gov.br": botão primário azul do Padrão Digital de Governo */
+.govbr{display:inline-flex;align-items:center;gap:10px;background:#1351b4;color:#fff;text-decoration:none;
+  border-radius:999px;padding:12px 24px;font-weight:600;font-size:16px;transition:background .2s}
+.govbr:hover{background:#0c326f;color:#fff;text-decoration:none}
+
 .br-card .card-header h2{font-size:var(--font-size-scale-up-02);margin:0}
 
 /* Passos do processo, com ícone */
