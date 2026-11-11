@@ -53,3 +53,16 @@ def test_nomes():
     assert mesma_pessoa('MARIA DE SOUZA', 'Maria Souza')
     assert not mesma_pessoa('MARIA DE SOUZA', 'Maria Oliveira')
     assert not mesma_pessoa('MARIA SOUZA', 'Maria')
+
+
+def test_le_a_cadeia_em_pacote_p7b(tmp_path):
+    from asn1crypto import cms, x509
+    from cryptography.hazmat.primitives.serialization import Encoding
+    raiz = x509.Certificate.load(AC[0].public_bytes(Encoding.DER))
+    pacote = cms.ContentInfo({'content_type': 'signed_data', 'content': cms.SignedData({
+        'version': 'v1', 'digest_algorithms': [], 'encap_content_info': {'content_type': 'data'},
+        'certificates': [raiz], 'signer_infos': []})})
+    (tmp_path / 'Cadeia.p7b').write_bytes(pacote.dump())
+    raizes = assinatura.carregar_raizes(str(tmp_path))
+    assert [r.sha256 for r in raizes] == [raiz.sha256]
+    assert verificar(assinar(PDF_COM_TEXTO, AC), PDF_COM_TEXTO, raizes)['signatario'] == 'FULANO DE TAL'

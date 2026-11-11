@@ -1,3 +1,5 @@
+import logging
+
 from flask import Blueprint, render_template, request
 
 from ..avaliacao import pipeline
@@ -8,6 +10,7 @@ from .comum import email, json_, nome as nome_usuario, ocupado, servicos
 
 # "Meus planos": cada servidor entrega os próprios planos (a entrega oficial, que vai para a mesma pasta
 # do NDE), acompanha a avaliação e pode substituí-los ou excluí-los. Não mexe nos planos dos outros.
+log = logging.getLogger(__name__)
 bp = Blueprint('meus_planos', __name__, url_prefix='/meus-planos')
 
 
@@ -78,4 +81,7 @@ def enviar_assinado():
                               'coordenação, do NDE ou do NDB'}, 403)
     except assinatura.AssinaturaInvalida as erro:
         return json_({'erro': str(erro)}, 422)
+    except Exception:  # falha inesperada: registra no log e responde com uma mensagem, não com a página de erro
+        log.exception('Falha ao conferir o PDF assinado de %s', nome)
+        return json_({'erro': 'Erro interno ao conferir a assinatura; tente de novo ou avise a administração'}, 500)
     return json_({'assinatura': assinatura.resumo(registro)})

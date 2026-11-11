@@ -88,8 +88,9 @@ async function enviarAssinado(nome, arquivo) {
   let r;
   try { r = await fetch('/meus-planos/assinatura', { method: 'POST', body: form }); }
   catch { msg($('envio-msg'), 'Falha de conexão no envio', 'erro'); return; }
+  if (r.status === 401) { location.reload(); return; }  // sessão expirou: recarregar leva ao login
   const d = await corpo(r);
-  msg($('envio-msg'), r.ok ? `"${nome}" assinado por ${d.assinatura.signatario}.` : (d.erro || 'Falha ao enviar o PDF assinado'), r.ok ? 'ok' : 'erro');
+  msg($('envio-msg'), r.ok ? `"${nome}" assinado por ${d.assinatura.signatario}.` : (d.erro || `Falha ao enviar o PDF assinado (erro ${r.status})`), r.ok ? 'ok' : 'erro');
   carregar();
 }
 

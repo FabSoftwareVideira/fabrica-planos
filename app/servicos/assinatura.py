@@ -6,6 +6,15 @@ import re
 import unicodedata
 from collections import Counter
 
+# No topo (e não dentro das funções): sem o pyHanko instalado, o app nem sobe, em vez de falhar só no envio
+from asn1crypto import cms, pem, x509
+from pyhanko.pdf_utils.reader import PdfFileReader
+from pyhanko.sign.diff_analysis import ModificationLevel
+from pyhanko.sign.validation import validate_pdf_signature
+from pyhanko.sign.validation.settings import KeyUsageConstraints
+from pyhanko.sign.validation.status import SignatureCoverageLevel
+from pyhanko_certvalidator import ValidationContext
+
 from ..armazenamento import assinaturas, donos
 from ..avaliacao import identificacao
 from ..avaliacao.extrator import PdfIlegivel, extrair_texto
@@ -39,19 +48,25 @@ class NaoLiberado(Exception):
 # Certificados das autoridades aceitas ------------------------------------------------------------------
 
 def carregar_raizes(pasta):
-    """Certificados raiz aceitos (a AC Raiz do Governo Federal do Brasil, do gov.br, e as que mais forem
-    postas na pasta): arquivos .crt, .cer, .pem ou .der, em PEM ou DER."""
-    from asn1crypto import pem, x509
+    """Certificados aceitos como âncora (a cadeia do gov.br, Cadeia_GovBr-der.p7b do ITI, e as que mais
+    forem postas na pasta): arquivos .crt, .cer, .pem ou .der (PEM ou DER) e pacotes .p7b/.p7c. Raiz e
+    intermediárias podem vir juntas: assinaturas emitidas abaixo de qualquer uma delas são aceitas."""
     raizes = []
     for caminho in sorted(glob.glob(os.path.join(pasta, '*'))):
-        if os.path.splitext(caminho)[1].lower() not in ('.crt', '.cer', '.pem', '.der'):
+        extensao = os.path.splitext(caminho)[1].lower()
+        if extensao not in ('.crt', '.cer', '.pem', '.der', '.p7b', '.p7c'):
             continue
         with open(caminho, 'rb') as arq:
             dados = arq.read()
         try:
             blocos = [b for _, _, b in pem.unarmor(dados, multiple=True)] if pem.detect(dados) else [dados]
-            raizes += [x509.Certificate.load(b) for b in blocos]
-        except ValueError:
+            for bloco in blocos:
+                if extensao in ('.p7b', '.p7c'):
+                    certs = cms.ContentInfo.load(bloco)['content']['certificates']
+                    raizes += [c.chosen for c in certs if c.name == 'certificate']
+                else:
+                    raizes.append(x509.Certificate.load(bloco))
+        except (ValueError, KeyError, TypeError):
             log.warning('Certificado ilegível ignorado: %s', caminho)
     return raizes
 
@@ -67,21 +82,13 @@ def verificar(pdf_assinado, pdf_original, raizes):
     sem mudanças antes da assinatura (o caso do assinador do gov.br, que acrescenta ao final do arquivo)
     ou, se o PDF foi regravado, o mesmo texto em cada página, admitindo só o carimbo da assinatura.
     """
-    from pyhanko.pdf_utils.misc import PdfReadError
-    from pyhanko.pdf_utils.reader import PdfFileReader
-    from pyhanko.sign.diff_analysis import ModificationLevel
-    from pyhanko.sign.validation import validate_pdf_signature
-    from pyhanko.sign.validation.settings import KeyUsageConstraints
-    from pyhanko.sign.validation.status import SignatureCoverageLevel
-    from pyhanko_certvalidator import ValidationContext
-
     if not raizes:
         raise AssinaturaInvalida('A conferência de assinaturas ainda não foi configurada no servidor; '
                                  'avise a administração.')
     try:
         leitor = PdfFileReader(io.BytesIO(pdf_assinado), strict=False)
         assinaturas_pdf = leitor.embedded_regular_signatures
-    except (PdfReadError, ValueError, KeyError) as erro:
+    except Exception as erro:  # o leitor levanta vários tipos de erro para arquivos quebrados
         raise AssinaturaInvalida('O arquivo não pôde ser aberto como PDF.') from erro
     if not assinaturas_pdf:
         raise AssinaturaInvalida(f'O PDF não tem assinatura digital. Assine-o em {ASSINADOR} e envie o '
