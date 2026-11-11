@@ -2,9 +2,9 @@ from flask import Blueprint, render_template, request
 
 from ..avaliacao import pipeline
 from ..paginas import meus_planos
-from ..servicos import revisao
+from ..servicos import assinatura, revisao
 from ..servicos.planos import Ocupado, Proibido
-from .comum import email, json_, ocupado, servicos
+from .comum import email, json_, nome as nome_usuario, ocupado, servicos
 
 # "Meus planos": cada servidor entrega os próprios planos (a entrega oficial, que vai para a mesma pasta
 # do NDE), acompanha a avaliação e pode substituí-los ou excluí-los. Não mexe nos planos dos outros.
@@ -27,6 +27,9 @@ def listar():
     vigentes = s.revisao.vigentes()
     for plano in planos:  # parecer da coordenação/NDE/NDB, que vale sobre a avaliação da IA
         plano['revisao'] = revisao.resumo(vigentes.get(plano['nome']))
+        # Aprovado na revisão: o professor assina pelo gov.br e envia o PDF assinado
+        plano['assinatura'] = assinatura.resumo(s.assinaturas.vigente(plano['nome']))
+        plano['pode_assinar'] = s.assinaturas.liberado(plano['nome'], _dono())
     return json_({'planos': planos})
 
 
@@ -51,3 +54,28 @@ def excluir():
     except Ocupado:
         return ocupado()
     return json_({'excluido': nome})
+
+
+@bp.post('/assinatura')
+def enviar_assinado():
+    """PDF do plano aprovado, assinado pelo professor no assinador do gov.br (ver servicos/assinatura.py)."""
+    s = servicos()
+    nome = request.form.get('arquivo', '')
+    pdf = request.files.get('pdf')
+    if not pipeline.nome_valido(nome) or pdf is None:
+        return json_({'erro': 'Envie o PDF assinado do plano'}, 400)
+    dados = pdf.stream.read(s.cfg.pdf_max_mb * 1024 * 1024 + 1)
+    if len(dados) > s.cfg.pdf_max_mb * 1024 * 1024:
+        return json_({'erro': f'Arquivo maior que {s.cfg.pdf_max_mb} MB'}, 400)
+    if not dados.startswith(b'%PDF-'):
+        return json_({'erro': 'O conteúdo não é um PDF'}, 400)
+    usuario = _dono()
+    try:
+        registro = s.assinaturas.registrar(nome, usuario, nome_usuario() or (s.usuarios.obter(usuario) or {}).get('nome', ''),
+                                           dados)
+    except assinatura.NaoLiberado:
+        return json_({'erro': 'Só quem enviou o plano o assina, e só depois de aprovado na revisão da '
+                              'coordenação, do NDE ou do NDB'}, 403)
+    except assinatura.AssinaturaInvalida as erro:
+        return json_({'erro': str(erro)}, 422)
+    return json_({'assinatura': assinatura.resumo(registro)})

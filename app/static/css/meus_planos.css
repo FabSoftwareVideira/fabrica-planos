@@ -12,3 +12,8 @@
 .meus .acoes{display:flex;flex-wrap:wrap;gap:var(--spacing-scale-base) var(--spacing-scale-2x);align-items:center}
 .meus .acoes a{font-weight:var(--font-weight-semi-bold)}
 .meus .excluir{color:var(--danger)}
+.meus .assinatura{flex-basis:100%;border-left:4px solid #eab308;background:var(--gray-2);border-radius:var(--surface-rounder-sm);
+  padding:var(--spacing-scale-base) var(--spacing-scale-2x);font-size:var(--font-size-scale-down-01)}
+.meus .assinatura.feita{border-left-color:#168821}
+.meus .assinatura p{margin:0}
+.meus .assinatura ol{margin:var(--spacing-scale-half) 0 var(--spacing-scale-base);padding-left:var(--spacing-scale-3x)}

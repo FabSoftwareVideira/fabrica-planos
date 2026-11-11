@@ -8,6 +8,7 @@ from .paginas import comum as paginas
 from .armazenamento.revisoes import Revisoes
 from .armazenamento.usuarios import Usuarios
 from .config import Config, carregar
+from .servicos.assinatura import Assinaturas
 from .servicos.planos import PastaDePlanos
 from .servicos.revisao import Revisao
 from .servicos.validador import Validador
@@ -21,6 +22,7 @@ class Servicos:
     planos: PastaDePlanos
     usuarios: Usuarios
     revisao: Revisao
+    assinaturas: Assinaturas
 
 
 def criar_app(cfg=None, executar=None):
@@ -32,8 +34,9 @@ def criar_app(cfg=None, executar=None):
     app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # soma dos PDFs de um envio
     usuarios = Usuarios(cfg.usuarios_path)
     revisoes = Revisoes(cfg.revisoes_path)  # excluir um plano também apaga a revisão dele
+    revisao = Revisao(cfg, revisoes, usuarios)
     app.extensions['servicos'] = Servicos(cfg, validador, PastaDePlanos(cfg, validador, revisoes), usuarios,
-                                           Revisao(cfg, revisoes, usuarios))
+                                           revisao, Assinaturas(cfg, revisao))
     paginas.registrar(app)
     rotas.registrar(app)
     if cfg.login_simulado:  # só em desenvolvimento (docker-compose.dev.yml)

@@ -13,7 +13,8 @@ function situacao(p) {
   if (p.revisao && p.situacao === 'avaliado') {
     const r = p.revisao;
     const quem = `${r.parecer} por ${r.revisor} (${r.papel}) em ${hora(r.revisado_em)}`;
-    return [selo(r.status, CORES[r.status] || '#ef4444'), quem + (r.comentario ? ': ' + r.comentario : '.')];
+    const marca = p.assinatura ? selo('ASSINADO', '#168821') : selo(r.status, CORES[r.status] || '#ef4444');
+    return [marca, quem + (r.comentario ? ': ' + r.comentario : '.')];
   }
   if (p.situacao === 'na_fila') return [selo(`Na fila (${p.posicao}º)`, '#6b7280'), 'Aguardando a vez da avaliação automática.'];
   if (p.situacao === 'validando') return [selo('Avaliando…', '#2563eb'), 'A IA está lendo o plano; leva cerca de um minuto.'];
@@ -43,11 +44,53 @@ function item(p) {
     const del = document.createElement('button'); del.type = 'button'; del.className = 'br-button small excluir';
     del.innerHTML = '<i class="fas fa-trash-alt" aria-hidden="true"></i> Excluir';
     del.onclick = () => excluir(p.nome);
-    acoes.append(pdf, del);
+    acoes.append(pdf);
+    if (p.assinatura) {
+      const ass = document.createElement('a'); ass.href = '/pdf-assinado?arquivo=' + encodeURIComponent(p.nome);
+      ass.target = '_blank'; ass.rel = 'noopener'; ass.innerHTML = '<i class="fas fa-file-signature" aria-hidden="true"></i> PDF assinado';
+      acoes.append(ass);
+    }
+    acoes.append(del);
     const info = document.createElement('span'); info.className = 'info';
     info.textContent = `Enviado em ${hora(p.enviado_em)} · ${detalhe}`;
     li.append(nome, acoes, info);
+    if (p.assinatura || p.pode_assinar) li.append(blocoAssinatura(p));
     return li;
+}
+
+// Aprovado na revisão: o professor assina o PDF no assinador do gov.br e envia de volta o arquivo assinado.
+function blocoAssinatura(p) {
+  const div = document.createElement('div'); div.className = 'assinatura' + (p.assinatura ? ' feita' : '');
+  if (p.assinatura) {
+    const a = p.assinatura;
+    div.innerHTML = '<i class="fas fa-file-signature" aria-hidden="true"></i> ';
+    div.append(`Assinado via gov.br por ${a.signatario}` + (a.assinado_em ? ` em ${hora(a.assinado_em)}` : '') + '.');
+    return div;
+  }
+  div.innerHTML = '<p><strong><i class="fas fa-file-signature" aria-hidden="true"></i> Plano aprovado: falta a sua assinatura.</strong></p>'
+    + '<ol><li>Baixe o PDF do plano (link <b>PDF</b> acima).</li>'
+    + '<li>Assine-o em <a href="https://assinador.iti.br" target="_blank" rel="noopener">assinador.iti.br</a>, com a sua conta gov.br.</li>'
+    + '<li>Envie aqui o arquivo assinado que o assinador devolve.</li></ol>';
+  const entrada = document.createElement('input'); entrada.type = 'file'; entrada.accept = 'application/pdf,.pdf'; entrada.hidden = true;
+  const botao = document.createElement('button'); botao.type = 'button'; botao.className = 'br-button primary small';
+  botao.innerHTML = '<i class="fas fa-upload" aria-hidden="true"></i> Enviar PDF assinado';
+  botao.onclick = () => entrada.click();
+  entrada.onchange = () => { if (entrada.files[0]) enviarAssinado(p.nome, entrada.files[0]); entrada.value = ''; };
+  div.append(botao, entrada);
+  return div;
+}
+
+async function enviarAssinado(nome, arquivo) {
+  const local = motivoLocal(arquivo);
+  if (local) { msg($('envio-msg'), `${arquivo.name}: ${local}`, 'erro'); return; }
+  const form = new FormData(); form.append('arquivo', nome); form.append('pdf', arquivo);
+  msg($('envio-msg'), `Conferindo a assinatura de "${nome}"…`);
+  let r;
+  try { r = await fetch('/meus-planos/assinatura', { method: 'POST', body: form }); }
+  catch { msg($('envio-msg'), 'Falha de conexão no envio', 'erro'); return; }
+  const d = await corpo(r);
+  msg($('envio-msg'), r.ok ? `"${nome}" assinado por ${d.assinatura.signatario}.` : (d.erro || 'Falha ao enviar o PDF assinado'), r.ok ? 'ok' : 'erro');
+  carregar();
 }
 
 async function carregar() {

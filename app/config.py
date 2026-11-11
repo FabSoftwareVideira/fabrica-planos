@@ -1,6 +1,8 @@
 import os
 from dataclasses import dataclass
 
+CERTIFICADOS_PADRAO = os.path.join(os.path.dirname(__file__), 'certificados')
+
 
 @dataclass(frozen=True)
 class Config:
@@ -19,6 +21,9 @@ class Config:
     # Só em desenvolvimento: login simulado em /dev/login no lugar do Google (rotas/login_simulado.py)
     login_simulado: bool = False
     email_dominio: str = 'ifc.edu.br'
+    # Certificados raiz aceitos nas assinaturas dos planos (servicos/assinatura.py): por padrão os do
+    # repositório, em app/certificados (a AC Raiz do Governo Federal do Brasil, do gov.br)
+    certificados_dir: str = CERTIFICADOS_PADRAO
 
     @property
     def historico_dir(self):
@@ -54,4 +59,5 @@ def carregar():
         admins=frozenset(e.strip().lower() for e in os.environ.get('ADMIN_EMAILS', '').split(',') if e.strip()),
         login_simulado=os.environ.get('LOGIN_SIMULADO', '0') == '1',
         email_dominio=(os.environ.get('EMAIL_DOMINIO') or 'ifc.edu.br').strip().lower(),
+        certificados_dir=os.environ.get('CERTIFICADOS_DIR') or CERTIFICADOS_PADRAO,
     )

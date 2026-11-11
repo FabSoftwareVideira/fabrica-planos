@@ -1,3 +1,4 @@
+import os
 from urllib.parse import quote
 
 from flask import Blueprint, redirect, render_template, request, send_from_directory
@@ -5,7 +6,7 @@ from flask import Blueprint, redirect, render_template, request, send_from_direc
 from ..armazenamento import csvsaida, detalhes, historico
 from ..avaliacao import identificacao, pipeline
 from ..paginas import dashboard, relatorio
-from ..servicos import revisao
+from ..servicos import assinatura, revisao
 from .comum import eh_admin, email, json_, mesma_origem, nome as nome_usuario, pode_exportar, servicos, texto
 
 # Consulta (qualquer servidor logado): dashboard, relatório de um plano, andamento e PDFs da pasta.
@@ -31,6 +32,8 @@ def dados_da_validacao():
     idents = {nome: identificacao.de_detalhes(det) for nome, det in dets.items()}
     docentes = {nome: identificacao.docentes((det or {}).get('texto', '')) for nome, det in dets.items()}
     revisoes = {nome: revisao.resumo(r) for nome, r in servicos().revisao.vigentes().items()}
+    for nome, r in revisoes.items():  # aprovado na revisão e assinado pelo professor (gov.br)
+        r['assinatura'] = assinatura.resumo(servicos().assinaturas.vigente(nome))
     return execucao, linhas, idents, docentes, revisoes
 
 
@@ -67,6 +70,7 @@ def pagina_relatorio():
     ctx = relatorio.contexto(linhas, indice, det, execucao, pode_revalidar, email())
     ctx.update(relatorio.contexto_revisao(revisao.resumo(s.revisao.vigente(nome)), s.revisao.papel(email(), ident, nome),
                                           ident, request.args.get('aviso', ''), s.revisao.eh_autor(email(), nome)))
+    ctx['assinatura'] = assinatura.resumo(s.assinaturas.vigente(nome))
     return render_template('relatorio.html', **ctx)
 
 
@@ -115,6 +119,17 @@ def pdf():
     if not pipeline.nome_valido(nome):
         return json_({'erro': 'Arquivo inválido'}, 400)
     return send_from_directory(servicos().cfg.planos_dir, nome, mimetype='application/pdf')
+
+
+@bp.get('/pdf-assinado')
+def pdf_assinado():
+    """PDF do plano assinado pelo professor (gov.br), enquanto a assinatura valer."""
+    nome = request.args.get('arquivo', '')
+    caminho = servicos().assinaturas.caminho(nome) if pipeline.nome_valido(nome) else None
+    if not caminho:
+        return texto('Este plano não tem PDF assinado.', 404)
+    pasta, arquivo = os.path.split(caminho)
+    return send_from_directory(pasta, arquivo, mimetype='application/pdf')
 
 
 @bp.get('/planos')

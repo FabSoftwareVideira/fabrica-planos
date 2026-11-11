@@ -5,6 +5,7 @@ Aplicação web do IFC Videira que avalia os planos de ensino (PDFs do SIGAA) co
 - O texto de cada PDF é extraído e separado em seções (ementa, objetivos, metodologia, cronograma, referências…). Um modelo local no [Ollama](https://ollama.com) (padrão `qwen2.5:7b`) avalia cada campo, e regras fixas conferem o que não depende da IA, como a contagem de referências e o horário de atendimento.
 - O **painel** mostra a situação de cada plano (aprovado, pendente ou com problemas), com filtros por curso, período e docente, e um relatório por plano com o texto extraído e a resposta da IA.
 - Em **Meus planos**, cada professor entrega e acompanha os próprios planos. A **coordenação, o NDE e o NDB** de cada curso revisam a avaliação da IA, e o parecer deles passa a valer.
+- Depois de aprovado na revisão, o professor **assina o plano com a conta gov.br** (em [assinador.iti.br](https://assinador.iti.br)) e envia o PDF assinado em **Meus planos**. O app confere a assinatura, que precisa ser de um certificado das autoridades em [`app/certificados/`](app/certificados/LEIA-ME.md), e se o conteúdo é o do plano aprovado.
 - A **administração** envia PDFs, dispara validações (também roda todo dia, às 5h) e gerencia usuários e papéis.
 - O acesso é feito com a conta Google institucional (`@ifc.edu.br`).
 
@@ -49,7 +50,8 @@ A produção roda no [Dokploy](https://dokploy.com), como recurso do tipo **Dock
 2. No Dokploy, cadastre o repositório (branch `master`, arquivo `./docker-compose.yml`) e **desligue o Autodeploy**.
 3. Em **Environment**, cole o `.env.example` e preencha os valores. Cada variável está explicada nele.
 4. Em **Domains**, aponte o domínio para o serviço `caddy`, porta `80`, com HTTPS.
-5. Faça o deploy do projeto OpenHands conforme [`open-webui/README.md`](./open-webui/README.md) antes do validador.
+5. Coloque em `app/certificados/` o certificado da AC Raiz do Governo Federal do Brasil v1 (veja o [LEIA-ME](app/certificados/LEIA-ME.md)). Sem ele, os planos assinados são recusados.
+6. Faça o deploy do projeto OpenHands conforme [`open-webui/README.md`](./open-webui/README.md) antes do validador.
 
 #### OpenHands e acesso ao Ollama por outros projetos
 

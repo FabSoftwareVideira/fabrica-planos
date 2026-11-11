@@ -3,7 +3,7 @@ import os
 import unicodedata
 from datetime import datetime
 
-from ..armazenamento import csvsaida, detalhes, donos, historico, ocultos
+from ..armazenamento import assinaturas, csvsaida, detalhes, donos, historico, ocultos
 from ..avaliacao import identificacao, pipeline
 from ..avaliacao.extrator import PdfIlegivel, extrair_texto
 
@@ -165,8 +165,8 @@ class PastaDePlanos:
         return self.existe(nome) or nome in pipeline.nomes_na_validacao(self.cfg)
 
     def _apagar(self, nome):
-        """Com a trava: o PDF, o registro de dono, a marca de oculto, a avaliação na validação atual e a
-        revisão. Excluir é definitivo; para só tirar do painel existe ocultar."""
+        """Com a trava: o PDF, o registro de dono, a marca de oculto, a avaliação na validação atual, a
+        revisão e o PDF assinado pelo professor. Excluir é definitivo; para só tirar do painel existe ocultar."""
         if self.existe(nome):
             os.remove(self.caminho(nome))
         donos.remover(self.cfg.resultados_dir, [nome])
@@ -174,6 +174,7 @@ class PastaDePlanos:
         pipeline.remover_da_validacao(self.cfg, [nome])
         if self.revisoes is not None:
             self.revisoes.remover(nome)
+        assinaturas.remover(self.cfg.resultados_dir, [nome])
 
     def excluir(self, nome, email=''):
         """Exclusão pelo administrador: só os planos que ele enviou ou sem dono (Proibido nos demais)."""

@@ -60,6 +60,8 @@
           <span class="acoes">
             {{ tag_status(c.status) }}
             {% if c.revisao %}<span class="selo-revisao" title="Revisado por {{ c.revisao.revisor }} ({{ c.revisao.papel }}) em {{ c.revisao.revisado_em|data_br }}"><i class="fas fa-user-check" aria-hidden="true"></i> Revisado</span>{% endif %}
+            {% if c.revisao and c.revisao.assinatura %}<span class="selo-revisao" title="Assinado via gov.br por {{ c.revisao.assinatura.signatario }}{% if c.revisao.assinatura.assinado_em %} em {{ c.revisao.assinatura.assinado_em|data_br }}{% endif %}"><i class="fas fa-file-signature" aria-hidden="true"></i> Assinado</span>
+            <a href="/pdf-assinado?arquivo={{ c.arquivo|urlencode }}" target="_blank" rel="noopener" onclick="event.stopPropagation()"><i class="fas fa-file-signature" aria-hidden="true"></i> PDF assinado</a>{% endif %}
             {% if c.url_revisar %}<a class="revisar" href="{{ c.url_revisar }}" onclick="event.stopPropagation()" title="Abre o relatório no formulário do parecer"><i class="fas fa-{{ 'edit' if c.revisao else 'user-check' }}" aria-hidden="true"></i> {{ 'Alterar parecer' if c.revisao else 'Revisar' }}</a>{% endif %}
             <a href="{{ c.url_relatorio }}" onclick="event.stopPropagation()"><i class="fas fa-file-alt" aria-hidden="true"></i> Relatório</a>
             {% if c.url_pdf %}<a href="{{ c.url_pdf }}" target="_blank" rel="noopener" onclick="event.stopPropagation()"><i class="fas fa-file-pdf" aria-hidden="true"></i> PDF</a>{% endif %}

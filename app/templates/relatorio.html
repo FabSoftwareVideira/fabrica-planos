@@ -52,6 +52,11 @@
       {% else %}
       <span>PDF não disponível</span>
       {% endif %}
+      {% if assinatura %}
+      <span><a href="/pdf-assinado?arquivo={{ nome|urlencode }}" target="_blank" rel="noopener"><i class="fas fa-file-signature" aria-hidden="true"></i> Assinado via gov.br por {{ assinatura.signatario }}{% if assinatura.assinado_em %} em {{ assinatura.assinado_em|data_br }}{% endif %}</a></span>
+      {% elif revisao and revisao.status == 'OK' %}
+      <span><i class="fas fa-file-signature" aria-hidden="true"></i> Aguardando a assinatura do docente</span>
+      {% endif %}
     </div>
 
     <section class="br-card revisao" id="revisao">

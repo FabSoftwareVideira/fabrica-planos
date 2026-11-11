@@ -884,3 +884,65 @@ def test_acoes_vindas_de_outro_site_sao_recusadas(cliente):
     assert (planos / 'a.pdf').exists() and not (planos / 'b.pdf').exists()
     # A própria página (mesma origem) continua podendo
     assert c.delete('/planos?arquivo=a.pdf', headers={'Origin': 'http://localhost'}).status_code == 200
+
+
+# Assinatura do plano aprovado pelo professor (gov.br) --------------------------------------------------
+
+def test_professor_assina_o_plano_depois_de_aprovado(fabrica, tmp_path):
+    from app.armazenamento import donos
+    from conftest import assinar, gerar_ac, salvar_ac
+    ac = gerar_ac()
+    c, planos = fabrica(exigir_login=True, admins=frozenset({'admin@ifc.edu.br'}),
+                        certificados_dir=salvar_ac(ac, tmp_path / 'certificados'))
+    _plano_cc(c, planos, status='OK')
+    donos.definir(_servicos(c).cfg.resultados_dir, 'web.pdf', 'fulano@ifc.edu.br')
+    _dar_papel(c, 'nde@ifc.edu.br')
+    assinado = assinar(PDF, ac)
+
+    def enviar(pdf, cab=SERVIDOR):
+        return c.post('/meus-planos/assinatura', headers=cab, content_type='multipart/form-data',
+                      data={'arquivo': 'web.pdf', 'pdf': (io.BytesIO(pdf), 'assinado.pdf')})
+
+    # Antes da aprovação na revisão, não assina
+    [plano] = c.get('/meus-planos/lista', headers=SERVIDOR).json['planos']
+    assert plano['pode_assinar'] is False and plano['assinatura'] is None
+    assert enviar(assinado).status_code == 403
+
+    c.post('/revisao', headers=NDE, data={'arquivo': 'web.pdf', 'status': 'OK', 'comentario': ''})
+    [plano] = c.get('/meus-planos/lista', headers=SERVIDOR).json['planos']
+    assert plano['pode_assinar'] is True
+    assert 'Aguardando a assinatura do docente' in c.get('/relatorio?arquivo=web.pdf', headers=NDE).get_data(as_text=True)
+
+    # Só quem enviou assina; o PDF precisa estar assinado, pela AC aceita, por quem é do plano
+    assert enviar(assinado, NDE).status_code == 403
+    r = enviar(PDF)
+    assert r.status_code == 422 and 'não tem assinatura' in r.json['erro']
+    assert 'não é do gov.br' in enviar(assinar(PDF, gerar_ac())).json['erro']
+    outro = {**SERVIDOR, 'X-Usuario-Token': _token(email='fulano@ifc.edu.br', name='Beltrano Pereira')}
+    assert 'não é docente deste plano' in enviar(assinado, outro).json['erro']
+    assert c.get('/pdf-assinado?arquivo=web.pdf', headers=SERVIDOR).status_code == 404
+
+    proprio = {**SERVIDOR, 'X-Usuario-Token': _token(email='fulano@ifc.edu.br', name='Fulano de Tal')}
+    r = enviar(assinado, proprio)
+    assert r.status_code == 200 and r.json['assinatura']['signatario'] == 'FULANO DE TAL'
+    [plano] = c.get('/meus-planos/lista', headers=SERVIDOR).json['planos']
+    assert plano['assinatura']['signatario'] == 'FULANO DE TAL'
+    assert c.get('/pdf-assinado?arquivo=web.pdf', headers=NDE).data == assinado
+    assert 'Assinado via gov.br por FULANO DE TAL' in c.get('/relatorio?arquivo=web.pdf', headers=NDE).get_data(as_text=True)
+    assert '/pdf-assinado?arquivo=web.pdf' in c.get('/dashboard', headers=NDE).get_data(as_text=True)
+
+    # Desfeita a aprovação, a assinatura deixa de valer
+    c.post('/revisao', headers=NDE, data={'arquivo': 'web.pdf', 'acao': 'desfazer'})
+    assert c.get('/meus-planos/lista', headers=SERVIDOR).json['planos'][0]['assinatura'] is None
+    assert c.get('/pdf-assinado?arquivo=web.pdf', headers=NDE).status_code == 404
+
+
+def test_excluir_o_plano_apaga_o_pdf_assinado(cliente):
+    from app.armazenamento import assinaturas
+    c, planos = cliente
+    (planos / 'a.pdf').write_bytes(PDF)
+    res = _servicos(c).cfg.resultados_dir
+    assinaturas.gravar(res, 'a.pdf', b'%PDF-assinado', {'signatario': 'X'})
+    assert c.delete('/planos?arquivo=a.pdf').status_code == 200
+    assert 'a.pdf' not in assinaturas.ler(res)
+    assert not os.path.exists(assinaturas.caminho_pdf(res, 'a.pdf'))
