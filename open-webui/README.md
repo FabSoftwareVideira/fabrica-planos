@@ -1,26 +1,16 @@
-# OpenHands
+# Ollama
 
-Projeto Docker Compose independente do validador. Ele executa o OpenHands Agent Canvas e o Ollama na GPU, e cria a rede Docker compartilhada `ollama-shared` para outros projetos.
+Projeto Docker Compose independente do validador. Ele executa o Ollama na GPU e cria a rede Docker compartilhada `ollama-shared`, pela qual o validador e outros projetos acessam a API em `http://ollama:11434`. Por ser separado, o Ollama não é reiniciado a cada deploy do validador.
 
 ## Deploy no Dokploy
 
-1. Crie outro recurso **Docker Compose** vinculado ao repositório GitHub `FabSoftwareVideira/fabrica-planos`.
+1. Crie um recurso **Docker Compose** vinculado ao repositório GitHub `FabSoftwareVideira/fabrica-planos`.
 2. Configure o arquivo Compose como `./open-webui/docker-compose.yml`.
-3. Configure `LOCAL_BACKEND_API_KEY` e `OH_SECRET_KEY` com valores aleatórios fortes e persistentes (por exemplo, gere cada um com `openssl rand -hex 32`).
-4. Configure o domínio do Dokploy para o serviço `openhands`, porta `8000`, com HTTPS.
-5. Baixe o modelo desejado no terminal do container `ollama`, por exemplo `ollama pull qwen2.5-coder:14b`.
+3. Em **Environment**, cole o [`.env.example`](./.env.example) e ajuste se precisar (memória, CPUs, janela de contexto).
+4. Baixe o modelo usado pelo validador no terminal do container `ollama`: `ollama pull qwen2.5:7b` (ou o definido em `OLLAMA_MODEL` no validador).
 
-Os volumes `openhands-data`, `openhands-projects` e `ollama-data` persistem as configurações, os arquivos de projeto e os modelos. O conteúdo de `/projects` fica acessível ao agente.
-
-## Configurar o Ollama
-
-No OpenHands, abra **Settings → LLM → Add LLM Profile → Advanced** e configure:
-
-- **Model:** `openai/qwen2.5-coder:14b` (ou outro modelo disponível no Ollama)
-- **Provider Connection:** crie ou selecione uma conexão com Base URL `http://ollama:11434/v1` e uma API key fictícia, como `local-llm`
-
-Modelos locais usados com agentes precisam de uma janela de contexto grande; o Compose configura 32k por padrão. Reduza `OLLAMA_CONTEXT_LENGTH` se faltar VRAM. O validador e outros projetos podem usar o mesmo Ollama na rede externa `ollama-shared`.
+Não é preciso domínio: o Ollama não é publicado na internet. O volume `ollama-data` guarda os modelos entre recriações do container.
 
 ## Segurança
 
-O agente pode executar comandos e modificar arquivos dentro do ambiente de trabalho. Proteja o domínio com autenticação ou VPN e só monte em `/projects` repositórios nos quais o agente possa trabalhar. Não monte o socket do Docker nem habilite modo privilegiado, salvo se aceitar conscientemente o risco adicional.
+O Ollama não tem autenticação. A porta publicada no host aceita só conexões da própria máquina (`OLLAMA_BIND=127.0.0.1`), e na rede `ollama-shared` só devem entrar serviços confiáveis.

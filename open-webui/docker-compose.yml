@@ -1,3 +1,5 @@
+# Ollama na GPU, num projeto Compose independente do validador (não reinicia a cada deploy dele).
+# Cria a rede ollama-shared, pela qual o validador e outros projetos acessam http://ollama:11434.
 services:
   ollama:
     image: ollama/ollama:latest
@@ -38,33 +40,9 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  openhands:
-    image: ghcr.io/openhands/agent-canvas:latest
-    restart: unless-stopped
-    environment:
-      PORT: "8000"
-      LOCAL_BACKEND_API_KEY: ${LOCAL_BACKEND_API_KEY:?Configure uma chave forte}
-      OH_SECRET_KEY: ${OH_SECRET_KEY:?Configure uma chave forte}
-      AGENT_CANVAS_DISABLE_TELEMETRY: "true"
-    expose:
-      - "8000"
-    volumes:
-      - openhands-data:/home/openhands/.openhands
-      - openhands-projects:/projects
-    networks:
-      - dokploy-network
-      - ollama-shared
-    depends_on:
-      ollama:
-        condition: service_healthy
-
 networks:
-  dokploy-network:
-    external: true
   ollama-shared:
     name: ollama-shared
 
 volumes:
-  openhands-data:
-  openhands-projects:
   ollama-data:
