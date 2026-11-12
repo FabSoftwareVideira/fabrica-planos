@@ -66,3 +66,36 @@ def test_le_a_cadeia_em_pacote_p7b(tmp_path):
     raizes = assinatura.carregar_raizes(str(tmp_path))
     assert [r.sha256 for r in raizes] == [raiz.sha256]
     assert verificar(assinar(PDF_COM_TEXTO, AC), PDF_COM_TEXTO, raizes)['signatario'] == 'FULANO DE TAL'
+
+
+# Assinatura pela API do gov.br: o PDF montado com o CMS devolvido pela API ---------------------------------
+
+def test_pdf_assinado_pela_api_passa_na_conferencia():
+    from app.servicos import assinatura_api
+    api = assinatura_api.ApiSimulada(None)
+    acs = []
+
+    def assinar_hash(digest):
+        cms_der = api.assinar_hash('token', digest, 'Fulano de Tal')
+        acs.extend(api.acs_confiaveis(cms_der))
+        return cms_der
+
+    assinado = assinatura_api.assinar_pdf(PDF_COM_TEXTO, assinar_hash)
+    assert assinado.startswith(PDF_COM_TEXTO)  # acrescentada ao final: o original fica intacto
+    dados = verificar(assinado, PDF_COM_TEXTO, acs)
+    assert dados['signatario'] == 'FULANO DE TAL' and dados['cpf'] == '00000000000'
+    from asn1crypto import x509
+    from cryptography.hazmat.primitives.serialization import Encoding
+    outra_ac = [x509.Certificate.load(gerar_ac()[0].public_bytes(Encoding.DER))]
+    with pytest.raises(AssinaturaInvalida, match='não é do gov.br'):  # sem a AC de teste, não vale
+        verificar(assinado, PDF_COM_TEXTO, outra_ac)
+
+
+def test_le_o_cms_em_binario_ou_base64():
+    import base64
+    from app.servicos import assinatura_api
+    cms_der = assinatura_api.ApiSimulada(None).assinar_hash('t', b'\x00' * 32, 'X')
+    assert assinatura_api.ler_cms(cms_der) == cms_der
+    assert assinatura_api.ler_cms(base64.b64encode(cms_der)) == cms_der
+    with pytest.raises(assinatura_api.FalhaApi):
+        assinatura_api.ler_cms(b'<html>erro</html>')

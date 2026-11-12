@@ -20,7 +20,9 @@ def _dono():
 
 @bp.get('')
 def pagina():
-    return render_template('meus_planos.html', **meus_planos.contexto(email(), servicos().cfg.pdf_max_mb))
+    cfg = servicos().cfg
+    return render_template('meus_planos.html', **meus_planos.contexto(email(), cfg.pdf_max_mb,
+                                                                      cfg.assinatura_api_ativa))
 
 
 @bp.get('/lista')

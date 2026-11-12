@@ -31,6 +31,11 @@ services:
       - LOGIN_SIMULADO=1
       - ADMIN_EMAILS=${DEV_ADMIN_EMAILS:-admin@ifc.edu.br}
       - EMAIL_DOMINIO=ifc.edu.br
+      # Assinatura pela API do gov.br simulada: "Assinar com gov.br" assina com uma AC de teste local, sem ir
+      # ao gov.br (só vale junto do login simulado). Vazio desliga o botão.
+      - GOVBR_ASSINATURA_AMBIENTE=${DEV_ASSINATURA_AMBIENTE-simulada}
+      # Cookies sem "Secure": o dev roda em http
+      - COOKIE_SECURE=false
       # Sem validação diária automática
       - AGENDAR=0
       - TZ=America/Sao_Paulo

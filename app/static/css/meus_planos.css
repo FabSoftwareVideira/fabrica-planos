@@ -17,3 +17,5 @@
 .meus .assinatura.feita{border-left-color:#168821}
 .meus .assinatura p{margin:0}
 .meus .assinatura ol{margin:var(--spacing-scale-half) 0 var(--spacing-scale-base);padding-left:var(--spacing-scale-3x)}
+.meus .assinatura .nota{margin:var(--spacing-scale-half) 0;font-size:var(--font-size-scale-down-01);color:var(--gray-60)}
+.meus .assinatura .alternativa summary{cursor:pointer;color:var(--interactive);font-size:var(--font-size-scale-down-01)}

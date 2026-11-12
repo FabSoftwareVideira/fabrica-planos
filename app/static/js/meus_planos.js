@@ -58,7 +58,8 @@ function item(p) {
     return li;
 }
 
-// Aprovado na revisão: o professor assina o PDF no assinador do gov.br e envia de volta o arquivo assinado.
+// Aprovado na revisão: o professor assina pelo gov.br. Com a API de assinatura configurada (ASSINATURA_API),
+// "Assinar com gov.br" faz tudo pelo app; senão (ou como alternativa), assina em assinador.iti.br e envia o PDF.
 function blocoAssinatura(p) {
   const div = document.createElement('div'); div.className = 'assinatura' + (p.assinatura ? ' feita' : '');
   if (p.assinatura) {
@@ -67,8 +68,27 @@ function blocoAssinatura(p) {
     div.append(`Assinado via gov.br por ${a.signatario}` + (a.assinado_em ? ` em ${hora(a.assinado_em)}` : '') + '.');
     return div;
   }
-  div.innerHTML = '<p><strong><i class="fas fa-file-signature" aria-hidden="true"></i> Plano aprovado: falta a sua assinatura.</strong></p>'
-    + '<ol><li>Baixe o PDF do plano (link <b>PDF</b> acima).</li>'
+  div.innerHTML = '<p><strong><i class="fas fa-file-signature" aria-hidden="true"></i> Plano aprovado: falta a sua assinatura.</strong></p>';
+  if (ASSINATURA_API) {
+    const assinar = document.createElement('a'); assinar.className = 'br-button primary small';
+    assinar.href = '/assinatura/govbr/iniciar?arquivo=' + encodeURIComponent(p.nome);
+    assinar.innerHTML = '<i class="fas fa-signature" aria-hidden="true"></i> Assinar com gov.br';
+    const nota = document.createElement('p'); nota.className = 'nota';
+    nota.textContent = 'Você confirma no gov.br (conta nível prata ou ouro) e volta para cá com o plano assinado.';
+    const alternativa = document.createElement('details'); alternativa.className = 'alternativa';
+    alternativa.innerHTML = '<summary>Ou assine em assinador.iti.br e envie o arquivo</summary>';
+    div.append(assinar, nota, alternativa);
+    alternativa.append(passosManuais(p));
+    return div;
+  }
+  div.append(passosManuais(p));
+  return div;
+}
+
+// Assinatura manual: baixar o PDF, assinar em assinador.iti.br e enviar o arquivo assinado.
+function passosManuais(p) {
+  const div = document.createElement('div');
+  div.innerHTML = '<ol><li>Baixe o PDF do plano (link <b>PDF</b> acima).</li>'
     + '<li>Assine-o em <a href="https://assinador.iti.br" target="_blank" rel="noopener">assinador.iti.br</a>, com a sua conta gov.br.</li>'
     + '<li>Envie aqui o arquivo assinado que o assinador devolve.</li></ol>';
   const entrada = document.createElement('input'); entrada.type = 'file'; entrada.accept = 'application/pdf,.pdf'; entrada.hidden = true;
@@ -160,4 +180,13 @@ const zona = $('soltar');
 ['dragenter', 'dragover'].forEach(t => zona.addEventListener(t, e => { e.preventDefault(); zona.classList.add('ativo'); }));
 ['dragleave', 'drop'].forEach(t => zona.addEventListener(t, e => { e.preventDefault(); zona.classList.remove('ativo'); }));
 zona.addEventListener('drop', e => enviar([...e.dataTransfer.files]));
+// Volta da assinatura pela API (rotas/assinatura_govbr.py): mostra o resultado e limpa o endereço.
+(function resultadoDaAssinatura() {
+  const q = new URLSearchParams(location.search);
+  if (!q.has('assinatura')) return;
+  const nome = q.get('arquivo') || 'o plano';
+  if (q.get('assinatura') === 'ok') msg($('envio-msg'), `"${nome}" assinado via gov.br por ${q.get('signatario') || 'você'}.`, 'ok');
+  else msg($('envio-msg'), `Não foi possível assinar "${nome}": ${q.get('motivo') || 'tente de novo.'}`, 'erro');
+  history.replaceState(null, '', location.pathname);
+})();
 carregar();

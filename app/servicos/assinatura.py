@@ -208,15 +208,17 @@ class Assinaturas:
     def vigentes(self, nomes):
         return {n: r for n in nomes if (r := self.vigente(n))}
 
-    def registrar(self, nome, email, nome_usuario, pdf_assinado):
-        """Confere e guarda o PDF assinado (bytes) do plano `nome`. Devolve o registro gravado."""
+    def registrar(self, nome, email, nome_usuario, pdf_assinado, acs_extras=(), origem='envio'):
+        """Confere e guarda o PDF assinado (bytes) do plano `nome`. Devolve o registro gravado.
+        `acs_extras`: ACs aceitas além das de app/certificados (as de teste, na assinatura pela API em
+        homologação ou simulada); `origem`: 'envio' (assinador.iti.br) ou 'api'."""
         if not self.liberado(nome, email):
             raise NaoLiberado
         aprovacao = self.aprovacao(nome)
         original_path = os.path.join(self.cfg.planos_dir, nome)
         with open(original_path, 'rb') as arq:
             original = arq.read()
-        dados = verificar(pdf_assinado, original, self.raizes)
+        dados = verificar(pdf_assinado, original, self.raizes + list(acs_extras))
         # Quem assinou precisa ser um dos docentes do plano ou, sem eles no texto, o dono da conta.
         try:
             docentes = identificacao.docentes(extrair_texto(original_path))
@@ -228,10 +230,39 @@ class Assinaturas:
                                      'docente deste plano. Assine com a sua conta gov.br.')
         registro = assinaturas.gravar(self.cfg.resultados_dir, nome, pdf_assinado, {
             'email': email, 'signatario': dados['signatario'], 'assinado_em': dados['assinado_em'],
-            'versao': aprovacao['assinatura'], 'aprovado_em': aprovacao['revisado_em'],
+            'versao': aprovacao['assinatura'], 'aprovado_em': aprovacao['revisado_em'], 'origem': origem,
         })
         log.info('Plano assinado (%s): %s, por %s', email, nome, dados['signatario'])
         return registro
+
+    def assinar_pela_api(self, nome, email, nome_usuario, cliente, token):
+        """Assina o plano aprovado pela API do gov.br (servicos/assinatura_api.py) e o registra como se o
+        professor tivesse enviado o PDF assinado: passa pela mesma conferência."""
+        from . import assinatura_api
+        if not self.liberado(nome, email):
+            raise NaoLiberado
+        original_path = os.path.join(self.cfg.planos_dir, nome)
+        with open(original_path, 'rb') as arq:
+            original = arq.read()
+        try:  # só a assinatura simulada usa: o certificado sai no nome do docente do plano
+            titular = next(iter(identificacao.docentes(extrair_texto(original_path))), '') or nome_usuario
+        except PdfIlegivel:
+            titular = nome_usuario
+        acs = []
+
+        def assinar_hash(digest):
+            cms_der = cliente.assinar_hash(token, digest, titular)
+            acs.extend(cliente.acs_confiaveis(cms_der))
+            return cms_der
+
+        try:
+            pdf_assinado = assinatura_api.assinar_pdf(original, assinar_hash)
+        except assinatura_api.FalhaApi:
+            raise
+        except Exception as erro:  # PDF que o pyHanko não consegue preparar para assinar
+            log.exception('Falha ao preparar a assinatura de %s', nome)
+            raise AssinaturaInvalida('Não foi possível preparar o PDF do plano para a assinatura.') from erro
+        return self.registrar(nome, email, nome_usuario, pdf_assinado, acs, origem='api')
 
     def caminho(self, nome):
         """PDF assinado do plano, se a assinatura ainda vale; senão None."""

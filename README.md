@@ -5,7 +5,7 @@ Aplicação web do IFC Videira que avalia os planos de ensino (PDFs do SIGAA) co
 - O texto de cada PDF é extraído e separado em seções (ementa, objetivos, metodologia, cronograma, referências…). Um modelo local no [Ollama](https://ollama.com) (padrão `qwen2.5:7b`) avalia cada campo, e regras fixas conferem o que não depende da IA, como a contagem de referências e o horário de atendimento.
 - O **painel** mostra a situação de cada plano (aprovado, pendente ou com problemas), com filtros por curso, período e docente, e um relatório por plano com o texto extraído e a resposta da IA.
 - Em **Meus planos**, cada professor entrega e acompanha os próprios planos. A **coordenação, o NDE e o NDB** de cada curso revisam a avaliação da IA, e o parecer deles passa a valer.
-- Depois de aprovado na revisão, o professor **assina o plano com a conta gov.br** (em [assinador.iti.br](https://assinador.iti.br)) e envia o PDF assinado em **Meus planos**. O app confere a assinatura, que precisa ser de um certificado das autoridades em [`app/certificados/`](app/certificados/LEIA-ME.md), e se o conteúdo é o do plano aprovado.
+- Depois de aprovado na revisão, o professor **assina o plano com a conta gov.br**: em **Meus planos**, pelo botão **Assinar com gov.br** (API de Assinatura Eletrônica do gov.br, quando configurada) ou assinando em [assinador.iti.br](https://assinador.iti.br) e enviando o PDF assinado. O app confere a assinatura, que precisa ser de um certificado das autoridades em [`app/certificados/`](app/certificados/LEIA-ME.md), e se o conteúdo é o do plano aprovado.
 - A **administração** envia PDFs, dispara validações (também roda todo dia, às 5h) e gerencia usuários e papéis.
 - O acesso é feito com a conta **gov.br** ou com a conta Google institucional. Nos dois casos vale o e-mail `@ifc.edu.br`: no gov.br, ele precisa estar cadastrado e verificado na conta.
 
@@ -24,6 +24,7 @@ docker compose -f docker-compose.dev.yml up --build
 Abra http://localhost:8000 e, em **Entrar**, escolha um perfil de teste (administração, coordenação, NDE, professor…).
 
 - Os PDFs vêm da pasta `planos/` e os resultados ficam em `dev-resultados/`. As duas pastas ficam fora do git.
+- **Assinar com gov.br** funciona sem o gov.br: no dev a assinatura é simulada (`GOVBR_ASSINATURA_AMBIENTE=simulada`), com uma autoridade de teste criada na hora. Só vale junto do login simulado; para desligar, `DEV_ASSINATURA_AMBIENTE=` (vazio).
 - Sem a IA, a interface funciona, mas as validações terminam em ERRO. Para validar de verdade, suba também o Ollama, na GPU NVIDIA (`--profile ia`) ou na CPU (`--profile ia-cpu`, bem mais lento):
 
 ```bash
@@ -51,7 +52,8 @@ A produção roda no [Dokploy](https://dokploy.com), como recurso do tipo **Dock
 3. Em **Environment**, cole o `.env.example` e preencha os valores. Cada variável está explicada nele.
 4. Em **Domains**, aponte o domínio para o serviço `caddy`, porta `80`, com HTTPS.
 5. Coloque em `app/certificados/` o certificado da AC Raiz do Governo Federal do Brasil v1 (veja o [LEIA-ME](app/certificados/LEIA-ME.md)). Sem ele, os planos assinados são recusados.
-6. Faça o deploy do projeto do Ollama conforme [`open-webui/README.md`](./open-webui/README.md) antes do validador.
+6. Para o botão **Assinar com gov.br**, peça ao gov.br as credenciais da **API de Assinatura Eletrônica** (separadas das do login), com o endereço de retorno `https://SEU_DOMINIO/assinatura/govbr/callback`, e preencha as variáveis `GOVBR_ASSINATURA_*` (veja o `.env.example`). Sem elas, o professor assina em assinador.iti.br e envia o PDF, como antes. Assinar exige conta gov.br **prata ou ouro**. Em homologação, a conta de teste é criada em sso.staging.acesso.gov.br, o código de SMS pode ser `12345`, e a cadeia de teste do ITI é aceita a partir da própria resposta da API; em produção, só valem os certificados de `app/certificados/`.
+7. Faça o deploy do projeto do Ollama conforme [`open-webui/README.md`](./open-webui/README.md) antes do validador.
 
 #### Ollama e acesso por outros projetos
 

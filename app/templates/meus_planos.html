@@ -50,6 +50,6 @@
 {% endblock %}
 
 {% block scripts %}
-<script>const MAX_MB = {{ max_mb }};</script>
+<script>const MAX_MB = {{ max_mb }}, ASSINATURA_API = {{ 'true' if assinatura_api else 'false' }};</script>
 <script src="{{ estatico('js/meus_planos.js') }}"></script>
 {% endblock %}

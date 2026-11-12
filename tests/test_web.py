@@ -1085,3 +1085,134 @@ def test_login_govbr_desligado_sem_credenciais(fabrica):
     c, _ = fabrica(exigir_login=True)
     assert c.get('/auth/govbr/login').status_code == 404
     assert c.get('/entrar?rd=/dashboard').headers['Location'] == '/oauth2/start?rd=/dashboard'
+
+
+# Assinatura pela API do gov.br ---------------------------------------------------------------------------
+
+def _aprovado_para_assinar(fabrica, tmp_path, **opcoes):
+    """Plano web.pdf de fulano@ifc.edu.br, aprovado pelo NDE de CC; devolve (cliente, cabeçalhos do dono)."""
+    from app.armazenamento import donos
+    from conftest import gerar_ac, salvar_ac
+    c, planos = fabrica(exigir_login=True, admins=frozenset({'admin@ifc.edu.br'}), cookie_seguro=False,
+                        certificados_dir=salvar_ac(gerar_ac(), tmp_path / 'certificados'), **opcoes)
+    _plano_cc(c, planos, status='OK')
+    donos.definir(_servicos(c).cfg.resultados_dir, 'web.pdf', 'fulano@ifc.edu.br')
+    _dar_papel(c, 'nde@ifc.edu.br')
+    c.post('/revisao', headers=NDE, data={'arquivo': 'web.pdf', 'status': 'OK', 'comentario': ''})
+    return c, {**SERVIDOR, 'X-Usuario-Token': _token(email='fulano@ifc.edu.br', name='Fulano de Tal')}
+
+
+class _ApiFalsa:
+    """Responde no lugar do servidor OAuth e da API do ITI (requests.post), assinando com uma AC de teste."""
+
+    def __init__(self, status_assinatura=200):
+        self.status_assinatura = status_assinatura
+        self.pedidos = []
+
+    def __call__(self, url, **kw):
+        import base64
+        from unittest import mock
+        from app.servicos.assinatura_api import ApiSimulada
+        self.pedidos.append((url, kw))
+        resposta = mock.Mock(status_code=200, ok=True)
+        resposta.raise_for_status = lambda: None
+        if url.endswith('/token'):
+            resposta.json = lambda: {'access_token': 'token-de-teste', 'token_type': 'bearer', 'expires_in': 600}
+        elif url.endswith('/assinarPKCS7'):
+            resposta.status_code, resposta.ok = self.status_assinatura, self.status_assinatura == 200
+            resposta.text = 'Cidadão não possui a identidade (Prata ou Ouro)'
+            digest = base64.b64decode(kw['json']['hashBase64'])
+            resposta.content = ApiSimulada(None).assinar_hash('t', digest, 'Fulano de Tal')
+        return resposta
+
+
+def _assinar_pelo_govbr(c, cab, arquivo='web.pdf', **callback):
+    from urllib.parse import parse_qs, urlsplit
+    r = c.get('/assinatura/govbr/iniciar?arquivo=' + arquivo, headers=cab)
+    assert r.status_code == 302, r.headers.get('Location')
+    ida = urlsplit(r.headers['Location'])
+    q = {k: v[0] for k, v in parse_qs(ida.query).items()}
+    volta = c.get('/assinatura/govbr/callback', headers=cab,
+                  query_string={'code': 'codigo', 'state': q.get('state', ''), **callback})
+    return ida, q, volta
+
+
+def _resultado(volta):
+    from urllib.parse import parse_qs, urlsplit
+    assert volta.status_code == 303 and volta.headers['Location'].startswith('/meus-planos?')
+    return {k: v[0] for k, v in parse_qs(urlsplit(volta.headers['Location']).query).items()}
+
+
+def test_assina_pela_api_do_govbr_em_homologacao(fabrica, tmp_path, monkeypatch):
+    import requests
+    api = _ApiFalsa()
+    monkeypatch.setattr(requests, 'post', api)
+    c, dono = _aprovado_para_assinar(fabrica, tmp_path, assinatura_client_id='cli', assinatura_client_secret='seg',
+                                     segredo_sessao='chave', assinatura_ambiente='homologacao',
+                                     assinatura_oauth_url='https://cas.staging.iti.br/oauth2.0',
+                                     assinatura_api_url='https://assinatura-api.staging.iti.br/externo/v2')
+    assert 'ASSINATURA_API = true' in c.get('/meus-planos', headers=dono).get_data(as_text=True)
+    ida, q, volta = _assinar_pelo_govbr(c, dono)
+    assert ida.netloc == 'cas.staging.iti.br' and ida.path == '/oauth2.0/authorize'
+    assert q['client_id'] == 'cli' and q['scope'] == 'sign govbr' and q['response_type'] == 'code'
+    assert q['redirect_uri'] == 'http://localhost/assinatura/govbr/callback'
+    resultado = _resultado(volta)
+    assert resultado['assinatura'] == 'ok' and resultado['signatario'] == 'FULANO DE TAL', resultado
+    token_url, token_kw = api.pedidos[0]
+    assert token_url == 'https://cas.staging.iti.br/oauth2.0/token'
+    assert token_kw['data']['grant_type'] == 'authorization_code' and token_kw['data']['code'] == 'codigo'
+    assinar_url, assinar_kw = api.pedidos[1]
+    assert assinar_url.endswith('/externo/v2/assinarPKCS7')
+    assert assinar_kw['headers']['Authorization'] == 'Bearer token-de-teste'
+    [plano] = c.get('/meus-planos/lista', headers=dono).json['planos']
+    assert plano['assinatura']['signatario'] == 'FULANO DE TAL'
+    pdf = c.get('/pdf-assinado?arquivo=web.pdf', headers=NDE).data
+    assert pdf.startswith(b'%PDF') and b'(AssinaturaGovBr)' in pdf
+
+
+def test_em_producao_so_valem_as_acs_de_app_certificados(fabrica, tmp_path, monkeypatch):
+    import requests
+    monkeypatch.setattr(requests, 'post', _ApiFalsa())
+    c, dono = _aprovado_para_assinar(fabrica, tmp_path, assinatura_client_id='cli', assinatura_client_secret='seg',
+                                     segredo_sessao='chave', assinatura_ambiente='producao')
+    resultado = _resultado(_assinar_pelo_govbr(c, dono)[2])
+    assert resultado['assinatura'] == 'erro' and 'não é do gov.br' in resultado['motivo']
+    assert c.get('/meus-planos/lista', headers=dono).json['planos'][0]['assinatura'] is None
+
+
+def test_erros_da_assinatura_pela_api(fabrica, tmp_path, monkeypatch):
+    import requests
+    api = _ApiFalsa(status_assinatura=403)
+    monkeypatch.setattr(requests, 'post', api)
+    c, dono = _aprovado_para_assinar(fabrica, tmp_path, assinatura_client_id='cli', assinatura_client_secret='seg',
+                                     segredo_sessao='chave', assinatura_ambiente='homologacao')
+    # Conta bronze (403 da API)
+    assert 'prata ou ouro' in _resultado(_assinar_pelo_govbr(c, dono)[2])['motivo']
+    # Cancelado no gov.br; state forjado (outra aba)
+    assert 'cancelada' in _resultado(_assinar_pelo_govbr(c, dono, error='access_denied')[2])['motivo']
+    c.get('/assinatura/govbr/iniciar?arquivo=web.pdf', headers=dono)
+    volta = c.get('/assinatura/govbr/callback?code=x&state=forjado', headers=dono)
+    assert 'expirou' in _resultado(volta)['motivo']
+    # Quem não é dono do plano nem chega ao gov.br
+    r = c.get('/assinatura/govbr/iniciar?arquivo=web.pdf', headers=NDE)
+    assert 'Só quem enviou o plano' in _resultado(r)['motivo']
+    assert len([u for u, _ in api.pedidos if u.endswith('/assinarPKCS7')]) == 1  # só a do bronze chamou a API
+
+
+def test_sem_credenciais_nao_ha_assinatura_pela_api(fabrica, tmp_path):
+    c, dono = _aprovado_para_assinar(fabrica, tmp_path)
+    assert 'ASSINATURA_API = false' in c.get('/meus-planos', headers=dono).get_data(as_text=True)
+    r = c.get('/assinatura/govbr/iniciar?arquivo=web.pdf', headers=dono)
+    assert 'não está configurada' in _resultado(r)['motivo']
+
+
+def test_assinatura_simulada_so_com_login_simulado(fabrica, tmp_path):
+    # Desenvolvimento: sem ir ao gov.br
+    c, dono = _aprovado_para_assinar(fabrica, tmp_path, login_simulado=True, assinatura_ambiente='simulada')
+    r = c.get('/assinatura/govbr/iniciar?arquivo=web.pdf', headers=dono)
+    assert r.headers['Location'].startswith('http://localhost/assinatura/govbr/callback?code=simulado')
+    assert _resultado(c.get(r.headers['Location'], headers=dono))['assinatura'] == 'ok'
+    # Fora do desenvolvimento, "simulada" não liga nada
+    from app.config import Config
+    assert not Config(planos_dir='', resultados_dir='', ollama_url='', modelo='', num_ctx=1, hora_agendada=5,
+                      agendar=False, assinatura_ambiente='simulada').assinatura_api_ativa

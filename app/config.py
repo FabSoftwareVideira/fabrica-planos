@@ -4,6 +4,12 @@ from dataclasses import dataclass
 GOVBR_PRODUCAO = 'https://sso.acesso.gov.br'
 GOVBR_HOMOLOGACAO = 'https://sso.staging.acesso.gov.br'
 CERTIFICADOS_PADRAO = os.path.join(os.path.dirname(__file__), 'certificados')
+# API de Assinatura Eletrônica do gov.br (ITI): servidor OAuth e API. Homologação conforme o manual de
+# integração; produção a confirmar no documento das credenciais (dá para trocar pelas variáveis).
+ASSINATURA_URLS = {
+    'homologacao': ('https://cas.staging.iti.br/oauth2.0', 'https://assinatura-api.staging.iti.br/externo/v2'),
+    'producao': ('https://cas.iti.br/oauth2.0', 'https://assinatura-api.iti.br/externo/v2'),
+}
 
 
 @dataclass(frozen=True)
@@ -37,6 +43,20 @@ class Config:
     login_google: bool = True
     oauth2_proxy_url: str = 'http://oauth2-proxy:4180'
     cookie_seguro: bool = True
+    # Assinatura do plano pela API do gov.br (servicos/assinatura_api.py): credenciais próprias, separadas
+    # das do login. 'simulada' (só desenvolvimento) assina com uma AC de teste local, sem o gov.br.
+    assinatura_client_id: str = ''
+    assinatura_client_secret: str = ''
+    assinatura_ambiente: str = 'producao'
+    assinatura_oauth_url: str = ASSINATURA_URLS['producao'][0]
+    assinatura_api_url: str = ASSINATURA_URLS['producao'][1]
+    assinatura_redirect_uri: str = ''
+
+    @property
+    def assinatura_api_ativa(self):
+        if self.assinatura_ambiente == 'simulada':  # só junto do login simulado, que só existe em desenvolvimento
+            return self.login_simulado
+        return bool(self.assinatura_client_id and self.assinatura_client_secret and self.segredo_sessao)
 
     @property
     def govbr_ativo(self):
@@ -88,4 +108,23 @@ def carregar():
         login_google=os.environ.get('LOGIN_GOOGLE', '1') == '1',
         oauth2_proxy_url=(os.environ.get('OAUTH2_PROXY_URL') or 'http://oauth2-proxy:4180').rstrip('/'),
         cookie_seguro=os.environ.get('COOKIE_SECURE', 'true').lower() != 'false',
+        **_assinatura(),
     )
+
+
+def _assinatura():
+    """Configuração da API de assinatura. O ambiente segue o do login (GOVBR_AMBIENTE) se
+    GOVBR_ASSINATURA_AMBIENTE não for dado; as URLs têm padrão por ambiente."""
+    ambiente = (os.environ.get('GOVBR_ASSINATURA_AMBIENTE') or os.environ.get('GOVBR_AMBIENTE') or 'producao')
+    ambiente = ambiente.strip().lower()
+    if ambiente not in ('homologacao', 'producao', 'simulada'):
+        ambiente = 'producao'
+    oauth, api = ASSINATURA_URLS.get(ambiente, ASSINATURA_URLS['producao'])
+    return {
+        'assinatura_client_id': os.environ.get('GOVBR_ASSINATURA_CLIENT_ID', '').strip(),
+        'assinatura_client_secret': os.environ.get('GOVBR_ASSINATURA_CLIENT_SECRET', '').strip(),
+        'assinatura_ambiente': ambiente,
+        'assinatura_oauth_url': (os.environ.get('GOVBR_ASSINATURA_OAUTH_URL') or oauth).strip().rstrip('/'),
+        'assinatura_api_url': (os.environ.get('GOVBR_ASSINATURA_API_URL') or api).strip().rstrip('/'),
+        'assinatura_redirect_uri': os.environ.get('GOVBR_ASSINATURA_REDIRECT_URI', '').strip(),
+    }
