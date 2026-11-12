@@ -98,19 +98,6 @@ def validar():
     return json_({'status': 'iniciado'})
 
 
-@bp.post('/planos')
-@somente_admin
-def enviar_planos():
-    arquivos = request.files.getlist('arquivos')
-    if not arquivos:
-        return json_({'erro': 'Nenhum arquivo enviado'}, 400)
-    try:
-        salvos, recusados = servicos().planos.enviar(arquivos, email())
-    except Ocupado:
-        return ocupado()
-    return json_({'salvos': salvos, 'recusados': recusados}, 200 if salvos else 400)
-
-
 @bp.delete('/planos')
 @somente_admin
 def excluir_plano():

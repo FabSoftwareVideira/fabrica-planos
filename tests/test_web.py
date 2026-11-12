@@ -38,39 +38,55 @@ def _envio(*arquivos):
     return {'arquivos': [(io.BytesIO(conteudo), nome) for nome, conteudo in arquivos]}
 
 
-def test_upload_lista_e_exclui(cliente):
+@pytest.fixture
+def sem_ia(monkeypatch):
+    """Envios de "Meus planos" entram na fila de avaliação: aqui a avaliação só termina, sem chamar a IA."""
+    from app.avaliacao import pipeline
+    monkeypatch.setattr(pipeline, 'revalidar', lambda cfg, andamento, nome: andamento.finalizar())
+
+
+def _enviar_meus(c, *arquivos, cab=None):
+    return c.post('/meus-planos', headers=cab or {}, data=_envio(*arquivos), content_type='multipart/form-data')
+
+
+def test_upload_lista_e_exclui(cliente, sem_ia):
     c, planos = cliente
-    r = c.post('/planos', data=_envio(('Plano Á.pdf', PDF), ('b.pdf', PDF)), content_type='multipart/form-data')
+    r = _enviar_meus(c, ('Plano Á.pdf', PDF), ('b.pdf', PDF))
     assert r.status_code == 200
     assert [s['nome'] for s in r.json['salvos']] == ['Plano Á.pdf', 'b.pdf']
     assert (planos / 'Plano Á.pdf').read_bytes() == PDF
 
     assert [p['nome'] for p in c.get('/planos').json['planos']] == ['Plano Á.pdf', 'b.pdf']
 
-    r = c.post('/planos', data=_envio(('b.pdf', PDF)), content_type='multipart/form-data')
-    assert r.json['salvos'] == [{'nome': 'b.pdf', 'substituido': True}]
+    r = _enviar_meus(c, ('b.pdf', PDF))
+    assert [(s['nome'], s['substituido']) for s in r.json['salvos']] == [('b.pdf', True)]
 
-    assert c.delete('/planos?arquivo=b.pdf').status_code == 200
+    assert c.delete('/meus-planos?arquivo=b.pdf').status_code == 200
     assert not (planos / 'b.pdf').exists()
-    assert c.delete('/planos?arquivo=b.pdf').status_code == 404
 
 
-def test_upload_recusa_nome_e_conteudo_invalidos(cliente):
+def test_administrador_nao_envia_planos(cliente):
     c, planos = cliente
-    r = c.post('/planos', data=_envio(('x.txt', PDF), ('falso.pdf', b'nao e pdf'), ('../fora.pdf', PDF)),
-               content_type='multipart/form-data')
+    assert c.post('/planos', data=_envio(('b.pdf', PDF)), content_type='multipart/form-data').status_code == 405
+    adm = c.get('/administracao').get_data(as_text=True)
+    assert 'id="soltar"' not in adm and 'id="lista"' in adm
+    assert not (planos / 'b.pdf').exists()
+
+
+def test_upload_recusa_nome_e_conteudo_invalidos(cliente, sem_ia):
+    c, planos = cliente
+    r = _enviar_meus(c, ('x.txt', PDF), ('falso.pdf', b'nao e pdf'), ('../fora.pdf', PDF))
     assert r.status_code == 200  # '../fora.pdf' vira 'fora.pdf', dentro da pasta
     assert [s['nome'] for s in r.json['salvos']] == ['fora.pdf']
     assert {x['nome'] for x in r.json['recusados']} == {'x.txt', 'falso.pdf'}
     assert sorted(os.listdir(planos)) == ['fora.pdf']
 
 
-def test_upload_recusa_pdf_grande_digitalizado_ou_corrompido(cliente):
+def test_upload_recusa_pdf_grande_digitalizado_ou_corrompido(cliente, sem_ia):
     c, planos = cliente
     grande = PDF + b'%' + b'0' * (1024 * 1024)
-    r = c.post('/planos', data=_envio(('grande.pdf', grande), ('scan.pdf', PDF_SEM_TEXTO),
-                                      ('quebrado.pdf', b'%PDF-1.4 lixo'), ('bom.pdf', PDF)),
-               content_type='multipart/form-data')
+    r = _enviar_meus(c, ('grande.pdf', grande), ('scan.pdf', PDF_SEM_TEXTO), ('quebrado.pdf', b'%PDF-1.4 lixo'),
+                     ('bom.pdf', PDF))
     motivos = {x['nome']: x['motivo'] for x in r.json['recusados']}
     assert 'maior que 1 MB' in motivos['grande.pdf']
     assert 'OCR' in motivos['scan.pdf']
@@ -89,7 +105,6 @@ def test_validacao_em_andamento_bloqueia_alteracoes(cliente):
     (planos / 'a.pdf').write_bytes(PDF)
     _servicos(c).validador.andamento.iniciar(1)
     assert c.post('/validar').status_code == 409
-    assert c.post('/planos', data=_envio(('b.pdf', PDF)), content_type='multipart/form-data').status_code == 409
     assert c.delete('/planos?arquivo=a.pdf').status_code == 409
     status = c.get('/status').json
     assert status['rodando'] and status['total'] == 1
@@ -104,9 +119,9 @@ def test_validar_sem_planos(cliente):
 def test_dashboard_tem_controles(cliente):
     c, _ = cliente
     html = c.get('/dashboard').get_data(as_text=True)
-    assert 'id="validar"' in html and 'id="soltar"' not in html  # envio de PDFs fica na administração
+    assert 'id="validar"' in html and 'id="soltar"' not in html  # quem envia planos é o professor
     adm = c.get('/administracao').get_data(as_text=True)
-    assert 'id="soltar"' in adm and 'id="lista"' in adm and 'id="validar"' in adm
+    assert 'id="soltar"' not in adm and 'id="lista"' in adm and 'id="validar"' in adm
 
 
 def _execucao(c, nomes, quando, validacao=None, pdfs=()):
@@ -258,8 +273,8 @@ def test_admin_so_exclui_os_proprios_e_oculta_os_dos_outros(com_login):
     (planos / 'prof.pdf').write_bytes(PDF)
     donos.definir(s.cfg.resultados_dir, 'prof.pdf', 'fulano@ifc.edu.br')
     (planos / 'solto.pdf').write_bytes(PDF)  # copiado direto para a pasta: sem dono
-    c.post('/planos', headers=ADMIN, data=_envio(('meu.pdf', PDF)), content_type='multipart/form-data')
-    assert s.planos.dono('meu.pdf') == 'admin@ifc.edu.br'
+    (planos / 'meu.pdf').write_bytes(PDF)  # entregue pelo administrador como professor, em "Meus planos"
+    donos.definir(s.cfg.resultados_dir, 'meu.pdf', 'admin@ifc.edu.br')
     execucao = _execucao(c, ['meu.pdf', 'prof.pdf', 'solto.pdf'], 10)
 
     lista = {p['nome']: p for p in c.get('/planos', headers=ADMIN).json['planos']}
@@ -269,7 +284,7 @@ def test_admin_so_exclui_os_proprios_e_oculta_os_dos_outros(com_login):
     # O plano de outra pessoa: não exclui nem substitui, mas oculta do painel
     r = c.delete('/planos?arquivo=prof.pdf', headers=ADMIN)
     assert r.status_code == 403 and 'ocultados' in r.json['erro']
-    r = c.post('/planos', headers=ADMIN, data=_envio(('prof.pdf', PDF)), content_type='multipart/form-data')
+    r = _enviar_meus(c, ('prof.pdf', PDF), cab=ADMIN)
     assert r.status_code == 400 and 'outra pessoa' in r.json['recusados'][0]['motivo']
     assert (planos / 'prof.pdf').exists() and s.planos.dono('prof.pdf') == 'fulano@ifc.edu.br'
 
@@ -288,13 +303,13 @@ def test_admin_so_exclui_os_proprios_e_oculta_os_dos_outros(com_login):
     assert c.post('/planos/ocultar?arquivo=sumiu.pdf', headers=ADMIN).status_code == 404
 
 
-def test_versao_nova_do_pdf_volta_ao_painel(cliente):
+def test_versao_nova_do_pdf_volta_ao_painel(cliente, sem_ia):
     c, planos = cliente
-    c.post('/planos', data=_envio(('a.pdf', PDF)), content_type='multipart/form-data')
+    _enviar_meus(c, ('a.pdf', PDF))
     _execucao(c, ['a.pdf'], 10)
     c.post('/planos/ocultar?arquivo=a.pdf')
     assert 'href="/relatorio?arquivo=a.pdf"' not in c.get('/dashboard').get_data(as_text=True)
-    c.post('/planos', data=_envio(('a.pdf', PDF)), content_type='multipart/form-data')
+    _enviar_meus(c, ('a.pdf', PDF))
     assert 'href="/relatorio?arquivo=a.pdf"' in c.get('/dashboard').get_data(as_text=True)
 
 
@@ -376,7 +391,7 @@ def test_servidor_consulta_mas_nao_administra(com_login):
     assert c.post('/validar', headers=SERVIDOR).status_code == 403
     assert c.post('/validar?arquivo=a.pdf', headers=SERVIDOR).status_code == 403
     assert c.post('/planos', headers=SERVIDOR, data=_envio(('b.pdf', PDF)),
-                  content_type='multipart/form-data').status_code == 403
+                  content_type='multipart/form-data').status_code == 405  # ninguém envia por aqui
     assert c.delete('/planos?arquivo=a.pdf', headers=SERVIDOR).status_code == 403
     assert c.post('/planos/ocultar?arquivo=a.pdf', headers=SERVIDOR).status_code == 403
     assert c.delete('/planos/ocultar?arquivo=a.pdf', headers=SERVIDOR).status_code == 403
@@ -388,9 +403,8 @@ def test_admin_administra(com_login):
     html = c.get('/dashboard', headers=ADMIN).get_data(as_text=True)
     assert 'admin@ifc.edu.br' in html and 'papel-usuario">Administrador<' in html and 'id="validar"' in html
     assert 'href="/administracao"' in html
-    assert 'id="soltar"' in c.get('/administracao', headers=ADMIN).get_data(as_text=True)
-    r = c.post('/planos', headers=ADMIN, data=_envio(('b.pdf', PDF)), content_type='multipart/form-data')
-    assert r.status_code == 200
+    assert 'id="lista"' in c.get('/administracao', headers=ADMIN).get_data(as_text=True)
+    (planos / 'b.pdf').write_bytes(PDF)  # sem dono (copiado direto para a pasta): o administrador exclui
     assert c.delete('/planos?arquivo=b.pdf', headers=ADMIN).status_code == 200
 
 
@@ -1275,3 +1289,49 @@ def test_assinatura_simulada_so_com_login_simulado(fabrica, tmp_path):
     from app.config import Config
     assert not Config(planos_dir='', resultados_dir='', ollama_url='', modelo='', num_ctx=1, hora_agendada=5,
                       agendar=False, assinatura_ambiente='simulada').assinatura_api_ativa
+
+
+# O plano é do professor que o enviou --------------------------------------------------------------------
+
+def _plano_de(docente):
+    from conftest import gerar_pdf
+    return gerar_pdf(['CCC0723 - DESENVOLVIMENTO WEB I (60h) - Turma: 01 (2026.2)', 'Ementa: algo do plano.',
+                      'Matricula Docente(s)', '1234567 ' + docente + ' - 60h', 'Objetivos: mais texto do plano.']
+                     + ['Linha de texto numero %d do plano de ensino de teste.' % i for i in range(8)])
+
+
+def test_envio_confere_o_docente_do_pdf_com_o_cadastro(com_login, sem_ia):
+    c, planos = com_login
+    fulano = {**SERVIDOR, 'X-Usuario-Token': _token(email='fulano@ifc.edu.br', name='Fulano de Tal')}
+    # Mesmo nome, ou parecido (sobrenome a mais no PDF, acento, uma letra diferente)
+    r = _enviar_meus(c, ('meu.pdf', _plano_de('FULANO DE TAL SILVA')), ('grafia.pdf', _plano_de('FULANU DE TAL')),
+                     cab=fulano)
+    assert [s['nome'] for s in r.json['salvos']] == ['meu.pdf', 'grafia.pdf'], r.json
+    # Plano de outra pessoa: recusado, e a versão anterior fica
+    r = _enviar_meus(c, ('meu.pdf', _plano_de('BELTRANO PEREIRA')), cab=fulano)
+    assert r.status_code == 400 and 'Beltrano Pereira' in r.json['recusados'][0]['motivo']
+    assert 'Fulano de Tal' in r.json['recusados'][0]['motivo']
+    assert b'FULANO DE TAL SILVA' in (planos / 'meu.pdf').read_bytes()
+    assert sorted(os.listdir(planos)) == ['grafia.pdf', 'meu.pdf']  # nenhum temporário sobra
+    # Sem o bloco de docentes no PDF, não há o que conferir
+    assert _enviar_meus(c, ('sem-docente.pdf', PDF), cab=fulano).status_code == 200
+
+
+def test_sem_nome_no_cadastro_o_envio_nao_e_conferido(com_login, sem_ia):
+    c, _ = com_login
+    r = _enviar_meus(c, ('outro.pdf', _plano_de('BELTRANO PEREIRA')), cab={'X-Usuario-Email': 'novo@ifc.edu.br'})
+    assert r.status_code == 200
+
+
+def test_docente_exibido_e_o_do_cadastro(com_login, sem_ia):
+    from app.armazenamento import detalhes
+    c, planos = com_login
+    fulano = {**SERVIDOR, 'X-Usuario-Token': _token(email='fulano@ifc.edu.br', name='Fulano de Tal')}
+    _enviar_meus(c, ('meu.pdf', _plano_de('FULANO DE TAL SILVA')), cab=fulano)
+    (planos / 'antigo.pdf').write_bytes(PDF)  # sem dono: vale o docente escrito no PDF
+    execucao = _execucao(c, ['meu.pdf', 'antigo.pdf'], 10)
+    detalhes.salvar(execucao.detalhes_dir, 'meu.pdf', {'texto': 'Matrícula Docente(s)\n1234567 FULANO DE TAL SILVA - 60h\n'})
+    detalhes.salvar(execucao.detalhes_dir, 'antigo.pdf', {'texto': 'Matrícula Docente(s)\n7654321 CICLANO SOUZA - 30h\n'})
+    html = c.get('/dashboard', headers=ADMIN).get_data(as_text=True)
+    assert 'data-docente="Fulano de Tal"' in html  # o nome do cadastro, não o do PDF
+    assert 'data-docente="Ciclano Souza"' in html

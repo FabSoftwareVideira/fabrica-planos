@@ -92,38 +92,27 @@ class PastaDePlanos:
                            'modificado': None, 'na_pasta': False, 'oculto': nome in oculto})
         return planos
 
+    def responsaveis(self, usuarios):
+        """{arquivo: [nome do professor]} dos planos com dono, pelo cadastro do usuário que os enviou (o
+        e-mail, se ele ainda não tem nome cadastrado)."""
+        nomes = {}
+        saida = {}
+        for arquivo, dono in donos.ler(self.cfg.resultados_dir).items():
+            email = dono.get('email')
+            if not email:
+                continue
+            if email not in nomes:
+                nomes[email] = (usuarios.obter(email) or {}).get('nome') or email
+            saida[arquivo] = [nomes[email]]
+        return saida
+
     # Envio --------------------------------------------------------------------------------------
 
-    def enviar(self, arquivos, email=''):
-        """Envio pelo administrador: grava os PDFs válidos, registrando-o como dono, e substitui só os de
-        mesmo nome que ele enviou ou sem dono. Devolve (salvos, recusados). Levanta Ocupado durante a
-        validação."""
-        salvos, recusados = [], []
-        with self.validador.trava:
-            if self.validador.andamento.rodando:
-                raise Ocupado
-            for arquivo in arquivos:
-                nome = nome_enviado(arquivo)
-                substituido = self.existe(nome)
-                motivo = self._motivo_recusa(nome, arquivo)
-                if not motivo and substituido and not self.pode_excluir(nome, email):
-                    motivo = 'Já existe na pasta um plano com esse nome, enviado por outra pessoa; renomeie o arquivo'
-                texto = None
-                if not motivo:
-                    motivo, texto = self._salvar(arquivo, nome)
-                if motivo:
-                    recusados.append({'nome': nome, 'motivo': motivo})
-                    continue
-                donos.definir(self.cfg.resultados_dir, nome, email, identificacao.extrair(texto))
-                ocultos.mostrar(self.cfg.resultados_dir, [nome])  # versão nova volta a aparecer no painel
-                liberacoes.cancelar(self.cfg.resultados_dir, nome)  # a versão nova já foi enviada
-                salvos.append({'nome': nome, 'substituido': substituido})
-        log.info('Upload: %d salvo(s), %d recusado(s)', len(salvos), len(recusados))
-        return salvos, recusados
-
-    def enviar_do_professor(self, arquivos, email):
-        """Entrega pelo professor: aceita mesmo durante a validação; só substitui os PDFs que ele mesmo
-        enviou. Cada PDF salvo entra na fila de avaliação (`posicao`, 0 se já começou)."""
+    def enviar_do_professor(self, arquivos, email, nome_professor=''):
+        """Entrega pelo professor, que fica sendo o responsável pelo plano (o nome que vale é o do cadastro
+        dele, `nome_professor`). Aceita mesmo durante a validação; só substitui os PDFs que ele mesmo enviou;
+        recusa o PDF cujo docente não tem o nome dele, nem parecido. Cada PDF salvo entra na fila de
+        avaliação (`posicao`, 0 se já começou)."""
         salvos, recusados = [], []
         with self.validador.trava:
             dono_de = donos.ler(self.cfg.resultados_dir)
@@ -139,7 +128,7 @@ class PastaDePlanos:
                               'curso que libere o reenvio')
                 texto = None
                 if not motivo:
-                    motivo, texto = self._salvar(arquivo, nome)
+                    motivo, texto = self._salvar(arquivo, nome, lambda t: _motivo_docente(t, nome_professor))
                 if motivo:
                     recusados.append({'nome': nome, 'motivo': motivo})
                     continue
@@ -164,8 +153,9 @@ class PastaDePlanos:
         arquivo.stream.seek(0)
         return None
 
-    def _salvar(self, arquivo, nome):
-        """Grava o PDF na pasta de planos; devolve (motivo da recusa ou None, texto extraído)."""
+    def _salvar(self, arquivo, nome, conferir=None):
+        """Grava o PDF na pasta de planos; devolve (motivo da recusa ou None, texto extraído). `conferir(texto)`
+        pode recusá-lo antes de ele substituir o PDF anterior (devolve o motivo ou None)."""
         destino = self.caminho(nome)
         temporario = destino + '.enviando'
         arquivo.save(temporario)
@@ -175,6 +165,10 @@ class PastaDePlanos:
         except PdfIlegivel as erro:
             os.remove(temporario)
             return str(erro), None
+        motivo = conferir(texto) if conferir else None
+        if motivo:
+            os.remove(temporario)
+            return motivo, None
         os.replace(temporario, destino)
         return None, texto
 
@@ -291,6 +285,19 @@ def _descricao(ident):
     if not ident:
         return ''
     return ' · '.join([ident['codigo'], ident['disciplina']] + (['Turma ' + ident['turma']] if ident['turma'] else []))
+
+
+def _motivo_docente(texto, nome_professor):
+    """O plano enviado precisa ser do professor: o docente do PDF tem o nome do cadastro dele, ou parecido
+    (identificacao.nomes_parecidos). Sem o bloco de docentes no PDF, ou sem o nome no cadastro, não há o
+    que conferir."""
+    docentes = identificacao.docentes(texto)
+    if not docentes or not nome_professor:
+        return None
+    if any(identificacao.nomes_parecidos(nome_professor, d) for d in docentes):
+        return None
+    return (f'O plano é de {", ".join(docentes)}, e não de {nome_professor} (o nome do seu cadastro). '
+            'Envie só os planos em que você é o docente.')
 
 
 def nome_enviado(arquivo):

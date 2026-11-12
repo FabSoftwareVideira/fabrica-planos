@@ -22,7 +22,8 @@ def resultado_atual():
 
 def dados_da_validacao():
     """Validação atual, linhas do CSV e, por arquivo, identificação (curso e período), docentes e resumo
-    da revisão vigente. Usados pelo dashboard e pela visão da coordenação."""
+    da revisão vigente. Usados pelo dashboard e pela visão da coordenação. O docente de um plano é o
+    professor que o enviou, pelo nome do cadastro; o escrito no PDF só vale para planos sem dono."""
     execucao = resultado_atual()
     linhas = csvsaida.ler_csv(execucao.csv_path) if execucao else []
     ocultos = servicos().planos.nomes_ocultos()  # tirados do painel pelo administrador (PDF e avaliação ficam)
@@ -30,7 +31,9 @@ def dados_da_validacao():
     # Curso, período e docentes de cada plano, lidos do texto guardado nos detalhes.
     dets = {l.get('Arquivo'): detalhes.ler(execucao.detalhes_dir, l.get('Arquivo')) for l in linhas}
     idents = {nome: identificacao.de_detalhes(det) for nome, det in dets.items()}
-    docentes = {nome: identificacao.docentes((det or {}).get('texto', '')) for nome, det in dets.items()}
+    responsaveis = servicos().planos.responsaveis(servicos().usuarios)
+    docentes = {nome: responsaveis.get(nome) or identificacao.docentes((det or {}).get('texto', ''))
+                for nome, det in dets.items()}
     revisoes = {nome: revisao.resumo(r) for nome, r in servicos().revisao.vigentes().items()}
     for nome, r in revisoes.items():  # aprovado na revisão e assinado pelo professor (gov.br)
         r['assinatura'] = assinatura.resumo(servicos().assinaturas.vigente(nome))

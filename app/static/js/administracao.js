@@ -1,4 +1,4 @@
-// Administração: envio, lista e exclusão dos PDFs da pasta de planos. MAX_MB vem da página;
+// Administração: lista, exclusão e ocultação dos PDFs da pasta de planos (quem envia são os professores);
 // $, msg, hora, corpo e rodando vêm de status.js (carregado antes).
 // Excluir aparece só nos planos que quem vê enviou (ou sem dono) e apaga também a avaliação; nos de
 // outras pessoas, Ocultar tira o plano do painel sem apagar nada (Mostrar desfaz).
@@ -66,39 +66,4 @@ function mostrar(nome) {
   acaoNoPlano('/planos/ocultar?arquivo=' + encodeURIComponent(nome), 'DELETE', `"${nome}" de volta ao painel.`);
 }
 
-// Checagem prévia no navegador (o servidor repete todas e ainda confere se o PDF tem texto).
-function motivoLocal(a) {
-  if (!/\.pdf$/i.test(a.name) || (a.type && a.type !== 'application/pdf')) return 'Apenas arquivos .pdf são aceitos';
-  if (a.size > MAX_MB * 1048576) return `Arquivo maior que ${MAX_MB} MB (${kb(a.size)})`;
-  return '';
-}
-
-async function enviar(arquivos) {
-  if (!arquivos.length || rodando) return;
-  const locais = arquivos.filter(motivoLocal).map(a => ({ nome: a.name, motivo: motivoLocal(a) }));
-  const validos = arquivos.filter(a => !motivoLocal(a));
-  let r = { ok: true }, d = {};
-  if (validos.length) {
-    const form = new FormData();
-    for (const a of validos) form.append('arquivos', a);
-    msg($('envio-msg'), `Enviando e conferindo ${validos.length} arquivo(s)…`);
-    try { r = await fetch('/planos', { method: 'POST', body: form }); d = await corpo(r); }
-    catch { msg($('envio-msg'), 'Falha de conexão no envio', 'erro'); return; }
-  }
-  const salvos = d.salvos || [], recusados = locais.concat(d.recusados || []);
-  const substituidos = salvos.filter(s => s.substituido).length;
-  const partes = [];
-  if (salvos.length) partes.push(`${salvos.length} enviado(s)` + (substituidos ? ` (${substituidos} substituído(s))` : ''));
-  if (recusados.length) partes.push(`${recusados.length} recusado(s): ` + recusados.map(x => `${x.nome} (${x.motivo})`).join('; '));
-  if (!partes.length) partes.push(d.erro || d.mensagem || 'Falha no envio');
-  msg($('envio-msg'), partes.join(' · '), r.ok && !recusados.length ? 'ok' : 'erro');
-  if (salvos.length) carregarPlanos();
-}
-
-$('escolher').onclick = () => $('arquivo').click();
-$('arquivo').onchange = e => { enviar([...e.target.files]); e.target.value = ''; };
-const zona = $('soltar');
-['dragenter', 'dragover'].forEach(t => zona.addEventListener(t, e => { e.preventDefault(); if (!rodando) zona.classList.add('ativo'); }));
-['dragleave', 'drop'].forEach(t => zona.addEventListener(t, e => { e.preventDefault(); zona.classList.remove('ativo'); }));
-zona.addEventListener('drop', e => enviar([...e.dataTransfer.files]));
 carregarPlanos();

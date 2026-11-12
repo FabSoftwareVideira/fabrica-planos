@@ -44,7 +44,10 @@ def enviar():
     arquivos = request.files.getlist('arquivos')
     if not arquivos:
         return json_({'erro': 'Nenhum arquivo enviado'}, 400)
-    salvos, recusados = servicos().planos.enviar_do_professor(arquivos, _dono())
+    s = servicos()
+    # O professor que envia fica responsável pelo plano; o nome que vale é o do cadastro dele
+    nome_professor = nome_usuario() or (s.usuarios.obter(_dono()) or {}).get('nome', '')
+    salvos, recusados = s.planos.enviar_do_professor(arquivos, _dono(), nome_professor)
     return json_({'salvos': salvos, 'recusados': recusados}, 200 if salvos else 400)
 
 

@@ -122,3 +122,44 @@ def grupo_curso(ident):
     if not ident:
         return SEM_IDENTIFICACAO, 'Sem identificação de curso', '1'
     return ident['sigla_curso'], ident['curso'], '0' + ident['curso']
+
+
+# Nomes de pessoas ---------------------------------------------------------------------------------------
+# O plano é do professor que o enviou (o nome vem do cadastro dele); o docente escrito no PDF só é conferido
+# no envio, para pegar o plano de outra pessoa enviado por engano.
+
+PARTICULAS = {'DA', 'DAS', 'DE', 'DO', 'DOS', 'E'}
+
+
+def partes_do_nome(nome):
+    """{'MARIA', 'SOUZA'} de 'Maria de Souza': sem acentos, em maiúsculas e sem partículas."""
+    import unicodedata
+    sem_acento = unicodedata.normalize('NFKD', nome or '').encode('ascii', 'ignore').decode()
+    return {p for p in re.findall(r'[A-Z]+', sem_acento.upper()) if p not in PARTICULAS}
+
+
+def nomes_parecidos(a, b):
+    """Mesmo nome ou parecido: as partes do nome mais curto aparecem no mais longo (o cadastro pode omitir
+    sobrenomes), admitindo uma letra de diferença em partes de 4 letras ou mais (Luiz/Luis, Souza/Sousa,
+    mas não Marcos/Márcio) e iniciais (J. Silva), com pelo menos duas partes em comum."""
+    pa, pb = partes_do_nome(a), partes_do_nome(b)
+    menor, maior = sorted((pa, pb), key=len)
+    if len(menor) < 2:
+        return False
+
+    def casa(p):
+        return any(p == q or (len(p) == 1 and q.startswith(p))
+                   or (min(len(p), len(q)) >= 4 and _uma_letra(p, q)) for q in maior)
+
+    casadas = sum(1 for p in menor if casa(p))
+    return casadas >= 2 and casadas == len(menor)
+
+
+def _uma_letra(a, b):
+    """Iguais a menos de uma letra trocada, a mais ou a menos."""
+    if abs(len(a) - len(b)) > 1:
+        return False
+    if len(a) == len(b):
+        return sum(x != y for x, y in zip(a, b)) <= 1
+    curto, longo = sorted((a, b), key=len)
+    return any(longo[:i] + longo[i + 1:] == curto for i in range(len(longo)))

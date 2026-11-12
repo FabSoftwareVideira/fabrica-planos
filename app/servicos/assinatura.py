@@ -219,12 +219,12 @@ class Assinaturas:
         with open(original_path, 'rb') as arq:
             original = arq.read()
         dados = verificar(pdf_assinado, original, self.raizes + list(acs_extras))
-        # Quem assinou precisa ser um dos docentes do plano ou, sem eles no texto, o dono da conta.
+        # Quem assinou precisa ser o professor responsável (o nome do cadastro dele) ou um docente do PDF.
         try:
             docentes = identificacao.docentes(extrair_texto(original_path))
         except PdfIlegivel:
             docentes = []
-        conferir = docentes or [n for n in [nome_usuario] if n]
+        conferir = [n for n in [nome_usuario] if n] + docentes
         if conferir and not any(mesma_pessoa(dados['signatario'], n) for n in conferir):
             raise AssinaturaInvalida(f'O PDF foi assinado por {dados["signatario"] or "outra pessoa"}, que não é '
                                      'docente deste plano. Assine com a sua conta gov.br.')
