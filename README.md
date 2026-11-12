@@ -79,7 +79,29 @@ networks:
 
 Essa rede dá acesso à API do Ollama sem abrir a porta `11434` para a internet. Por padrão, a porta publicada no host só aceita conexões locais. Como o Ollama não oferece autenticação, só conecte à rede serviços confiáveis. Mantenha este projeto em execução para garantir que a rede exista; outros Compose a declaram como externa e não a removem.
 
-Os PDFs e os resultados ficam em pastas fixas do servidor (padrão `/srv/validador-planos/`), preparadas automaticamente a cada deploy. Faça backup de `/srv/validador-planos/resultados`, onde ficam os usuários, as revisões e a validação atual.
+Os PDFs, os resultados e os backups ficam em pastas fixas do servidor (padrão `/srv/validador-planos/`), preparadas automaticamente a cada deploy.
+
+#### Backup e restauração
+
+O sistema faz um backup automático todo dia às `BACKUP_HORA` (padrão **3h**, antes da validação das 5h) e guarda os últimos `BACKUP_MANTER` backups automáticos (padrão **7**). Os arquivos ficam em `BACKUPS_HOST_DIR` (padrão `/srv/validador-planos/backups`) e podem ser criados, baixados, restaurados e excluídos em **Administração > Backup**.
+
+Cada backup é um ZIP com:
+
+- `planos/`: os PDFs da pasta de planos;
+- `resultados/`: usuários e revisões (SQLite copiados pela API de backup do SQLite, para não pegar um arquivo no meio de uma escrita), `validacao_planos.csv`, `donos.json`, `ocultos.json`, `liberacoes.json`, `assinaturas.json`, o histórico das validações e os PDFs assinados;
+- `manifesto.json`: formato, data, origem e contagens do backup.
+
+A restauração substitui **todos** os dados atuais pelos do ZIP. Antes de substituir, o próprio sistema cria um backup do estado atual, com a origem “Antes de restaurar”, então dá para desfazer. A restauração é recusada enquanto houver uma validação em andamento. Os backups manuais e os de antes de restaurar não são apagados automaticamente.
+
+O backup fica na mesma VPS: ele protege contra exclusões e erros de operação, mas não contra a perda do servidor. Copie periodicamente os arquivos de `/srv/validador-planos/backups` para outro local (outra máquina, storage externo ou cópia offline). Para restaurar sem a interface (por exemplo, com o app fora do ar), descompacte o ZIP e copie as pastas por cima dos dados:
+
+```bash
+unzip -o /srv/validador-planos/backups/AAAAMMDD-HHMMSS-manual.zip -d /tmp/restaurar
+rsync -a --delete /tmp/restaurar/planos/ /srv/validador-planos/planos/
+rsync -a --delete /tmp/restaurar/resultados/ /srv/validador-planos/resultados/
+```
+
+O serviço `preparar-pastas` ajusta o dono das três pastas a cada deploy. As variáveis `BACKUP_HORA`, `BACKUP_MANTER`, `BACKUP_AGENDAR` e `BACKUPS_HOST_DIR` estão explicadas no `.env.example`.
 
 **Deploy automático:** a cada push na `master`, o GitHub Actions roda os testes e a auditoria de dependências e, se tudo passar, pede o deploy ao Dokploy. Para isso, configure em **Settings > Secrets and variables > Actions** os secrets `DOKPLOY_URL`, `DOKPLOY_API_KEY` e `DOKPLOY_COMPOSE_ID`.
 

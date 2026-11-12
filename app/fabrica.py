@@ -9,6 +9,7 @@ from .armazenamento.revisoes import Revisoes
 from .armazenamento.usuarios import Usuarios
 from .config import Config, carregar
 from .servicos.assinatura import Assinaturas
+from .servicos.backup import Backup
 from .servicos.planos import PastaDePlanos
 from .servicos.revisao import Revisao
 from .servicos.validador import Validador
@@ -23,6 +24,7 @@ class Servicos:
     usuarios: Usuarios
     revisao: Revisao
     assinaturas: Assinaturas
+    backup: Backup
 
 
 def criar_app(cfg=None, executar=None):
@@ -36,8 +38,9 @@ def criar_app(cfg=None, executar=None):
     revisoes = Revisoes(cfg.revisoes_path)  # excluir um plano também apaga a revisão dele
     revisao = Revisao(cfg, revisoes, usuarios)
     assinaturas = Assinaturas(cfg, revisao)
+    backup = Backup(cfg, validador)
     app.extensions['servicos'] = Servicos(cfg, validador, PastaDePlanos(cfg, validador, revisoes, assinaturas),
-                                           usuarios, revisao, assinaturas)
+                                           usuarios, revisao, assinaturas, backup)
     paginas.registrar(app)
     rotas.registrar(app)
     if cfg.login_simulado:  # só em desenvolvimento (docker-compose.dev.yml)
@@ -48,4 +51,6 @@ def criar_app(cfg=None, executar=None):
     validador.preparar_historico()
     if cfg.agendar:
         validador.iniciar_agendador()
+    if cfg.backup_agendar:
+        backup.iniciar_agendador()
     return app

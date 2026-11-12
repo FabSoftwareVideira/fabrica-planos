@@ -34,5 +34,6 @@ COPY app ./app
 
 USER 10001
 
-# Um único worker: a fila e o lock ficam dentro do processo.
-CMD ["gunicorn", "-w", "1", "--threads", "4", "-b", "0.0.0.0:8000", "--access-logfile", "-", "app.web:app"]
+# Um único worker: a fila e o lock ficam dentro do processo. O timeout maior dá tempo de criar ou
+# restaurar um backup grande pela administração (o backup diário roda numa thread, fora da requisição).
+CMD ["gunicorn", "-w", "1", "--threads", "4", "--timeout", "300", "-b", "0.0.0.0:8000", "--access-logfile", "-", "app.web:app"]

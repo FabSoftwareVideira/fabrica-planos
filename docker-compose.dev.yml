@@ -36,8 +36,10 @@ services:
       - GOVBR_ASSINATURA_AMBIENTE=${DEV_ASSINATURA_AMBIENTE-simulada}
       # Cookies sem "Secure": o dev roda em http
       - COOKIE_SECURE=false
-      # Sem validação diária automática
+      # Sem validação nem backup diário automático (os backups podem ser feitos pela administração)
       - AGENDAR=0
+      - BACKUPS_DIR=/data/backups
+      - BACKUP_AGENDAR=0
       - TZ=America/Sao_Paulo
     volumes:
       # Código do host: o Flask recarrega a cada arquivo salvo
@@ -46,6 +48,8 @@ services:
       - "${DEV_PLANOS_DIR:-./planos}:/data/planos"
       # Resultados, usuários e revisões de desenvolvimento, separados dos de produção
       - ./dev-resultados:/data/resultados
+      # Backups de desenvolvimento, fora do git
+      - ./dev-backups:/data/backups
     extra_hosts:
       # host.docker.internal também no Linux (no Windows e no macOS ele já existe)
       - "host.docker.internal:host-gateway"

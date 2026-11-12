@@ -22,6 +22,13 @@ class Config:
     hora_agendada: int
     agendar: bool
     pdf_max_mb: int = 10
+    # Backup diário de tudo o que o app grava: os PDFs de planos_dir e o conteúdo de resultados_dir.
+    # `backups_dir` vazio guarda em resultados_dir/backups (bom para testes e uso local); em produção o
+    # docker-compose.yml aponta para /data/backups, num volume próprio.
+    backups_dir: str = ''
+    backup_hora: int = 3
+    backup_manter: int = 7
+    backup_agendar: bool = False
     # Login feito pelo proxy (Caddy + oauth2-proxy), que repassa o e-mail no cabeçalho X-Usuario-Email.
     # Sem exigir login (uso local, testes), todo acesso conta como administrador.
     exigir_login: bool = False
@@ -63,6 +70,11 @@ class Config:
         return bool(self.govbr_client_id and self.govbr_client_secret and self.segredo_sessao)
 
     @property
+    def pasta_backups(self):
+        """Pasta dos arquivos de backup; por padrão, dentro de resultados_dir."""
+        return self.backups_dir or os.path.join(self.resultados_dir, 'backups')
+
+    @property
     def historico_dir(self):
         return os.path.join(self.resultados_dir, 'historico')
 
@@ -92,6 +104,10 @@ def carregar():
         hora_agendada=int(os.environ.get('AGENDAMENTO_HORA', '5')),
         agendar=os.environ.get('AGENDAR', '1') == '1',
         pdf_max_mb=int(os.environ.get('PDF_MAX_MB') or '10'),
+        backups_dir=(os.environ.get('BACKUPS_DIR') or '').strip(),
+        backup_hora=max(0, min(23, int(os.environ.get('BACKUP_HORA') or '3'))),
+        backup_manter=max(1, int(os.environ.get('BACKUP_MANTER') or '7')),
+        backup_agendar=os.environ.get('BACKUP_AGENDAR', '1') == '1',
         exigir_login=os.environ.get('EXIGIR_LOGIN', '1') == '1',
         admins=frozenset(e.strip().lower() for e in os.environ.get('ADMIN_EMAILS', '').split(',') if e.strip()),
         login_simulado=os.environ.get('LOGIN_SIMULADO', '0') == '1',

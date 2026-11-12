@@ -1,0 +1,112 @@
+{% extends 'base.html' %}
+{#- Administração > Backup (só ADMIN_EMAILS): cria, baixa, restaura e exclui os backups diários de
+    todos os dados. A lista e as ações vêm do serviço servicos/backup.py. -#}
+
+{% block titulo %}Backup · Administração · Validação de Planos de Ensino{% endblock %}
+
+{% block estilos %}
+{% if criando %}<meta http-equiv="refresh" content="5">{% endif %}
+{% include '_ds.html' %}
+  <link rel="stylesheet" href="{{ estatico('css/administracao.css') }}">
+{% endblock %}
+
+{% block corpo %}
+{% set avisos = {
+  'iniciado': ('info', 'clock', 'Backup iniciado. A lista abaixo é atualizada quando ele terminar.'),
+  'restaurado': ('success', 'check-circle', 'Dados restaurados do backup. O sistema já está usando os arquivos recuperados.'),
+  'ocupado': ('warning', 'exclamation-triangle', 'Há uma validação, um backup ou uma restauração em andamento. Tente de novo quando terminar.'),
+  'invalido': ('danger', 'times-circle', 'Este arquivo não é um backup válido deste sistema e não foi restaurado.'),
+  'erro': ('danger', 'times-circle', 'Não foi possível concluir a operação. Veja os registros do servidor para mais detalhes.'),
+  'excluido': ('success', 'check-circle', 'Backup excluído.'),
+  'inexistente': ('danger', 'times-circle', 'Backup não encontrado.'),
+} %}
+{% set titulo_pagina = 'Administração' %}{% set pagina_atual = 'administracao' %}
+{% include '_cabecalho.html' %}
+{% with aba='backup' %}{% include '_abas_admin.html' %}{% endwith %}
+
+<main id="main">
+  <div class="container-lg py-4">
+    {% include '_titulo_pagina.html' %}
+    {% if aviso in avisos %}{% set tipo, icone, texto_aviso = avisos[aviso] %}
+    <div class="br-message {{ tipo }}" role="status">
+      <div class="icon"><i class="fas fa-{{ icone }} fa-lg" aria-hidden="true"></i></div>
+      <div class="content"><span class="message-body">{{ texto_aviso }}</span></div>
+    </div>
+    {% endif %}
+    {% if erro %}
+    <div class="br-message danger" role="alert">
+      <div class="icon"><i class="fas fa-times-circle fa-lg" aria-hidden="true"></i></div>
+      <div class="content"><span class="message-body">O último backup falhou: {{ erro }}</span></div>
+    </div>
+    {% endif %}
+
+    <section class="br-card">
+      <div class="card-header cab-planos">
+        <h2>Backup dos dados</h2>
+      </div>
+      <div class="card-content">
+        <p class="ajuda">O backup guarda um ZIP com a pasta de planos (PDFs) e a pasta de resultados:
+          usuários, revisões, histórico das validações, PDFs assinados e os arquivos JSON. Os bancos SQLite
+          são copiados de forma consistente, mesmo com o sistema em uso.</p>
+        <p class="ajuda">O backup automático roda todo dia às <strong>{{ '%02d'|format(hora) }}h</strong> e mantém os
+          <strong>{{ manter }}</strong> backups automáticos mais recentes. Os backups manuais e os feitos antes de uma
+          restauração ficam guardados até serem excluídos.</p>
+
+        <form method="post" action="/administracao/backup" class="acoes-backup">
+          <button class="br-button primary" type="submit"{% if criando %} disabled{% endif %}>
+            <i class="fas fa-download" aria-hidden="true"></i> Fazer backup agora
+          </button>
+          {% if criando %}<span class="ajuda" role="status">Backup em andamento…</span>{% endif %}
+        </form>
+      </div>
+    </section>
+
+    <section class="br-card">
+      <div class="card-header cab-planos">
+        <h2>Backups disponíveis <span class="contagem">{{ backups|length }}</span></h2>
+      </div>
+      <div class="card-content">
+        {% if backups %}
+        <div class="br-message warning" role="note">
+          <div class="icon"><i class="fas fa-exclamation-triangle fa-lg" aria-hidden="true"></i></div>
+          <div class="content"><span class="message-body">Restaurar substitui <strong>todos</strong> os dados atuais
+            pelos do backup. Antes de substituir, o sistema cria um backup do estado atual, com a origem
+            “Antes de restaurar”.</span></div>
+        </div>
+        <ul class="arquivos backups">
+          {% for b in backups %}
+          <li>
+            <span class="nome">{{ b.quando }}</span>
+            <span class="origem origem-{{ b.origem }}">{{ b.rotulo }}</span>
+            <span class="tamanho">{{ b.tamanho }}{% if b.planos is not none %} · {{ b.planos }} plano{{ 's' if b.planos != 1 }}{% endif %}{% if b.resultados is not none %} · {{ b.resultados }} arquivo{{ 's' if b.resultados != 1 }} de resultados{% endif %}</span>
+            {% if not b.valido %}<span class="invalido"><i class="fas fa-times-circle" aria-hidden="true"></i> inválido</span>{% endif %}
+            <span class="acoes-backup">
+              <a href="/administracao/backup/{{ b.nome }}"><i class="fas fa-file-archive" aria-hidden="true"></i> Baixar</a>
+              <form method="post" action="/administracao/backup/{{ b.nome }}/restaurar"
+                    data-confirmar="Restaurar o backup de {{ b.quando }}? Todos os dados atuais serão substituídos. Um backup do estado atual será criado antes.">
+                <button type="submit"{% if criando or not b.valido %} disabled{% endif %}>
+                  <i class="fas fa-undo" aria-hidden="true"></i> Restaurar
+                </button>
+              </form>
+              <form method="post" action="/administracao/backup/{{ b.nome }}/excluir"
+                    data-confirmar="Excluir o backup de {{ b.quando }}?">
+                <button class="excluir" type="submit"><i class="fas fa-trash-alt" aria-hidden="true"></i> Excluir</button>
+              </form>
+            </span>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p class="msg">Nenhum backup ainda. Use <strong>Fazer backup agora</strong> ou aguarde o backup automático.</p>
+        {% endif %}
+      </div>
+    </section>
+  </div>
+</main>
+
+{% include '_rodape.html' %}
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ estatico('js/backup.js') }}"></script>
+{% endblock %}

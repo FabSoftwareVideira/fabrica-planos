@@ -15,3 +15,14 @@ h2{font-size:var(--font-size-scale-up-02);margin:0}
   padding:var(--spacing-scale-half)}
 .arquivos button.excluir{color:var(--danger)}
 
+/* Backup: data e origem à esquerda, tamanho no meio e ações à direita */
+.backups li{gap:var(--spacing-scale-half) var(--spacing-scale-2x)}
+.backups .nome{flex:1 1 220px;overflow-wrap:anywhere;font-weight:var(--font-weight-semi-bold)}
+.backups .origem{color:var(--gray-60);white-space:nowrap}
+.backups .origem-antes-restauracao{color:var(--warning,#8a6100)}
+.backups .tamanho{color:var(--gray-50);white-space:normal}
+.backups .invalido{color:var(--danger);white-space:nowrap}
+.backups .acoes-backup{display:flex;align-items:center;gap:var(--spacing-scale-base);margin-left:auto}
+.backups .acoes-backup form{display:inline;margin:0}
+.backups li a{flex:0 0 auto}
+.backups .acoes-backup button{white-space:nowrap}

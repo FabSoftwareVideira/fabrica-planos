@@ -12,10 +12,11 @@ services:
     # copiados com outro dono (backup, cp -a) não precisam de chown manual.
     image: busybox:1.36
     restart: "no"
-    command: ["chown", "-R", "10001:10001", "/data/planos", "/data/resultados"]
+    command: ["chown", "-R", "10001:10001", "/data/planos", "/data/resultados", "/data/backups"]
     volumes:
       - "${PLANOS_HOST_DIR:-/srv/validador-planos/planos}:/data/planos"
       - "${RESULTADOS_HOST_DIR:-/srv/validador-planos/resultados}:/data/resultados"
+      - "${BACKUPS_HOST_DIR:-/srv/validador-planos/backups}:/data/backups"
     network_mode: none
     # Só as capacidades de trocar o dono e de percorrer pastas de outro dono
     security_opt:
@@ -46,6 +47,11 @@ services:
       - AGENDAMENTO_HORA=${AGENDAMENTO_HORA}
       - PDF_MAX_MB=${PDF_MAX_MB:-10}
       - AGENDAR=1
+      # Backup diário de todos os dados (ver README, "Backup e restauração")
+      - BACKUPS_DIR=/data/backups
+      - BACKUP_HORA=${BACKUP_HORA:-3}
+      - BACKUP_MANTER=${BACKUP_MANTER:-7}
+      - BACKUP_AGENDAR=${BACKUP_AGENDAR:-1}
       - EXIGIR_LOGIN=1
       - ADMIN_EMAILS=${ADMIN_EMAILS}
       - EMAIL_DOMINIO=${EMAIL_DOMINIO:-ifc.edu.br}
@@ -73,6 +79,8 @@ services:
       # uma pasta relativa a ele (./resultados) seria perdida. Planos gravável: o dashboard envia e exclui PDFs.
       - "${PLANOS_HOST_DIR:-/srv/validador-planos/planos}:/data/planos"
       - "${RESULTADOS_HOST_DIR:-/srv/validador-planos/resultados}:/data/resultados"
+      # Backups num volume próprio, fora de resultados (para uma restauração não apagar os backups)
+      - "${BACKUPS_HOST_DIR:-/srv/validador-planos/backups}:/data/backups"
     depends_on:
       preparar-pastas:
         condition: service_completed_successfully

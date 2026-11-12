@@ -1,7 +1,8 @@
-{#- Abas da administração. Usa: aba ('planos' ou 'usuarios'). -#}
+{#- Abas da administração. Usa: aba ('planos', 'usuarios' ou 'backup'). -#}
 <nav class="abas-admin" aria-label="Seções da administração">
   <div class="container-lg">
     <a href="/administracao"{% if aba == 'planos' %} class="ativa" aria-current="page"{% endif %}><i class="fas fa-file-pdf" aria-hidden="true"></i> Planos e validação</a>
     <a href="/administracao/usuarios"{% if aba == 'usuarios' %} class="ativa" aria-current="page"{% endif %}><i class="fas fa-users" aria-hidden="true"></i> Usuários</a>
+    <a href="/administracao/backup"{% if aba == 'backup' %} class="ativa" aria-current="page"{% endif %}><i class="fas fa-archive" aria-hidden="true"></i> Backup</a>
   </div>
 </nav>
