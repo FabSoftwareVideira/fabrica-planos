@@ -25,9 +25,8 @@
 {%- endmacro %}
 
 {% block corpo %}
-{% with titulo_pagina='Relatório do plano', pagina_atual='painel' %}
+{% set titulo_pagina = 'Relatório do plano' %}{% set pagina_atual = 'painel' %}
 {% include '_cabecalho.html' %}
-{% endwith %}
 
 {# Barra fixa no topo ao rolar: volta ao dashboard e passa de um plano para outro (atalhos Esc, ← e →). #}
 <nav class="nav" aria-label="Navegação entre os planos"><div class="container-lg">
@@ -42,6 +41,7 @@
 
 <main id="main">
   <div class="container-lg py-4">
+    {% include '_titulo_pagina.html' %}
     <h1>{{ nome.removesuffix('.pdf') }}</h1>
     <div class="meta">
       <span>{{ tag_status(revisao.status if revisao else linha['Status Geral']) }}{% if revisao %} <span class="ia">IA: {{ linha['Status Geral'] }}</span>{% endif %}</span>

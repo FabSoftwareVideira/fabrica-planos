@@ -124,6 +124,31 @@ def test_dashboard_tem_controles(cliente):
     assert 'id="soltar"' not in adm and 'id="lista"' in adm and 'id="validar"' in adm
 
 
+def test_barra_de_utilidades_com_alto_contraste(cliente):
+    c, _ = cliente
+    for caminho in ('/', '/dashboard'):
+        html = c.get(caminho).get_data(as_text=True)
+        assert 'class="barra-utilidade"' in html
+        assert 'SIGAA' in html and 'Portal do Campus' in html
+        assert 'data-contraste' in html and 'Alto contraste' in html
+        # O script do tema vem antes do CSS: aplica o alto contraste salvo sem piscar o tema claro
+        assert html.index('js/contraste.js') < html.index('vendor/govbr-ds')
+    assert 'html.alto-contraste' in c.get('/static/css/ds.css').get_data(as_text=True)
+
+
+def test_cabecalho_com_logo_e_linha_colorida(cliente):
+    c, _ = cliente
+    html = c.get('/dashboard').get_data(as_text=True)
+    assert 'class="logo"' in html and 'logo-ifc-videira.png' in html
+    assert 'Validação de Planos de Ensino' in html
+    assert 'Conferência automática dos planos de ensino' in html
+    # O título da página fica discreto no conteúdo, não numa faixa do cabeçalho
+    assert 'titulo-pagina' not in html
+    assert '<p class="titulo-conteudo">Painel de validação</p>' in html
+    css = c.get('/static/css/ds.css').get_data(as_text=True)
+    assert 'linear-gradient(90deg,#7eba00 0 22%,#1351b4 22% 100%)' in css
+
+
 def _execucao(c, nomes, quando, validacao=None, pdfs=()):
     """Cria no histórico uma validação concluída com esses planos."""
     from datetime import datetime

@@ -11,12 +11,12 @@
 {% endblock %}
 
 {% block corpo %}
-{% with titulo_pagina='Visão da coordenação', pagina_atual='coordenacao' %}
+{% set titulo_pagina = 'Visão da coordenação' %}{% set pagina_atual = 'coordenacao' %}
 {% include '_cabecalho.html' %}
-{% endwith %}
 
 <main id="main">
   <div class="container-lg py-4">
+    {% include '_titulo_pagina.html' %}
     {% if not cursos %}
     <p class="msg">Nenhum curso com planos na validação atual.</p>
     {% else %}

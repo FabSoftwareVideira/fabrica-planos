@@ -19,13 +19,13 @@
   'papel_removido': ('success', 'check-circle', 'Papel removido. As revisões que ela já fez continuam valendo.'),
   'papel_invalido': ('danger', 'times-circle', 'Curso ou papel inválido.'),
 } %}
-{% with titulo_pagina='Administração', pagina_atual='administracao' %}
+{% set titulo_pagina = 'Administração' %}{% set pagina_atual = 'administracao' %}
 {% include '_cabecalho.html' %}
-{% endwith %}
 {% with aba='usuarios' %}{% include '_abas_admin.html' %}{% endwith %}
 
 <main id="main">
   <div class="container-lg py-4">
+    {% include '_titulo_pagina.html' %}
     {% if aviso in avisos %}{% set tipo, icone, texto_aviso = avisos[aviso] %}
     <div class="br-message {{ tipo }}" role="status">
       <div class="icon"><i class="fas fa-{{ icone }} fa-lg" aria-hidden="true"></i></div>

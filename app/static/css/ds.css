@@ -4,16 +4,31 @@ main{flex:1}
 /* O DS dá display aos botões (br-button) e mensagens, o que anularia o atributo hidden usado pelos scripts */
 [hidden]{display:none !important}
 
+/* Barra de utilidades (acima do cabeçalho): links de acesso rápido e o botão de alto contraste, como no
+   portal do IFC. Cores fixas (e não tokens) porque no alto contraste a barra continua escura com texto amarelo. */
+.barra-utilidade{background:#071d41;color:#fff;font-size:var(--font-size-scale-down-02)}
+.barra-utilidade .container-lg{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;
+  gap:0 var(--spacing-scale-2x);min-height:36px;padding-top:var(--spacing-scale-half);padding-bottom:var(--spacing-scale-half)}
+.barra-utilidade ul{display:flex;flex-wrap:wrap;gap:0 var(--spacing-scale-2x);list-style:none;margin:0;padding:0}
+.barra-utilidade a,.barra-utilidade button{display:inline-flex;align-items:center;gap:var(--spacing-scale-half);
+  color:#fff;text-decoration:none;opacity:.92}
+.barra-utilidade a:hover,.barra-utilidade button:hover{opacity:1;color:#fff;text-decoration:underline}
+.barra-utilidade button{background:none;border:0;cursor:pointer;font:inherit;padding:2px 0}
+.barra-utilidade button[aria-pressed="true"]{text-decoration:underline;text-underline-offset:4px}
+
 /* Cabeçalho: logotipo e nome do sistema à esquerda; menu (texto e ícone) e conta à direita.
    Abaixo de 1200px o menu vira hambúrguer (com Coordenação e Administração ele não cabe em 1024px): um painel que abre sob a barra. */
 .cabecalho{display:block;position:relative;z-index:30;padding:0}  /* o br-header do DS é flex */
+.cabecalho::after{content:"";display:block;height:4px;  /* linha verde e azul do logotipo, como no portal do IFC */
+  background:linear-gradient(90deg,#7eba00 0 22%,#1351b4 22% 100%)}
 .cabecalho .topo{display:flex;align-items:center;gap:var(--spacing-scale-2x);min-height:64px;padding:var(--spacing-scale-base) 0}
-.cabecalho .marca{display:flex;align-items:center;gap:var(--spacing-scale-2x);text-decoration:none;color:var(--gray-80);margin-right:auto}
+.cabecalho .marca{display:flex;align-items:center;gap:var(--spacing-scale-2x);text-decoration:none;color:var(--blue-warm-vivid-80);margin-right:auto}
 .cabecalho .marca:hover{text-decoration:none}
 .cabecalho .logo{height:44px;width:auto;display:block}
 .cabecalho .sigla{font-weight:var(--font-weight-black);font-size:var(--font-size-scale-up-03);color:#32a041;letter-spacing:.02em}
-.cabecalho .br-divider.vertical{height:32px;margin:0}
-.cabecalho .sistema{font-weight:var(--font-weight-semi-bold);line-height:1.2;font-size:var(--font-size-scale-base)}
+.cabecalho .sistema{font-size:17px;font-weight:var(--font-weight-bold);line-height:1.15;color:var(--blue-warm-vivid-80);
+  padding-left:14px;border-left:2px solid var(--gray-20)}
+.cabecalho .sistema small{display:block;font-weight:var(--font-weight-medium);font-size:12px;color:var(--gray-50)}
 .cabecalho .menu{display:flex;align-items:center;gap:var(--spacing-scale-2x)}
 .cabecalho .menu ul{display:flex;gap:var(--spacing-scale-half);list-style:none;margin:0;padding:0}
 .cabecalho .menu a:not(.br-button){display:flex;align-items:center;gap:var(--spacing-scale-base);padding:0 var(--spacing-scale-2x);
@@ -30,8 +45,9 @@ main{flex:1}
 .cabecalho .email{font-size:var(--font-size-scale-down-01);max-width:24ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cabecalho .papel-usuario{font-size:var(--font-size-scale-down-02);color:var(--gray-50)}
 .cabecalho .menu-botao{display:none}
-.titulo-pagina{border-top:1px solid var(--gray-10);background:var(--gray-1,#f8f8f8);padding:var(--spacing-scale-base) 0;
-  font-size:var(--font-size-scale-up-01);font-weight:var(--font-weight-medium);color:var(--gray-80)}
+/* Título da página: discreto, no alto do conteúdo (o cabeçalho fica só com a marca e o menu) */
+.titulo-conteudo{margin:0 0 var(--spacing-scale-2x);color:var(--gray-50);font-size:var(--font-size-scale-down-02);
+  font-weight:var(--font-weight-semi-bold);text-transform:uppercase;letter-spacing:.08em}
 @media (max-width:1199px){
   .cabecalho .menu-botao{display:inline-flex}
   .cabecalho .topo{height:64px;min-height:0}
@@ -47,6 +63,7 @@ main{flex:1}
 }
 @media (max-width:420px){
   .cabecalho .sistema{font-size:var(--font-size-scale-down-01)}
+  .cabecalho .sistema small{display:none}
   .cabecalho .logo{height:36px}
 }
 
@@ -116,3 +133,60 @@ body.validando #validar{display:none}  /* durante a validação o botão sai e f
   border-bottom:4px solid transparent;text-decoration:none}
 .abas-admin a:hover{color:var(--interactive);background:var(--gray-2)}
 .abas-admin a.ativa{color:var(--interactive);border-bottom-color:var(--interactive)}
+
+/* Alto contraste (botão da barra de utilidades): fundo preto, texto branco e realces em amarelo, como no
+   portal do IFC. Os tokens do Design System são trocados na raiz; o que não usa tokens tem ajuste próprio. */
+html.alto-contraste{
+  --pure-0:#000;
+  --pure-100:#fff;
+  --gray-1:#0d0d0d;
+  --gray-2:#000;
+  --gray-5:#1a1a1a;
+  --gray-10:#333;
+  --gray-20:#888;
+  --gray-30:#9e9e9e;
+  --gray-40:#b0b0b0;
+  --gray-50:#c9c9c9;
+  --gray-60:#e0e0e0;
+  --gray-70:#f0f0f0;
+  --gray-80:#fff;
+  --gray-90:#fff;
+  --color:#fff;
+  --color-light:#fff;
+  --color-dark:#000;
+  --background:#000;
+  --background-light:#000;
+  --background-dark:#000;
+  --border-color:#888;
+  --interactive:#ffd700;
+  --interactive-light:#ffd700;
+  --interactive-light-rgb:255,215,0;
+  --focus-color-light:#ffd700;
+  --success:#00e676;
+  --danger:#ff6b5e;
+  --warning:#ffd700;
+  --success-alternative:#0b2b17;
+  --danger-alternative:#2e0f0c;
+  --info-alternative:#11181d;
+  --warning-alternative:#2b2400;
+}
+html.alto-contraste .barra-utilidade{background:#000;border-bottom:1px solid #888;color:#ffd700}
+html.alto-contraste .barra-utilidade a,html.alto-contraste .barra-utilidade button,
+html.alto-contraste .barra-utilidade a:hover,html.alto-contraste .barra-utilidade button:hover{color:#ffd700}
+html.alto-contraste .cabecalho .sigla,html.alto-contraste .cabecalho .marca{color:#ffd700}
+html.alto-contraste .cabecalho .sistema{color:#ffd700}
+html.alto-contraste .cabecalho .sistema small{color:#e0e0e0}
+html.alto-contraste .cabecalho .logo{background:#fff;padding:2px 6px;border-radius:4px}
+html.alto-contraste .cabecalho::after{background:linear-gradient(90deg,#00e676 0 22%,#ffd700 22% 100%)}
+html.alto-contraste .br-footer a{color:#fff}
+html.alto-contraste .br-footer .logo .sigla{color:#00e676}
+html.alto-contraste .assinado,html.alto-contraste .liberado{color:#00e676}
+html.alto-contraste .cabecalho .menu a:not(.br-button):hover{background:#222}
+html.alto-contraste .cabecalho .menu a.ativo:hover,
+html.alto-contraste .plano .acoes a.revisar:hover,html.alto-contraste .acoes a.revisar:hover{background:#ffe766}
+html.alto-contraste .soltar.ativo,html.alto-contraste .passos .icone{background:#1a1a1a}
+html.alto-contraste .destaque h1{color:#ffd700}
+html.alto-contraste .situacao.ativo,html.alto-contraste .selo-revisao,html.alto-contraste .admin,
+html.alto-contraste .plano .assinado{background:#0b2b17;color:#00e676}
+html.alto-contraste .papel-curso{background:#11181d;color:#ffd700}
+html.alto-contraste .paginacao .page.active{color:#000}

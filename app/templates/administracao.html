@@ -11,14 +11,14 @@
 {% endblock %}
 
 {% block corpo %}
-{% with titulo_pagina='Administração', pagina_atual='administracao' %}
+{% set titulo_pagina = 'Administração' %}{% set pagina_atual = 'administracao' %}
 {% include '_cabecalho.html' %}
-{% endwith %}
 {% with aba='planos' %}{% include '_abas_admin.html' %}{% endwith %}
 {% include '_status.html' %}
 
 <main id="main">
   <div class="container-lg py-4">
+    {% include '_titulo_pagina.html' %}
     <section class="br-card">
       <div class="card-header cab-planos">
         <h2>Planos (PDFs) <span class="contagem" id="qtd-planos"></span></h2>

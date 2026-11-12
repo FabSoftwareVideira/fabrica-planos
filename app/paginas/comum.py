@@ -37,7 +37,7 @@ def estatico(arquivo):
 
 def logo_ifc():
     """URL do logotipo do IFC, se o arquivo estiver em static/img (SVG de preferência); vazio sem ele."""
-    for nome in ('img/logo-ifc.svg', 'img/logo-ifc.png'):
+    for nome in ('img/logo-ifc.svg', 'img/logo-ifc.png', 'img/logo-ifc-videira.png'):
         if os.path.exists(os.path.join(current_app.static_folder, nome)):
             return estatico(nome)
     return ''

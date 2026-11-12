@@ -11,12 +11,12 @@
 {% endblock %}
 
 {% block corpo %}
-{% with titulo_pagina='Meus planos de ensino', pagina_atual='meus' %}
+{% set titulo_pagina = 'Meus planos de ensino' %}{% set pagina_atual = 'meus' %}
 {% include '_cabecalho.html' %}
-{% endwith %}
 
 <main id="main">
   <div class="container-lg py-4">
+    {% include '_titulo_pagina.html' %}
     <section class="br-card">
       <div class="card-header"><h2>Enviar plano de ensino</h2></div>
       <div class="card-content">

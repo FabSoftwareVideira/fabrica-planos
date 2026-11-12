@@ -8,9 +8,8 @@
 {% endblock %}
 
 {% block corpo %}
-{% with titulo_pagina='', pagina_atual='inicio' %}
+{% set pagina_atual = 'inicio' %}
 {% include '_cabecalho.html' %}
-{% endwith %}
 
 <main id="main">
   <section class="destaque">

@@ -1,7 +1,9 @@
 {#- Cabeçalho de todas as páginas (br-header do Padrão Digital de Governo): logotipo, nome do sistema, menu com
     texto e ícone e quem está logado. Em telas menores o menu vira hambúrguer (static/js/cabecalho.js).
-    Usa: titulo_pagina, pagina_atual e sem_menu (só a conta, sem os links); usuario_email, usuario_nome e
-    usuario_admin e usuario_coordenacao vêm de paginas/comum.py. -#}
+    Usa: pagina_atual e sem_menu (só a conta, sem os links); usuario_email, usuario_nome e
+    usuario_admin e usuario_coordenacao vêm de paginas/comum.py. O título da página fica discreto no
+    alto do <main> (templates/_titulo_pagina.html). -#}
+{% include '_barra_utilidade.html' %}
 {% set itens = [] if sem_menu else [('painel', 'Painel', '/dashboard', 'chart-bar')]
              + ([('coordenacao', 'Coordenação', '/coordenacao', 'chart-pie')] if usuario_coordenacao else [])
              + ([('administracao', 'Administração', '/administracao', 'cog')] if usuario_admin else [])
@@ -10,10 +12,9 @@
   <div class="container-lg">
     <div class="topo">
       <a class="marca" href="/" aria-label="Validação de Planos de Ensino, página inicial">
-        {% if logo_ifc() %}<img class="logo" src="{{ logo_ifc() }}" alt="Instituto Federal Catarinense">
+        {% if logo_ifc() %}<img class="logo" src="{{ logo_ifc() }}" alt="Instituto Federal Catarinense, Campus Videira" width="110" height="44">
         {% else %}<span class="sigla" aria-hidden="true">IFC</span>{% endif %}
-        <span class="br-divider vertical"></span>
-        <span class="sistema">Validação de<br>Planos de Ensino</span>
+        <span class="sistema">Validação de Planos de Ensino<small>Conferência automática dos planos de ensino</small></span>
       </a>
 
       {% if usuario_email %}
@@ -40,8 +41,5 @@
       {% endif %}
     </div>
   </div>
-  {% if titulo_pagina %}
-  <div class="titulo-pagina"><div class="container-lg">{{ titulo_pagina }}</div></div>
-  {% endif %}
 </header>
 {% if usuario_email %}<script src="{{ estatico('js/cabecalho.js') }}" defer></script>{% endif %}

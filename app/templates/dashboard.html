@@ -10,13 +10,13 @@
 {% endblock %}
 
 {% block corpo %}
-{% with titulo_pagina='Painel de validação', pagina_atual='painel' %}
+{% set titulo_pagina = 'Painel de validação' %}{% set pagina_atual = 'painel' %}
 {% include '_cabecalho.html' %}
-{% endwith %}
 {% include '_status.html' %}
 
 <main id="main">
   <div class="container-lg py-4">
+    {% include '_titulo_pagina.html' %}
     {% if execucao is not none %}
     <div class="cab-resultados">
       <p class="meta-validacao">Validação concluída em {{ meta.finalizado_em|data_br }}

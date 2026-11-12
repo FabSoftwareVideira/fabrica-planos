@@ -83,6 +83,10 @@ Os PDFs e os resultados ficam em pastas fixas do servidor (padrão `/srv/validad
 
 **Deploy automático:** a cada push na `master`, o GitHub Actions roda os testes e a auditoria de dependências e, se tudo passar, pede o deploy ao Dokploy. Para isso, configure em **Settings > Secrets and variables > Actions** os secrets `DOKPLOY_URL`, `DOKPLOY_API_KEY` e `DOKPLOY_COMPOSE_ID`.
 
+## Alto contraste
+
+Todas as páginas têm, acima do cabeçalho, uma barra de utilidades com links de acesso rápido (Extensão e Estágios, SIGAA e Portal do Campus) e o botão **Alto contraste**. Ele alterna o tema em todas as páginas: fundo preto, texto branco e realces em amarelo, como no portal do IFC. A escolha é salva em `localStorage` (chave `contraste`) e reaplicada nas próximas visitas, antes do CSS carregar, para a página não piscar no tema claro.
+
 ## Como contribuir
 
 1. Crie uma branch a partir da `master` e rode o projeto em modo de desenvolvimento (veja acima).
