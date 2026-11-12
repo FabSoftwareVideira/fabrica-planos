@@ -116,10 +116,25 @@
               <td><span class="disciplina">{{ p.disciplina }}</span><small>{{ p.codigo }}{% if periodo == 'todos' %} · {{ p.ident.periodo }}{% endif %}</small></td>
               <td>{{ p.docentes|join(', ') }}</td>
               <td>{{ tag_status(p.status) }}</td>
-              <td>{% if p.revisao %}{{ p.revisao.revisor }} ({{ p.revisao.papel }}){% else %}<span class="aguardando">Aguardando</span>{% endif %}</td>
+              <td>{% if p.revisao %}{{ p.revisao.revisor }} ({{ p.revisao.papel }}){% else %}<span class="aguardando">Aguardando</span>{% endif %}{% if p.assinatura %} <span class="assinado" title="Assinado via gov.br por {{ p.assinatura.signatario }}"><i class="fas fa-file-signature" aria-hidden="true"></i> Assinado</span>{% endif %}</td>
               <td class="acoes">
                 {% if p.url_revisar %}<a class="revisar" href="{{ p.url_revisar }}"><i class="fas fa-{{ 'edit' if p.revisao else 'user-check' }}" aria-hidden="true"></i> {{ 'Alterar parecer' if p.revisao else 'Revisar' }}</a>{% endif %}
                 <a href="{{ p.url_relatorio }}"><i class="fas fa-file-alt" aria-hidden="true"></i> Relatório</a>
+                {% if p.pode_liberar %}
+                <form method="post" action="/coordenacao/liberar">
+                  <input type="hidden" name="arquivo" value="{{ p.arquivo }}">
+                  <input type="hidden" name="curso" value="{{ curso }}">
+                  <input type="hidden" name="periodo" value="{{ periodo }}">
+                  {% if p.liberado %}
+                  <input type="hidden" name="acao" value="cancelar">
+                  <button class="br-button secondary small" type="submit" title="O professor pode enviar uma nova versão deste plano."><i class="fas fa-lock" aria-hidden="true"></i> Cancelar liberação</button>
+                  {% else %}
+                  <button class="br-button secondary small" type="submit" title="Permite que o professor envie uma nova versão deste plano assinado."><i class="fas fa-lock-open" aria-hidden="true"></i> Liberar novo envio</button>
+                  {% endif %}
+                </form>
+                {% elif p.liberado %}
+                <span class="liberado"><i class="fas fa-lock-open" aria-hidden="true"></i> Novo envio liberado</span>
+                {% endif %}
               </td>
             </tr>
             {% endfor %}

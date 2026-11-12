@@ -38,7 +38,8 @@ def dados_da_validacao():
 
 
 def revisaveis(idents):
-    """Planos que quem está vendo pode revisar (tem papel no curso deles e não os enviou)."""
+    """Planos que quem está vendo pode revisar (tem papel no curso deles e não os enviou; o coordenador do
+    curso pode revisar até os próprios)."""
     return {nome for nome, ident in idents.items() if servicos().revisao.papel(email(), ident, nome)}
 
 
@@ -68,8 +69,9 @@ def pagina_relatorio():
     pode_revalidar = eh_admin() and s.planos.existe(nome)
     ident = identificacao.de_detalhes(det)
     ctx = relatorio.contexto(linhas, indice, det, execucao, pode_revalidar, email())
+    proprio = s.revisao.eh_autor(email(), nome) and not s.revisao.eh_coordenador(email(), ident)
     ctx.update(relatorio.contexto_revisao(revisao.resumo(s.revisao.vigente(nome)), s.revisao.papel(email(), ident, nome),
-                                          ident, request.args.get('aviso', ''), s.revisao.eh_autor(email(), nome)))
+                                          ident, request.args.get('aviso', ''), proprio))
     ctx['assinatura'] = assinatura.resumo(s.assinaturas.vigente(nome))
     return render_template('relatorio.html', **ctx)
 
@@ -88,7 +90,7 @@ def revisar():
         return texto('Plano não encontrado na validação atual.', 404)
     ident = identificacao.de_detalhes(detalhes.ler(execucao.detalhes_dir, nome))
     usuario = email() or 'local'
-    if s.revisao.eh_autor(usuario, nome):
+    if s.revisao.eh_autor(usuario, nome) and not s.revisao.eh_coordenador(usuario, ident):
         return texto('Você enviou este plano e não pode revisá-lo; o parecer fica com outro membro da '
                      'coordenação, do NDE ou do NDB.', 403)
     try:

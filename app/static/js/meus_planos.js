@@ -66,6 +66,11 @@ function blocoAssinatura(p) {
     const a = p.assinatura;
     div.innerHTML = '<i class="fas fa-file-signature" aria-hidden="true"></i> ';
     div.append(`Assinado via gov.br por ${a.signatario}` + (a.assinado_em ? ` em ${hora(a.assinado_em)}` : '') + '.');
+    const nota = document.createElement('p'); nota.className = 'nota';
+    nota.textContent = p.reenvio_liberado
+      ? 'A coordenação liberou o envio de uma nova versão deste plano.'
+      : 'Para corrigir e enviar uma nova versão, peça à coordenação do curso que libere o reenvio.';
+    div.append(nota);
     return div;
   }
   div.innerHTML = '<p><strong><i class="fas fa-file-signature" aria-hidden="true"></i> Plano aprovado: falta a sua assinatura.</strong></p>';

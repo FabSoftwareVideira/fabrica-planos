@@ -3,7 +3,7 @@ import os
 import unicodedata
 from datetime import datetime
 
-from ..armazenamento import assinaturas, csvsaida, detalhes, donos, historico, ocultos
+from ..armazenamento import assinaturas, csvsaida, detalhes, donos, historico, liberacoes, ocultos
 from ..avaliacao import identificacao, pipeline
 from ..avaliacao.extrator import PdfIlegivel, extrair_texto
 
@@ -29,14 +29,17 @@ class PastaDePlanos:
     Cada um só exclui (e substitui) os planos que enviou; o administrador também os sem dono (copiados
     direto para a pasta ou enviados antes do registro de dono). Excluir tira o plano também da validação
     atual e apaga a revisão dele. Os planos de outras pessoas o administrador só pode ocultar do painel.
+    Depois de assinado, o plano só é substituído se a coordenação do curso liberar o reenvio
+    (resultados/liberacoes.json).
 
     Usa a trava do validador para não mexer nos PDFs enquanto um lote é validado.
     """
 
-    def __init__(self, cfg, validador, revisoes=None):
+    def __init__(self, cfg, validador, revisoes=None, assinaturas=None):
         self.cfg = cfg
         self.validador = validador
         self.revisoes = revisoes
+        self.assinaturas = assinaturas
 
     def caminho(self, nome):
         return os.path.join(self.cfg.planos_dir, nome)
@@ -51,6 +54,18 @@ class PastaDePlanos:
         """O administrador exclui os planos que enviou e os sem dono."""
         dono = self.dono(nome)
         return not dono or dono == email
+
+    def assinado(self, nome):
+        """O plano está assinado pelo professor e a assinatura ainda vale (ver servicos/assinatura.py)."""
+        return bool(self.assinaturas and self.assinaturas.vigente(nome))
+
+    def reenvio_liberado(self, nome):
+        """A coordenação liberou o envio de uma nova versão deste plano assinado."""
+        return self.assinado(nome) and liberacoes.liberado(self.cfg.resultados_dir, nome)
+
+    def pode_reenviar(self, nome):
+        """Plano assinado só é substituído depois de a coordenação do curso liberar o reenvio."""
+        return not self.assinado(nome) or liberacoes.liberado(self.cfg.resultados_dir, nome)
 
     def nomes_ocultos(self):
         return set(ocultos.ler(self.cfg.resultados_dir))
@@ -101,6 +116,7 @@ class PastaDePlanos:
                     continue
                 donos.definir(self.cfg.resultados_dir, nome, email, identificacao.extrair(texto))
                 ocultos.mostrar(self.cfg.resultados_dir, [nome])  # versão nova volta a aparecer no painel
+                liberacoes.cancelar(self.cfg.resultados_dir, nome)  # a versão nova já foi enviada
                 salvos.append({'nome': nome, 'substituido': substituido})
         log.info('Upload: %d salvo(s), %d recusado(s)', len(salvos), len(recusados))
         return salvos, recusados
@@ -118,6 +134,9 @@ class PastaDePlanos:
                 if existe and dono_de.get(nome, {}).get('email') != email:
                     motivo = ('Já existe na pasta um plano com esse nome, enviado por outra pessoa; renomeie o '
                               'arquivo (ex.: 2026-1 - Disciplina - Seu nome.pdf)')
+                if not motivo and existe and not self.pode_reenviar(nome):
+                    motivo = ('Este plano já está assinado; para enviar uma nova versão, peça à coordenação do '
+                              'curso que libere o reenvio')
                 texto = None
                 if not motivo:
                     motivo, texto = self._salvar(arquivo, nome)
@@ -127,6 +146,7 @@ class PastaDePlanos:
                 # Curso e período já no envio: o plano aparece no grupo certo antes de ser avaliado.
                 donos.definir(self.cfg.resultados_dir, nome, email, identificacao.extrair(texto))
                 ocultos.mostrar(self.cfg.resultados_dir, [nome])  # versão nova volta a aparecer no painel
+                liberacoes.cancelar(self.cfg.resultados_dir, nome)  # a liberação vale para um envio
                 salvos.append({'nome': nome, 'substituido': existe})
         for salvo in salvos:  # a avaliação começa já, ou espera a vez na fila
             salvo['posicao'] = self.validador.enfileirar(salvo['nome'])
@@ -171,6 +191,7 @@ class PastaDePlanos:
             os.remove(self.caminho(nome))
         donos.remover(self.cfg.resultados_dir, [nome])
         ocultos.mostrar(self.cfg.resultados_dir, [nome])
+        liberacoes.remover(self.cfg.resultados_dir, [nome])
         pipeline.remover_da_validacao(self.cfg, [nome])
         if self.revisoes is not None:
             self.revisoes.remover(nome)

@@ -825,6 +825,23 @@ def test_quem_enviou_o_plano_nao_o_revisa(com_login):
     assert _servicos(c).revisao.vigente('web.pdf')['status'] == 'OK'
 
 
+def test_coordenador_revisa_o_proprio_plano(com_login):
+    from app.armazenamento import donos
+    c, planos = com_login
+    _plano_cc(c, planos, status='OK')
+    donos.definir(_servicos(c).cfg.resultados_dir, 'web.pdf', 'coord@ifc.edu.br')  # o próprio coordenador enviou
+    _dar_papel(c, 'coord@ifc.edu.br', papel='coordenador')
+    COORD = {'X-Usuario-Email': 'coord@ifc.edu.br'}
+
+    html = c.get('/relatorio?arquivo=web.pdf', headers=COORD).get_data(as_text=True)
+    assert 'action="/revisao"' in html and 'Você enviou este plano' not in html
+    assert 'class="revisar"' in c.get('/dashboard', headers=COORD).get_data(as_text=True)
+    r = c.post('/revisao', headers=COORD, data={'arquivo': 'web.pdf', 'status': 'OK'})
+    assert r.status_code == 303 and 'aviso=salva' in r.headers['Location']
+    revisao = _servicos(c).revisao.vigente('web.pdf')
+    assert revisao['revisor_email'] == 'coord@ifc.edu.br' and revisao['papel'] == 'Coordenação'
+
+
 def test_card_tem_botao_revisar_para_quem_pode_revisar(com_login):
     c, planos = com_login
     _plano_cc(c, planos)
@@ -935,6 +952,48 @@ def test_professor_assina_o_plano_depois_de_aprovado(fabrica, tmp_path):
     c.post('/revisao', headers=NDE, data={'arquivo': 'web.pdf', 'acao': 'desfazer'})
     assert c.get('/meus-planos/lista', headers=SERVIDOR).json['planos'][0]['assinatura'] is None
     assert c.get('/pdf-assinado?arquivo=web.pdf', headers=NDE).status_code == 404
+
+
+def test_plano_assinado_so_e_reenviado_com_liberacao_da_coordenacao(fabrica, tmp_path, monkeypatch):
+    from app.armazenamento import donos, liberacoes
+    from app.avaliacao import pipeline
+    from conftest import assinar, gerar_ac, salvar_ac
+    monkeypatch.setattr(pipeline, 'revalidar', lambda cfg, andamento, nome: andamento.finalizar())
+    ac = gerar_ac()
+    c, planos = fabrica(exigir_login=True, admins=frozenset({'admin@ifc.edu.br'}),
+                        certificados_dir=salvar_ac(ac, tmp_path / 'certificados'))
+    _plano_cc(c, planos, status='OK')
+    donos.definir(_servicos(c).cfg.resultados_dir, 'web.pdf', 'fulano@ifc.edu.br')
+    _dar_papel(c, 'nde@ifc.edu.br')
+    _dar_papel(c, 'coord@ifc.edu.br', papel='coordenador')
+    COORD = {'X-Usuario-Email': 'coord@ifc.edu.br'}
+    res = _servicos(c).cfg.resultados_dir
+
+    c.post('/revisao', headers=NDE, data={'arquivo': 'web.pdf', 'status': 'OK'})
+    proprio = {**SERVIDOR, 'X-Usuario-Token': _token(email='fulano@ifc.edu.br', name='Fulano de Tal')}
+    r = c.post('/meus-planos/assinatura', headers=proprio, content_type='multipart/form-data',
+               data={'arquivo': 'web.pdf', 'pdf': (io.BytesIO(assinar(PDF, ac)), 'assinado.pdf')})
+    assert r.status_code == 200
+
+    # Assinado: o professor não substitui o PDF (nem o dono do plano)
+    r = c.post('/meus-planos', headers=SERVIDOR, data=_envio(('web.pdf', PDF)), content_type='multipart/form-data')
+    assert r.status_code == 400 and 'já está assinado' in r.json['recusados'][0]['motivo']
+    assert not liberacoes.liberado(res, 'web.pdf')
+
+    # Só a coordenação do curso (ou a administração) libera o reenvio
+    assert c.post('/coordenacao/liberar', headers=NDE, data={'arquivo': 'web.pdf'}).status_code == 403
+    html = c.get('/coordenacao', headers=COORD).get_data(as_text=True)
+    assert 'Liberar novo envio' in html and 'Assinado' in html
+    r = c.post('/coordenacao/liberar', headers=COORD, data={'arquivo': 'web.pdf', 'curso': 'CC'})
+    assert r.status_code == 303 and liberacoes.liberado(res, 'web.pdf')
+    assert 'Cancelar liberação' in c.get('/coordenacao', headers=COORD).get_data(as_text=True)
+    [plano] = c.get('/meus-planos/lista', headers=SERVIDOR).json['planos']
+    assert plano['reenvio_liberado'] is True
+
+    # Com a liberação, o envio passa e a liberação é consumida
+    r = c.post('/meus-planos', headers=SERVIDOR, data=_envio(('web.pdf', PDF)), content_type='multipart/form-data')
+    assert r.status_code == 200 and r.json['salvos'][0]['substituido']
+    assert not liberacoes.liberado(res, 'web.pdf')
 
 
 def test_excluir_o_plano_apaga_o_pdf_assinado(cliente):

@@ -55,20 +55,28 @@ class Revisao:
 
     def eh_autor(self, email, nome):
         """Quem enviou o plano (em "Meus planos" ou pela administração) não pode revisá-lo nem desfazer a
-        revisão dele: o parecer fica com outro membro da coordenação, do NDE ou do NDB. Só com login exigido."""
+        revisão dele: o parecer fica com outro membro da coordenação, do NDE ou do NDB. O coordenador do
+        curso é a exceção (ver eh_coordenador). Só com login exigido."""
         if not self.cfg.exigir_login or not email:
             return False
         return donos.ler(self.cfg.resultados_dir).get(nome, {}).get('email') == email
 
+    def eh_coordenador(self, email, ident):
+        """Tem o papel de coordenador no curso do plano: revisa qualquer plano dele, inclusive o próprio."""
+        if not self.cfg.exigir_login or not email or not ident:
+            return False
+        return any(curso == ident['sigla_curso'] and papel == 'coordenador'
+                   for curso, papel in self.usuarios.papeis(email))
+
     def papel(self, email, ident, nome=None):
         """Rótulo do papel do usuário no curso do plano ('Coordenação', 'NDE'…), ou '' se não pode revisar.
         Sem login exigido (uso local), todo acesso pode revisar. Com `nome`, quem enviou aquele plano não o
-        revisa (ver eh_autor)."""
+        revisa (ver eh_autor), a não ser que seja o coordenador do curso."""
         if not self.cfg.exigir_login:
             return 'Administração local'
         if not email or not ident:
             return ''
-        if nome is not None and self.eh_autor(email, nome):
+        if nome is not None and self.eh_autor(email, nome) and not self.eh_coordenador(email, ident):
             return ''
         papeis = [p for curso, p in self.usuarios.papeis(email) if curso == ident['sigla_curso']]
         for chave in PAPEIS_CURSO:  # coordenação primeiro

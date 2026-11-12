@@ -35,8 +35,9 @@ def criar_app(cfg=None, executar=None):
     usuarios = Usuarios(cfg.usuarios_path)
     revisoes = Revisoes(cfg.revisoes_path)  # excluir um plano também apaga a revisão dele
     revisao = Revisao(cfg, revisoes, usuarios)
-    app.extensions['servicos'] = Servicos(cfg, validador, PastaDePlanos(cfg, validador, revisoes), usuarios,
-                                           revisao, Assinaturas(cfg, revisao))
+    assinaturas = Assinaturas(cfg, revisao)
+    app.extensions['servicos'] = Servicos(cfg, validador, PastaDePlanos(cfg, validador, revisoes, assinaturas),
+                                           usuarios, revisao, assinaturas)
     paginas.registrar(app)
     rotas.registrar(app)
     if cfg.login_simulado:  # só em desenvolvimento (docker-compose.dev.yml)

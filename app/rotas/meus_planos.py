@@ -35,6 +35,7 @@ def listar():
         # Aprovado na revisão: o professor assina pelo gov.br e envia o PDF assinado
         plano['assinatura'] = assinatura.resumo(s.assinaturas.vigente(plano['nome']))
         plano['pode_assinar'] = s.assinaturas.liberado(plano['nome'], _dono())
+        plano['reenvio_liberado'] = s.planos.reenvio_liberado(plano['nome'])
     return json_({'planos': planos})
 
 

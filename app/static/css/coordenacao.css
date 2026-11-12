@@ -48,6 +48,11 @@ h3{font-size:var(--font-size-scale-up-01);margin:0;display:flex;align-items:cent
 .acoes a.revisar{display:inline-flex;align-items:center;gap:var(--spacing-scale-half);padding:2px var(--spacing-scale-base);
   border-radius:var(--surface-rounder-pill);background:var(--interactive);color:var(--pure-0);text-decoration:none}
 .acoes a.revisar:hover{background:var(--blue-warm-vivid-80)}
+.acoes form{display:inline}
+.acoes form button{margin-left:var(--spacing-scale-2x);vertical-align:middle;font-size:var(--font-size-scale-down-01)}
+.assinado,.liberado{display:inline-flex;align-items:center;gap:var(--spacing-scale-half);color:#168821;
+  font-weight:var(--font-weight-semi-bold);white-space:nowrap}
+.liberado{margin-left:var(--spacing-scale-2x)}
 
 @media (max-width:767px){
   .colunas{grid-template-columns:1fr}

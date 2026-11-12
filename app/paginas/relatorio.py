@@ -77,7 +77,8 @@ AVISOS_REVISAO = {
 
 def contexto_revisao(revisao, papel, ident, aviso='', proprio=False):
     """Painel de revisão manual: o parecer vigente e, para quem tem papel no curso, o formulário.
-    `proprio`: quem está vendo enviou o plano, então não o revisa (o painel explica por quê)."""
+    `proprio`: quem está vendo enviou o plano e não pode revisá-lo (o painel explica por quê); o
+    coordenador do curso não entra aqui, porque pode revisar até os próprios planos."""
     return {
         'revisao': revisao,
         'papel_revisor': papel,
