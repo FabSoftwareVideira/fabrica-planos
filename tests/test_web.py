@@ -563,7 +563,7 @@ def test_paginas_usam_css_e_js_de_static_com_versao(cliente):
     inicio = c.get('/').get_data(as_text=True)
     assert 'vendor/govbr-ds/govbr-ds.min.css' in inicio
     # Rodapé com o crédito da Fábrica de Software
-    assert 'href="https://fabrica.videira.ifc.edu.br"' in inicio
+    assert 'href="https://fabrica.labia.ifc.edu.br"' in inicio
 
 
 def test_static_e_publico_para_a_pagina_inicial(com_login):
