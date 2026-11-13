@@ -27,7 +27,7 @@ services:
       - CHOWN
       - DAC_READ_SEARCH
 
-  postgres:
+  fabrica-planos-db:
     # Usuários e revisões. Só o app o alcança (rede interna do compose, sem "ports"). Os dados ficam no volume
     # pgdata; o backup do app (pg_dump dentro do ZIP) é a cópia de segurança.
     image: postgres:17-alpine
@@ -57,7 +57,7 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  app:
+  fabrica-planos-app:
     build:
       context: .
       target: producao
@@ -117,7 +117,7 @@ services:
     depends_on:
       preparar-pastas:
         condition: service_completed_successfully
-      postgres:
+      fabrica-planos-db:
         condition: service_healthy
     # Saudável quando o gunicorn responde /health (a imagem não tem curl: usa o Python dela)
     healthcheck:
@@ -145,7 +145,7 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  caddy:
+  fabrica-planos-caddy:
     # Porta de entrada: o Traefik do Dokploy repassa o domínio para cá (porta 80, na rede dokploy-network).
     # Sem "ports" no host; o HTTPS é do Traefik.
     image: caddy:2
@@ -191,7 +191,7 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  oauth2-proxy:
+  fabrica-planos-oauth2-proxy:
     # Login com Google; só aceita contas @ifc.edu.br (alunos usam @estudantes.ifc.edu.br e ficam de fora)
     image: quay.io/oauth2-proxy/oauth2-proxy:v7.12.0
     restart: unless-stopped
