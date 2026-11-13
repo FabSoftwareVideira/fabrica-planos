@@ -166,9 +166,9 @@ services:
       start_period: 10s
     depends_on:
       # Só recebe tráfego depois que o app está de pé
-      app:
+      fabrica-planos-app:
         condition: service_healthy
-      oauth2-proxy:
+      fabrica-planos-oauth2-proxy:
         condition: service_started
     # Sem ganhar privilégios depois de iniciar (setuid) e sem as capacidades de root que não usa
     security_opt:
