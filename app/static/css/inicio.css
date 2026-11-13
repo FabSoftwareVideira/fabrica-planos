@@ -2,7 +2,6 @@
 .destaque{background:var(--pure-0);border-bottom:1px solid var(--gray-10);padding:var(--spacing-scale-5x) 0;text-align:center}
 .destaque h1{font-size:clamp(28px,5vw,var(--font-size-scale-up-06));margin:0 0 var(--spacing-scale-2x);color:var(--blue-warm-vivid-70)}
 .chamada{max-width:640px;margin:0 auto var(--spacing-scale-4x);font-size:var(--font-size-scale-up-01);color:var(--gray-70)}
-.restrito{margin:var(--spacing-scale-2x) 0 0;font-size:var(--font-size-scale-down-01);color:var(--gray-60)}
 
 /* Botão "Entrar com Google" nas cores e formato pedidos pelas diretrizes do Google */
 .google{display:inline-flex;align-items:center;gap:12px;background:#fff;color:#1f1f1f;text-decoration:none;

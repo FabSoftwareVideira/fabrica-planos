@@ -1132,10 +1132,8 @@ def test_login_govbr_com_email_institucional(fabrica, monkeypatch):
 
     # Sair apaga a sessão e volta à página inicial (sem passar pelo gov.br), que oferece sair do gov.br
     r = c.get('/auth/sair')
-    assert r.headers['Location'] == '/oauth2/sign_out?rd=%2F%3Fsaiu%3Dgovbr'
+    assert r.headers['Location'] == '/oauth2/sign_out?rd=%2F'
     assert c.get('/auth/verificar').status_code == 401
-    assert 'href="https://sso.acesso.gov.br/logout"' in c.get('/?saiu=govbr').get_data(as_text=True)
-    assert 'sso.acesso.gov.br/logout' not in c.get('/').get_data(as_text=True)
     assert c.get('/auth/gov/logout').headers['Location'] == '/oauth2/sign_out?rd=%2F'
     # Sem sessão gov.br (entrou pelo Google)
     assert c.get('/auth/sair').headers['Location'] == '/oauth2/sign_out?rd=%2F'
@@ -1448,7 +1446,7 @@ def test_aviso_de_privacidade_publico(fabrica):
     r = c.get('/privacidade')
     html = r.get_data(as_text=True)
     assert r.status_code == 200 and 'LGPD' in html and '_planos_govbr' in html and 'cookies necessários' in html
-    assert 'href="/privacidade"' in c.get('/').get_data(as_text=True)
+    assert 'href="/privacidade"' in c.get('/').get_data(as_text=True)  # no rodapé
 
 
 def test_entrar_do_cabecalho_leva_ao_login(fabrica):

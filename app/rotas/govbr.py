@@ -260,9 +260,8 @@ def _fim_da_saida(destino_final='/'):
 def sair():
     """Encerra a sessão do app (gov.br e Google) e volta à página inicial. Não passa pelo /logout do gov.br:
     sem o endereço de saída cadastrado lá, o gov.br não volta ao app. A sessão no próprio gov.br continua
-    aberta no navegador; a página inicial (?saiu=govbr) oferece encerrá-la."""
-    pelo_govbr = sessao() is not None
-    resp = make_response(_fim_da_saida('/?saiu=govbr' if pelo_govbr else '/'))
+    aberta no navegador (como em qualquer serviço que entra com gov.br)."""
+    resp = make_response(_fim_da_saida())
     resp.delete_cookie(COOKIE_SESSAO, path='/')
     return resp
 
