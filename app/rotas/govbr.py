@@ -258,17 +258,25 @@ def _fim_da_saida(destino_final='/'):
 
 @bp.get('/auth/sair')
 def sair():
-    """Encerra a sessão do app (gov.br e Google) e volta à página inicial. Não passa pelo /logout do gov.br:
-    sem o endereço de saída cadastrado lá, o gov.br não volta ao app. A sessão no próprio gov.br continua
-    aberta no navegador (como em qualquer serviço que entra com gov.br)."""
-    resp = make_response(_fim_da_saida())
+    """Encerra a sessão do app (gov.br e Google) e volta à página inicial. Quem entrou pelo gov.br também sai
+    do gov.br, se GOVBR_LOGOUT_URI estiver definida: vai ao /logout do gov.br, que volta em /auth/gov/logout
+    (o endereço precisa estar cadastrado no gov.br; sem ele, o gov.br fica na página dele). Sem a variável,
+    a sessão no próprio gov.br continua aberta no navegador. A conta Google nunca é encerrada (sairia do
+    Gmail, do Drive...): só a sessão do Google neste sistema."""
+    cfg = servicos().cfg
+    if sessao() is not None and cfg.govbr_logout_uri:
+        resp = make_response(redirect(cfg.govbr_url + '/logout?' + urlencode(
+            {'post_logout_redirect_uri': cfg.govbr_logout_uri}), 302))
+    else:
+        resp = make_response(_fim_da_saida())
     resp.delete_cookie(COOKIE_SESSAO, path='/')
     return resp
 
 
 @bp.get('/auth/gov/logout')
 def volta_da_saida():
-    """Endereço de saída antigo (cadastrado no gov.br): só encerra a sessão e volta à página inicial."""
+    """Volta do /logout do gov.br (GOVBR_LOGOUT_URI): encerra a sessão do Google neste sistema, se houver, e
+    volta à página inicial."""
     resp = make_response(_fim_da_saida())
     resp.delete_cookie(COOKIE_SESSAO, path='/')
     return resp

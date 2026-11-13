@@ -1050,7 +1050,8 @@ def test_excluir_o_plano_apaga_o_pdf_assinado(cliente):
 
 GOVBR = dict(exigir_login=True, admins=frozenset({'admin@ifc.edu.br'}), govbr_client_id='cliente',
              govbr_client_secret='segredo', segredo_sessao='chave-de-teste', cookie_seguro=False,
-             govbr_redirect_uri='https://planos.labia.ifc.edu.br/auth/govbr/callback')
+             govbr_redirect_uri='https://planos.labia.ifc.edu.br/auth/govbr/callback',
+             govbr_logout_uri='https://planos.labia.ifc.edu.br/auth/gov/logout')
 
 
 class _Resposta:
@@ -1130,9 +1131,10 @@ def test_login_govbr_com_email_institucional(fabrica, monkeypatch):
     html = c.get('/meus-planos', headers={k: r.headers[k] for k in ('X-Usuario-Email', 'X-Usuario-Token')}).get_data(as_text=True)
     assert 'Fulano de Tal' in html
 
-    # Sair apaga a sessão e volta à página inicial (sem passar pelo gov.br), que oferece sair do gov.br
+    # Sair apaga a sessão e passa pelo /logout do gov.br, que volta em /auth/gov/logout
     r = c.get('/auth/sair')
-    assert r.headers['Location'] == '/oauth2/sign_out?rd=%2F'
+    assert r.headers['Location'] == ('https://sso.acesso.gov.br/logout?post_logout_redirect_uri='
+                                     'https%3A%2F%2Fplanos.labia.ifc.edu.br%2Fauth%2Fgov%2Flogout')
     assert c.get('/auth/verificar').status_code == 401
     assert c.get('/auth/gov/logout').headers['Location'] == '/oauth2/sign_out?rd=%2F'
     # Sem sessão gov.br (entrou pelo Google)
@@ -1453,3 +1455,10 @@ def test_entrar_do_cabecalho_leva_ao_login(fabrica):
     c, _ = fabrica(exigir_login=True)
     assert 'class="br-button primary small entrar" href="#entrar"' in c.get('/').get_data(as_text=True)
     assert 'href="/entrar?rd=/dashboard"' in c.get('/privacidade').get_data(as_text=True)
+
+
+def test_sem_logout_uri_sair_nao_passa_pelo_govbr(fabrica, monkeypatch):
+    c, _ = fabrica(**dict(GOVBR, govbr_logout_uri=''))
+    _login_govbr(c, monkeypatch)
+    assert c.get('/auth/sair').headers['Location'] == '/oauth2/sign_out?rd=%2F'
+    assert c.get('/auth/verificar').status_code == 401
