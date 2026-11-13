@@ -1050,8 +1050,7 @@ def test_excluir_o_plano_apaga_o_pdf_assinado(cliente):
 
 GOVBR = dict(exigir_login=True, admins=frozenset({'admin@ifc.edu.br'}), govbr_client_id='cliente',
              govbr_client_secret='segredo', segredo_sessao='chave-de-teste', cookie_seguro=False,
-             govbr_redirect_uri='https://planos.labia.ifc.edu.br/auth/govbr/callback',
-             govbr_logout_uri='https://planos.labia.ifc.edu.br/auth/gov/logout')
+             govbr_redirect_uri='https://planos.labia.ifc.edu.br/auth/govbr/callback')
 
 
 class _Resposta:
@@ -1131,11 +1130,14 @@ def test_login_govbr_com_email_institucional(fabrica, monkeypatch):
     html = c.get('/meus-planos', headers={k: r.headers[k] for k in ('X-Usuario-Email', 'X-Usuario-Token')}).get_data(as_text=True)
     assert 'Fulano de Tal' in html
 
-    # Sair apaga a sessão e passa pelo /logout do gov.br, que volta em /auth/gov/logout
+    # Sair apaga a sessão e volta à página inicial, que encerra a sessão do gov.br num iframe oculto
     r = c.get('/auth/sair')
-    assert r.headers['Location'] == ('https://sso.acesso.gov.br/logout?post_logout_redirect_uri='
-                                     'https%3A%2F%2Fplanos.labia.ifc.edu.br%2Fauth%2Fgov%2Flogout')
+    assert r.headers['Location'] == '/oauth2/sign_out?rd=%2F%3Fsaiu%3Dgovbr'
     assert c.get('/auth/verificar').status_code == 401
+    r = c.get('/?saiu=govbr')
+    assert '<iframe src="https://sso.acesso.gov.br/logout"' in r.get_data(as_text=True)
+    assert 'frame-src https://sso.acesso.gov.br' in r.headers['Content-Security-Policy']
+    assert '<iframe' not in c.get('/').get_data(as_text=True)
     assert c.get('/auth/gov/logout').headers['Location'] == '/oauth2/sign_out?rd=%2F'
     # Sem sessão gov.br (entrou pelo Google)
     assert c.get('/auth/sair').headers['Location'] == '/oauth2/sign_out?rd=%2F'
@@ -1144,7 +1146,7 @@ def test_login_govbr_com_email_institucional(fabrica, monkeypatch):
 def test_login_govbr_recusado(fabrica, monkeypatch):
     c, _ = fabrica(**GOVBR)
     _, volta, _ = _login_govbr(c, monkeypatch, email='fulano@gmail.com', sub='')
-    assert volta.status_code == 403 and 'e-mail institucional' in volta.get_data(as_text=True)
+    assert volta.status_code == 403 and '@ifc.edu.br' in volta.get_data(as_text=True)
     _, volta, _ = _login_govbr(c, monkeypatch, email_verified=False)
     assert volta.status_code == 403
     _, volta, _ = _login_govbr(c, monkeypatch, email='fulano@estudantes.ifc.edu.br')
@@ -1180,7 +1182,7 @@ def test_login_govbr_pela_conta_vinculada(fabrica, monkeypatch):
     # Sem vínculo, o e-mail pessoal é recusado, com o caminho para vincular
     _, volta, _ = _login_govbr(c, monkeypatch, email='fulano@gmail.com')
     html = volta.get_data(as_text=True)
-    assert volta.status_code == 403 and 'vincule' in html and '/oauth2/start?rd=/conta/govbr/vincular' in html
+    assert volta.status_code == 403 and 'Vincule' in html and '/oauth2/start?rd=/conta/govbr/vincular' in html
     # Entrou pelo Google: o cabeçalho oferece vincular
     google = {'X-Usuario-Email': 'fulano@ifc.edu.br'}
     assert 'href="/conta/govbr/vincular"' in c.get('/meus-planos', headers=google).get_data(as_text=True)
@@ -1453,12 +1455,12 @@ def test_aviso_de_privacidade_publico(fabrica):
 
 def test_entrar_do_cabecalho_leva_ao_login(fabrica):
     c, _ = fabrica(exigir_login=True)
-    assert 'class="br-button primary small entrar" href="#entrar"' in c.get('/').get_data(as_text=True)
+    assert 'small entrar' not in c.get('/').get_data(as_text=True)  # na inicial, os botões de login estão na página
     assert 'href="/entrar?rd=/dashboard"' in c.get('/privacidade').get_data(as_text=True)
 
 
-def test_sem_logout_uri_sair_nao_passa_pelo_govbr(fabrica, monkeypatch):
-    c, _ = fabrica(**dict(GOVBR, govbr_logout_uri=''))
-    _login_govbr(c, monkeypatch)
-    assert c.get('/auth/sair').headers['Location'] == '/oauth2/sign_out?rd=%2F'
-    assert c.get('/auth/verificar').status_code == 401
+def test_tela_de_vincular_e_sem_entrar_na_inicial(fabrica, monkeypatch):
+    c, _ = fabrica(**GOVBR)
+    html = _login_govbr(c, monkeypatch, email='fulano@gmail.com')[1].get_data(as_text=True)
+    assert 'Vincule sua conta gov.br' in html and 'Entrar com Google</a>' in html and '<svg' in html
+    assert 'class="br-button primary small entrar"' not in c.get('/').get_data(as_text=True)

@@ -5,21 +5,23 @@
 
 {% block estilos %}
 {% include '_ds.html' %}
+<style>.botao-google{gap:10px}.botao-google svg{width:18px;height:18px}</style>
 {% endblock %}
 
 {% block corpo %}
 {% with sem_menu=true %}{% include '_cabecalho.html' %}{% endwith %}
 <main id="main">
   <div class="container-lg py-5">
-    <div class="br-message warning" role="alert">
-      <div class="icon"><i class="fas fa-user-lock fa-lg" aria-hidden="true"></i></div>
+    <div class="br-message {{ 'info' if vincular else 'warning' }}" role="alert">
+      <div class="icon"><i class="fas fa-{{ 'link' if vincular else 'user-lock' }} fa-lg" aria-hidden="true"></i></div>
       <div class="content">
-        <span class="message-title">Login não concluído.</span>
+        <span class="message-title">{{ titulo }}</span>
         <span class="message-body">{{ motivo }}</span>
       </div>
     </div>
     {% if vincular %}
-    <p><a class="br-button primary" href="/oauth2/start?rd=/conta/govbr/vincular"><i class="fab fa-google" aria-hidden="true"></i> Entrar com Google e vincular o gov.br</a></p>
+    <p><a class="br-button secondary botao-google" href="/oauth2/start?rd=/conta/govbr/vincular">
+      {%- include 'logo_google.svg' -%} Entrar com Google</a></p>
     {% endif %}
     <p><a class="br-button secondary" href="/"><i class="fas fa-arrow-left" aria-hidden="true"></i> Voltar à página inicial</a></p>
   </div>

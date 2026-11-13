@@ -57,8 +57,8 @@ def _cookie(resp, nome, valor, duracao):
                     samesite='Lax', path='/')
 
 
-def _recusa(motivo, status=403, vincular=False):
-    return render_template('login_recusado.html', motivo=motivo, vincular=vincular), status
+def _recusa(motivo, status=403, vincular=False, titulo='Login não concluído.'):
+    return render_template('login_recusado.html', motivo=motivo, vincular=vincular, titulo=titulo), status
 
 
 def _claims(id_token):
@@ -197,10 +197,12 @@ def callback():
         endereco = usuarios.email_do_govbr(_chave_cpf(cpf)) if cpf else None
         if not endereco:
             log.info('Login gov.br recusado: e-mail fora do domínio ou não verificado, e conta não vinculada')
-            return _recusa(f'Sua conta gov.br não tem o e-mail institucional (@{cfg.email_dominio}) e ainda não '
-                           'foi vinculada a um usuário. Entre uma vez com a conta Google institucional e vincule '
-                           'a sua conta gov.br; depois disso, o login com gov.br funciona direto.',
-                           vincular=cfg.login_google)
+            if cfg.login_google:
+                return _recusa('Para entrar com gov.br, entre uma vez com o Google institucional '
+                               f'(@{cfg.email_dominio}). Depois, o gov.br passa a funcionar direto.',
+                               vincular=True, titulo='Vincule sua conta gov.br')
+            return _recusa(f'Sua conta gov.br precisa ter o e-mail institucional (@{cfg.email_dominio}) cadastrado e '
+                           'verificado.')
     nome = ' '.join(str(claims.get('name') or '').split())[:120]
     _cookie(resp, COOKIE_SESSAO, _serializador('sessao').dumps({'email': endereco, 'nome': nome}), DURACAO_SESSAO)
     log.info('Login gov.br: %s', endereco)
@@ -258,25 +260,18 @@ def _fim_da_saida(destino_final='/'):
 
 @bp.get('/auth/sair')
 def sair():
-    """Encerra a sessão do app (gov.br e Google) e volta à página inicial. Quem entrou pelo gov.br também sai
-    do gov.br, se GOVBR_LOGOUT_URI estiver definida: vai ao /logout do gov.br, que volta em /auth/gov/logout
-    (o endereço precisa estar cadastrado no gov.br; sem ele, o gov.br fica na página dele). Sem a variável,
-    a sessão no próprio gov.br continua aberta no navegador. A conta Google nunca é encerrada (sairia do
-    Gmail, do Drive...): só a sessão do Google neste sistema."""
-    cfg = servicos().cfg
-    if sessao() is not None and cfg.govbr_logout_uri:
-        resp = make_response(redirect(cfg.govbr_url + '/logout?' + urlencode(
-            {'post_logout_redirect_uri': cfg.govbr_logout_uri}), 302))
-    else:
-        resp = make_response(_fim_da_saida())
+    """Encerra a sessão do app (gov.br e Google) e volta sempre à página inicial. O /logout do gov.br não
+    volta ao app (fica no portal do gov.br, mesmo com o endereço de saída), então quem entrou pelo gov.br
+    sai dele em segundo plano: a página inicial (?saiu=govbr) chama o /logout num iframe oculto. A conta
+    Google nunca é encerrada (sairia do Gmail, do Drive...): só a sessão do Google neste sistema."""
+    resp = make_response(_fim_da_saida('/?saiu=govbr' if sessao() is not None else '/'))
     resp.delete_cookie(COOKIE_SESSAO, path='/')
     return resp
 
 
 @bp.get('/auth/gov/logout')
 def volta_da_saida():
-    """Volta do /logout do gov.br (GOVBR_LOGOUT_URI): encerra a sessão do Google neste sistema, se houver, e
-    volta à página inicial."""
+    """Endereço de saída cadastrado no gov.br: encerra as sessões do app e volta à página inicial."""
     resp = make_response(_fim_da_saida())
     resp.delete_cookie(COOKIE_SESSAO, path='/')
     return resp

@@ -69,13 +69,21 @@ def exigir_login():
         return json_({'erro': 'Seu acesso foi desativado por um administrador'}, 403)
 
 
+def _csp():
+    """A página inicial pode carregar o /logout do gov.br num iframe oculto (saída em segundo plano)."""
+    cfg = servicos().cfg
+    if request.path == '/' and cfg.govbr_ativo:
+        return CSP + '; frame-src ' + cfg.govbr_url.split('/', 3)[0] + '//' + cfg.govbr_url.split('/', 3)[2]
+    return CSP
+
+
 @bp.after_app_request
 def cabecalhos_seguranca(resp):
     for nome_, valor in CABECALHOS_SEGURANCA.items():
         resp.headers.setdefault(nome_, valor)
     # Só nas páginas: num PDF a CSP atrapalharia o visualizador do navegador
     if resp.mimetype == 'text/html':
-        resp.headers.setdefault('Content-Security-Policy', CSP)
+        resp.headers.setdefault('Content-Security-Policy', _csp())
     return resp
 
 
@@ -90,7 +98,10 @@ def raiz():
     """Página inicial pública, com o botão de login."""
     cfg = servicos().cfg
     rd = govbr.destino(request.args.get('rd', ''))
-    return render_template('inicio.html', **inicio.contexto(rd, cfg.govbr_ativo, cfg.login_google or cfg.login_simulado))
+    # Depois do Sair de uma sessão gov.br: encerra também a do gov.br, num iframe oculto (rotas/govbr.py: sair)
+    sair_govbr = cfg.govbr_url + '/logout' if cfg.govbr_ativo and request.args.get('saiu') == 'govbr' else ''
+    return render_template('inicio.html', sair_govbr=sair_govbr,
+                           **inicio.contexto(rd, cfg.govbr_ativo, cfg.login_google or cfg.login_simulado))
 
 
 @bp.get('/privacidade')

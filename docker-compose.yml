@@ -108,7 +108,6 @@ services:
       - GOVBR_CLIENT_SECRET=${GOVBR_CLIENT_SECRET:-}
       - GOVBR_AMBIENTE=${GOVBR_AMBIENTE:-producao}
       - GOVBR_REDIRECT_URI=${GOVBR_REDIRECT_URI:-}
-      - GOVBR_LOGOUT_URI=${GOVBR_LOGOUT_URI:-}
       - SEGREDO_SESSAO=${SEGREDO_SESSAO:-}
       - LOGIN_GOOGLE=${LOGIN_GOOGLE:-1}
       # Assinatura dos planos pela API do gov.br (servicos/assinatura_api.py): credenciais próprias, separadas

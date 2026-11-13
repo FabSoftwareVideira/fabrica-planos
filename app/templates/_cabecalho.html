@@ -55,9 +55,9 @@
           <a class="br-button secondary small sair" href="/auth/sair"><i class="fas fa-sign-out-alt" aria-hidden="true"></i> Sair</a>
         </div>
       </nav>
-      {% else %}
-      {#- Na página inicial, leva aos botões de login dela; nas outras, ao login (/entrar escolhe ou volta à inicial) #}
-      <a class="br-button primary small entrar" href="{{ '#entrar' if request.path == '/' else '/entrar?rd=/dashboard' }}"><i class="fas fa-sign-in-alt" aria-hidden="true"></i> Entrar</a>
+      {#- Na página inicial não aparece: os botões de login estão nela #}
+      {% elif request.path != '/' %}
+      <a class="br-button primary small entrar" href="/entrar?rd=/dashboard"><i class="fas fa-sign-in-alt" aria-hidden="true"></i> Entrar</a>
       {% endif %}
     </div>
   </div>
