@@ -6,3 +6,11 @@ __pycache__/
 .venv*/
 dev-resultados/
 dev-backups/
+
+# Graphify - arquivos gerados
+graphify-out/
+
+# Cache e arquivos temporários
+.graphify/
+__pycache__/
+*.pyc
