@@ -35,7 +35,7 @@ services:
       - CHOWN
       - DAC_READ_SEARCH
 
-  fabrica-planos-db:
+  db:
     # Usuários e revisões. Só o app o alcança (rede interna do compose, sem "ports"). Os dados ficam no volume
     # pgdata; o backup do app (pg_dump dentro do ZIP) é a cópia de segurança.
     image: postgres:17-alpine
@@ -65,7 +65,7 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  fabrica-planos-app:
+  app:
     build:
       context: .
       target: producao
@@ -160,7 +160,7 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  fabrica-planos-caddy:
+  caddy:
     # Porta de entrada: o Traefik do Dokploy repassa o domínio para cá (porta 80, na rede dokploy-network).
     # Sem "ports" no host; o HTTPS é do Traefik.
     image: caddy:2
@@ -207,7 +207,7 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  fabrica-planos-oauth2-proxy:
+  oauth2-proxy:
     # Login com Google; só aceita contas @ifc.edu.br (alunos usam @estudantes.ifc.edu.br e ficam de fora)
     image: quay.io/oauth2-proxy/oauth2-proxy:v7.12.0
     restart: unless-stopped
@@ -233,6 +233,10 @@ services:
       - OAUTH2_PROXY_COOKIE_CSRF_EXPIRE=15m
       # Cookie de login não vai em envios vindos de outros sites (proteção contra CSRF)
       - OAUTH2_PROXY_COOKIE_SAMESITE=lax
+    networks:
+      default:
+        aliases:
+          - fabrica-planos-oauth2-proxy
     # Sem ganhar privilégios depois de iniciar (setuid) e sem as capacidades de root que não usa
     security_opt:
       - no-new-privileges:true

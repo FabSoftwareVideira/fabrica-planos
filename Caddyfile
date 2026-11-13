@@ -25,7 +25,7 @@
 
 	# Telas de login, retorno do Google e saída
 	handle /oauth2/* {
-		reverse_proxy fabrica-planos-oauth2-proxy:4180
+		reverse_proxy oauth2-proxy:4180
 	}
 
 	# Login com gov.br (ida, retorno em /auth/govbr/callback e saída) e a escolha do login: públicos, no app
