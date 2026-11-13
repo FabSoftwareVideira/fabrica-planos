@@ -65,8 +65,10 @@ services:
     # Sem "ports" e fora da rede do Dokploy: só o caddy (login) alcança o app e repassa o e-mail de quem
     # entrou; só os e-mails de ADMIN_EMAILS enviam/excluem PDFs e disparam validações.
     networks:
-      - default
-      - ollama-shared
+      default:
+        aliases:
+          - fabrica-planos-web-interno
+      ollama-shared:
     environment:
       - PLANOS_DIR=/data/planos
       - RESULTADOS_DIR=/data/resultados

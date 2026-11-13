@@ -71,7 +71,7 @@ O Ollama fica em um projeto Compose independente na pasta [`open-webui/`](./open
 
 Implante primeiro esse projeto: ele cria a rede `ollama-shared` e inicia o Ollama; depois implante o validador. As variáveis do Ollama estão em [`open-webui/.env.example`](./open-webui/.env.example), e os modelos ficam no volume persistente `ollama-data`.
 
-O serviço `app` do validador também se conecta à rede compartilhada e acessa a API em `http://ollama:11434`. Outros projetos na mesma máquina podem usar o mesmo endereço anexando seus serviços à rede externa `ollama-shared`. Exemplo no Compose consumidor:
+O serviço `app` do validador também se conecta à rede compartilhada e acessa a API em `http://ollama:11434`. O Caddy o acessa pelo alias `fabrica-planos-web-interno` na rede privada, evitando confusão com outros serviços chamados `app` na rede do Dokploy. Outros projetos na mesma máquina podem usar o Ollama anexando seus serviços à rede externa `ollama-shared`. Exemplo no Compose consumidor:
 
 ```yaml
 services:

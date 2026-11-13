@@ -33,28 +33,28 @@
 	handle @login {
 		request_header -X-Usuario-Email
 		request_header -X-Usuario-Token
-		reverse_proxy app:8000
+		reverse_proxy fabrica-planos-web-interno:8000
 	}
 
 	# CSS, JS, fontes e ícones: públicos (a página inicial usa o Design System gov.br) e sem nada sigiloso
 	handle /static/* {
 		request_header -X-Usuario-Email
 		request_header -X-Usuario-Token
-		reverse_proxy app:8000
+		reverse_proxy fabrica-planos-web-interno:8000
 	}
 
 	# Verificação de saúde, pública: healthcheck do container caddy e monitoramento externo (Uptime Kuma)
 	handle /health {
 		request_header -X-Usuario-Email
 		request_header -X-Usuario-Token
-		reverse_proxy app:8000
+		reverse_proxy fabrica-planos-web-interno:8000
 	}
 
 	# Página inicial, pública: apresenta o projeto e tem o botão de login
 	handle / {
 		request_header -X-Usuario-Email
 		request_header -X-Usuario-Token
-		reverse_proxy app:8000
+		reverse_proxy fabrica-planos-web-interno:8000
 	}
 
 	handle {
@@ -65,7 +65,7 @@
 		route {
 			request_header -X-Usuario-Email
 			request_header -X-Usuario-Token
-			forward_auth app:8000 {
+			forward_auth fabrica-planos-web-interno:8000 {
 				uri /auth/verificar
 				copy_headers X-Usuario-Email X-Usuario-Token
 				# Sem sessão, só a navegação (abrir a página) vai para o login. Requisições da página
@@ -78,7 +78,7 @@
 					respond "Login necessário" 401
 				}
 			}
-			reverse_proxy app:8000
+			reverse_proxy fabrica-planos-web-interno:8000
 		}
 	}
 }
