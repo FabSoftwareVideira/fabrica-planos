@@ -59,7 +59,7 @@ services:
         condition: service_healthy
 
   # PostgreSQL do desenvolvimento: usuários e revisões. Dados no volume validador-planos-dev_pgdata;
-  # a porta fica só no seu computador, para conectar com psql ou DBeaver (DEV_POSTGRES_PORT).
+  # acessível ao app pela rede interna do Docker, sem publicar porta no host.
   postgres:
     image: postgres:17-alpine
     restart: unless-stopped
@@ -67,8 +67,6 @@ services:
       - POSTGRES_USER=planos
       - POSTGRES_PASSWORD=${DEV_POSTGRES_PASSWORD:-planos}
       - POSTGRES_DB=planos
-    ports:
-      - "127.0.0.1:${DEV_POSTGRES_PORT:-5433}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
