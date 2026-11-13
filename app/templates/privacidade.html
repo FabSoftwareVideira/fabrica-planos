@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+{#- Aviso de privacidade (LGPD) e de cookies: página pública, ligada pelo rodapé e pela página inicial.
+    Ao mudar o que o sistema guarda ou os cookies que usa, atualize esta página. -#}
+
+{% block titulo %}Privacidade · Validação de Planos de Ensino{% endblock %}
+
+{% block estilos %}
+{% include '_ds.html' %}
+<style>
+  .privacidade { max-width: 860px; }
+  .privacidade h2 { font-size: 1.25rem; margin-top: 2rem; }
+  .privacidade table { width: 100%; border-collapse: collapse; margin: .5rem 0 1rem; font-size: .9rem; }
+  .privacidade th, .privacidade td { text-align: left; vertical-align: top; padding: .4rem .5rem; border-bottom: 1px solid var(--gray-20, #ccc); }
+  .privacidade code { word-break: break-all; }
+  .privacidade .atualizado { color: var(--gray-60, #555); font-size: .9rem; }
+</style>
+{% endblock %}
+
+{% block corpo %}
+{% with sem_menu=true %}{% include '_cabecalho.html' %}{% endwith %}
+<main id="main">
+  <div class="container-lg py-4 privacidade">
+    <h1>Privacidade e uso de dados</h1>
+    <p class="atualizado">Aviso de privacidade conforme a Lei Geral de Proteção de Dados Pessoais (Lei nº 13.709/2018, LGPD). Atualizado em novembro de 2026.</p>
+
+    <h2>Quem trata os dados</h2>
+    <p>O sistema de Validação de Planos de Ensino é mantido pelo <strong>Instituto Federal Catarinense (IFC), Campus Videira</strong>, que é o controlador dos dados. Ele foi desenvolvido pela Fábrica de Software do IFC Videira. O acesso é restrito a servidores, com a conta institucional.</p>
+
+    <h2>Quais dados são usados e para quê</h2>
+    <table>
+      <thead><tr><th scope="col">Dado</th><th scope="col">Para quê</th></tr></thead>
+      <tbody>
+        <tr><td>E-mail institucional e nome, recebidos no login (Google institucional ou gov.br)</td><td>Identificar quem entra, mostrar o nome nas páginas e vincular cada plano ao professor responsável.</td></tr>
+        <tr><td>Data do primeiro e do último acesso, situação do cadastro (ativo ou não) e papéis em cursos (coordenação, NDE, NDB)</td><td>Controlar quem pode acessar e quem revisa os planos de cada curso.</td></tr>
+        <tr><td>Conta gov.br vinculada: um código derivado do CPF (HMAC), <strong>não o número do CPF</strong></td><td>Permitir o login com gov.br de quem não tem o e-mail institucional cadastrado lá.</td></tr>
+        <tr><td>Planos de ensino enviados (PDF), com o nome e a matrícula dos docentes que constam neles</td><td>Avaliar os planos, mostrar o resultado e permitir a revisão pela coordenação.</td></tr>
+        <tr><td>Resultado da avaliação, parecer da revisão (com quem revisou e quando) e assinatura digital do plano (nome do signatário e certificado)</td><td>Registrar a conferência e a aprovação oficial do plano.</td></tr>
+        <tr><td>Registros técnicos do servidor (por exemplo, logins e envios, com o e-mail de quem os fez)</td><td>Segurança, auditoria e correção de falhas.</td></tr>
+      </tbody>
+    </table>
+    <p>O tratamento se baseia na execução das atribuições legais do IFC e de políticas públicas de ensino (LGPD, art. 7º, inciso III, e art. 23). Os planos de ensino são documentos institucionais. Nenhum dado é usado para propaganda, perfil de comportamento ou fins alheios à gestão dos planos.</p>
+
+    <h2>Com quem os dados são compartilhados</h2>
+    <ul>
+      <li><strong>Avaliação por IA:</strong> o modelo de linguagem roda no próprio servidor do campus. O conteúdo dos planos não é enviado a serviços de IA externos.</li>
+      <li><strong>Login:</strong> a autenticação é feita pelo Google (conta institucional do IFC) ou pelo gov.br (Login Único). Eles informam ao sistema o e-mail e o nome de quem entrou.</li>
+      <li><strong>Assinatura com gov.br:</strong> à API de Assinatura Eletrônica do gov.br (ITI) vai só o resumo criptográfico (hash) do plano, não o arquivo.</li>
+    </ul>
+    <p>Fora desses casos, os dados não são repassados a terceiros, salvo por obrigação legal.</p>
+
+    <h2>Por quanto tempo</h2>
+    <p>Os planos, as avaliações, as revisões e as assinaturas ficam guardados enquanto forem necessários à gestão acadêmica e à guarda de documentos institucionais. Planos e validações podem ser excluídos pela administração do sistema. Cópias de segurança automáticas são mantidas por poucos dias e substituídas pelas mais recentes.</p>
+
+    <h2>Cookies e armazenamento no navegador</h2>
+    <p>O sistema usa <strong>apenas cookies necessários</strong> ao funcionamento e à segurança do login. Não há cookies de publicidade, de estatísticas de acesso nem de terceiros, por isso não é pedido consentimento.</p>
+    <table>
+      <thead><tr><th scope="col">Nome</th><th scope="col">Para quê</th><th scope="col">Duração</th></tr></thead>
+      <tbody>
+        <tr><td><code>_planos_login</code></td><td>Sessão do login com a conta Google institucional.</td><td>Até sair ou 7 dias</td></tr>
+        <tr><td><code>_planos_login_…_csrf</code></td><td>Proteção do login com Google contra falsificação de requisições.</td><td>15 minutos</td></tr>
+        <tr><td><code>_planos_govbr</code></td><td>Sessão do login com gov.br.</td><td>Até sair ou 12 horas</td></tr>
+        <tr><td><code>_planos_govbr_login</code></td><td>Conferência da volta do gov.br durante o login.</td><td>10 minutos</td></tr>
+        <tr><td><code>_planos_assinatura</code></td><td>Conferência da volta do gov.br durante a assinatura de um plano.</td><td>10 minutos</td></tr>
+      </tbody>
+    </table>
+    <p>O navegador também guarda, só no seu computador, preferências de exibição: o alto contraste, o agrupamento do painel e os filtros da busca (estes até fechar a aba). Elas não são enviadas ao servidor e podem ser apagadas nas configurações do navegador.</p>
+
+    <h2>Segurança</h2>
+    <p>O acesso é feito só por HTTPS e com login. Cada pessoa vê e altera apenas o que o seu papel permite. Os dados ficam em servidores do IFC.</p>
+
+    <h2>Seus direitos</h2>
+    <p>Você pode pedir a confirmação do tratamento, o acesso, a correção ou a eliminação dos seus dados, quando cabível, e informações sobre o compartilhamento (LGPD, art. 18). Os pedidos são feitos ao IFC pela plataforma <a href="https://falabr.cgu.gov.br" target="_blank" rel="noopener">Fala.BR <i class="fas fa-external-link-alt" aria-hidden="true"></i></a> ou ao Encarregado pelo Tratamento de Dados Pessoais do IFC, indicado no site <a href="https://ifc.edu.br" target="_blank" rel="noopener">ifc.edu.br <i class="fas fa-external-link-alt" aria-hidden="true"></i></a>.</p>
+
+    <p class="mt-4"><a class="br-button secondary" href="/"><i class="fas fa-arrow-left" aria-hidden="true"></i> Voltar à página inicial</a></p>
+  </div>
+</main>
+{% include '_rodape.html' %}
+{% endblock %}

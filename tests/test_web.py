@@ -1441,3 +1441,11 @@ def test_docente_exibido_e_o_do_cadastro(com_login, sem_ia):
     html = c.get('/dashboard', headers=ADMIN).get_data(as_text=True)
     assert 'data-docente="Fulano de Tal"' in html  # o nome do cadastro, não o do PDF
     assert 'data-docente="Ciclano Souza"' in html
+
+
+def test_aviso_de_privacidade_publico(fabrica):
+    c, _ = fabrica(exigir_login=True)
+    r = c.get('/privacidade')
+    html = r.get_data(as_text=True)
+    assert r.status_code == 200 and 'LGPD' in html and '_planos_govbr' in html and 'cookies necessários' in html
+    assert 'href="/privacidade"' in c.get('/').get_data(as_text=True)

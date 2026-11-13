@@ -9,7 +9,7 @@ from .comum import eh_admin, email, json_, mesma_origem, nome, servicos, texto
 # Rotas sem login e a barreira de login das demais.
 bp = Blueprint('publico', __name__)
 
-PUBLICAS = {'/', '/health', '/entrar'}
+PUBLICAS = {'/', '/health', '/entrar', '/privacidade'}
 # CSS, JS, fontes e ícones: a página inicial (pública) também usa, e nada ali é sigiloso
 PREFIXOS_PUBLICOS = ('/static/',)
 # Login com gov.br (ida, volta e saída) e a verificação de sessão consultada pelo Caddy (rotas/govbr.py)
@@ -91,6 +91,12 @@ def raiz():
     cfg = servicos().cfg
     rd = govbr.destino(request.args.get('rd', ''))
     return render_template('inicio.html', **inicio.contexto(rd, cfg.govbr_ativo, cfg.login_google or cfg.login_simulado))
+
+
+@bp.get('/privacidade')
+def privacidade():
+    """Aviso de privacidade (LGPD) e de cookies, público."""
+    return render_template('privacidade.html')
 
 
 @bp.get('/health')
