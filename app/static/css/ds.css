@@ -45,6 +45,21 @@ main{flex:1}
 .cabecalho .email{font-size:var(--font-size-scale-down-01);max-width:24ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cabecalho .papel-usuario{font-size:var(--font-size-scale-down-02);color:var(--gray-50)}
 .cabecalho .menu-botao{display:none}
+/* Perfil: o nome abre uma janela pequena com e-mail, papel e o vínculo da conta gov.br */
+.cabecalho .perfil{position:relative;min-width:0}
+.cabecalho .perfil>summary{cursor:pointer;list-style:none;border-radius:var(--surface-rounder-sm);padding:2px 4px}
+.cabecalho .perfil>summary::-webkit-details-marker{display:none}
+.cabecalho .perfil>summary:hover,.cabecalho .perfil[open]>summary{background:var(--gray-5)}
+.cabecalho .perfil-janela{position:absolute;right:0;top:calc(100% + 6px);z-index:20;width:max-content;min-width:240px;max-width:320px;
+  background:var(--pure-0);border:1px solid var(--gray-10);border-radius:var(--surface-rounder-md);
+  box-shadow:0 8px 16px rgba(0,0,0,.16);padding:var(--spacing-scale-2x);font-size:var(--font-size-scale-down-01);color:var(--gray-70)}
+.cabecalho .perfil-janela p{margin:0 0 2px;overflow-wrap:anywhere}
+.cabecalho .perfil-nome{font-weight:var(--font-weight-semi-bold)}
+.cabecalho .perfil-papel{color:var(--gray-50);font-size:var(--font-size-scale-down-02)}
+.cabecalho .perfil-govbr{display:flex;align-items:center;justify-content:space-between;gap:var(--spacing-scale-base);
+  margin-top:var(--spacing-scale-base);padding-top:var(--spacing-scale-base);border-top:1px solid var(--gray-10);font-size:var(--font-size-scale-down-02)}
+.cabecalho .perfil-govbr form{margin:0}
+.cabecalho .perfil-acao{background:none;border:0;padding:0;color:var(--interactive);text-decoration:underline;cursor:pointer;font:inherit}
 /* Título da página: discreto, no alto do conteúdo (o cabeçalho fica só com a marca e o menu) */
 .titulo-conteudo{margin:0 0 var(--spacing-scale-2x);color:var(--gray-50);font-size:var(--font-size-scale-down-02);
   font-weight:var(--font-weight-semi-bold);text-transform:uppercase;letter-spacing:.08em}
@@ -60,6 +75,7 @@ main{flex:1}
   .cabecalho .conta{border-left:0;border-top:1px solid var(--gray-10);padding:var(--spacing-scale-2x) var(--spacing-scale-2x) 0;
     margin-top:var(--spacing-scale-base);justify-content:space-between}
   .cabecalho .email{max-width:none}
+  .cabecalho .perfil-janela{position:static;box-shadow:none;margin-top:var(--spacing-scale-base);max-width:none}
 }
 @media (max-width:420px){
   .cabecalho .sistema{font-size:var(--font-size-scale-down-01)}

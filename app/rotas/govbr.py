@@ -249,29 +249,27 @@ def entrar():
     return redirect('/?rd=' + quote(rd) + '#entrar', 302)
 
 
-def _fim_da_saida():
-    """Depois da sessão gov.br: encerra a do Google (oauth2-proxy), se ligado, e volta à página inicial."""
-    return redirect('/oauth2/sign_out?rd=/' if servicos().cfg.login_google else '/', 302)
+def _fim_da_saida(destino_final='/'):
+    """Encerra a sessão do Google (oauth2-proxy), se ligado, e volta à página inicial."""
+    if servicos().cfg.login_google:
+        return redirect('/oauth2/sign_out?rd=' + quote(destino_final, safe=''), 302)
+    return redirect(destino_final, 302)
 
 
 @bp.get('/auth/sair')
 def sair():
-    """Encerra a sessão do app. Quem entrou pelo gov.br também sai do gov.br (senão o próximo "Entrar com
-    gov.br" entraria direto na mesma conta): vai a /logout do gov.br, que volta em GOVBR_LOGOUT_URI."""
-    cfg = servicos().cfg
+    """Encerra a sessão do app (gov.br e Google) e volta à página inicial. Não passa pelo /logout do gov.br:
+    sem o endereço de saída cadastrado lá, o gov.br não volta ao app. A sessão no próprio gov.br continua
+    aberta no navegador; a página inicial (?saiu=govbr) oferece encerrá-la."""
     pelo_govbr = sessao() is not None
-    if pelo_govbr and cfg.govbr_logout_uri:
-        resp = make_response(redirect(cfg.govbr_url + '/logout?' + urlencode(
-            {'post_logout_redirect_uri': cfg.govbr_logout_uri}), 302))
-    else:
-        resp = make_response(_fim_da_saida())
+    resp = make_response(_fim_da_saida('/?saiu=govbr' if pelo_govbr else '/'))
     resp.delete_cookie(COOKIE_SESSAO, path='/')
     return resp
 
 
 @bp.get('/auth/gov/logout')
 def volta_da_saida():
-    """Retorno do gov.br depois da saída (endereço de logout registrado no gov.br)."""
+    """Endereço de saída antigo (cadastrado no gov.br): só encerra a sessão e volta à página inicial."""
     resp = make_response(_fim_da_saida())
     resp.delete_cookie(COOKIE_SESSAO, path='/')
     return resp

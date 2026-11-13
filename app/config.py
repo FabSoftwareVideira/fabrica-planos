@@ -48,7 +48,6 @@ class Config:
     govbr_client_secret: str = ''
     govbr_url: str = GOVBR_PRODUCAO
     govbr_redirect_uri: str = ''
-    govbr_logout_uri: str = ''
     segredo_sessao: str = ''
     login_google: bool = True
     oauth2_proxy_url: str = 'http://oauth2-proxy:4180'
@@ -112,7 +111,6 @@ def carregar():
         govbr_url=GOVBR_HOMOLOGACAO if os.environ.get('GOVBR_AMBIENTE', '').strip().lower() == 'homologacao'
         else GOVBR_PRODUCAO,
         govbr_redirect_uri=os.environ.get('GOVBR_REDIRECT_URI', '').strip(),
-        govbr_logout_uri=os.environ.get('GOVBR_LOGOUT_URI', '').strip(),
         segredo_sessao=os.environ.get('SEGREDO_SESSAO', '').strip(),
         login_google=os.environ.get('LOGIN_GOOGLE', '1') == '1',
         oauth2_proxy_url=(os.environ.get('OAUTH2_PROXY_URL') or 'http://oauth2-proxy:4180').rstrip('/'),

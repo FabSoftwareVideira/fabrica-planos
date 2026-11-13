@@ -90,7 +90,9 @@ def raiz():
     """Página inicial pública, com o botão de login."""
     cfg = servicos().cfg
     rd = govbr.destino(request.args.get('rd', ''))
-    return render_template('inicio.html', **inicio.contexto(rd, cfg.govbr_ativo, cfg.login_google or cfg.login_simulado))
+    saiu_govbr = cfg.govbr_url + '/logout' if cfg.govbr_ativo and request.args.get('saiu') == 'govbr' else ''
+    return render_template('inicio.html', saiu_govbr=saiu_govbr,
+                           **inicio.contexto(rd, cfg.govbr_ativo, cfg.login_google or cfg.login_simulado))
 
 
 @bp.get('/privacidade')

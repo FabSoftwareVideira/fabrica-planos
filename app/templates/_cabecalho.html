@@ -28,19 +28,36 @@
           {% endfor %}
         </ul>
         <div class="conta">
-          <span class="usuario" title="{{ usuario_nome ~ ' · ' if usuario_nome }}{{ usuario_email }}">
-            <i class="fas fa-user-circle" aria-hidden="true"></i>
-            <span><span class="email">{{ usuario_nome or usuario_email }}</span><small class="papel-usuario">{{ 'Administrador' if usuario_admin else 'Coordenação' if usuario_coordenacao else 'Consulta' }}</small></span>
-          </span>
+          {% set papel = 'Administrador' if usuario_admin else 'Coordenação' if usuario_coordenacao else 'Consulta' %}
+          <details class="perfil">
+            <summary class="usuario" title="Seu perfil">
+              <i class="fas fa-user-circle" aria-hidden="true"></i>
+              <span><span class="email">{{ usuario_nome or usuario_email }}</span><small class="papel-usuario">{{ papel }}</small></span>
+            </summary>
+            <div class="perfil-janela">
+              {% if usuario_nome %}<p class="perfil-nome">{{ usuario_nome }}</p>{% endif %}
+              <p class="perfil-email">{{ usuario_email }}</p>
+              <p class="perfil-papel">{{ papel }}</p>
+              {% if usuario_govbr is not none %}
+              <div class="perfil-govbr">
+                {% if usuario_govbr %}
+                <span><i class="fas fa-link" aria-hidden="true"></i> Conta gov.br vinculada</span>
+                <form method="post" action="/conta/govbr/desvincular"><button type="submit" class="perfil-acao" title="Depois disso, o login com gov.br só funciona se o e-mail da conta gov.br for o institucional">Desvincular</button></form>
+                {% else %}
+                <span>Conta gov.br não vinculada</span>
+                <a class="perfil-acao" href="/conta/govbr/vincular" title="Para entrar com gov.br mesmo com um e-mail pessoal na conta gov.br">Vincular</a>
+                {% endif %}
+              </div>
+              {% endif %}
+            </div>
+          </details>
           {% if login_simulado %}<a class="br-button secondary small sair" href="/dev/login" title="Login simulado (desenvolvimento)"><i class="fas fa-user-friends" aria-hidden="true"></i> Trocar usuário</a>{% endif %}
-          {% if usuario_govbr is false %}<a class="br-button secondary small sair" href="/conta/govbr/vincular" title="Liga sua conta gov.br a este usuário, para entrar com gov.br mesmo com e-mail pessoal nela"><i class="fas fa-link" aria-hidden="true"></i> Vincular gov.br</a>
-          {% elif usuario_govbr %}<form method="post" action="/conta/govbr/desvincular" class="d-inline"><button class="br-button secondary small sair" type="submit" title="Sua conta gov.br está vinculada a este usuário"><i class="fas fa-unlink" aria-hidden="true"></i> Desvincular gov.br</button></form>
-          {% endif %}
           <a class="br-button secondary small sair" href="/auth/sair"><i class="fas fa-sign-out-alt" aria-hidden="true"></i> Sair</a>
         </div>
       </nav>
       {% else %}
-      <a class="br-button primary small entrar" href="/dashboard"><i class="fas fa-sign-in-alt" aria-hidden="true"></i> Entrar</a>
+      {#- Na página inicial, leva aos botões de login dela; nas outras, ao login (/entrar escolhe ou volta à inicial) #}
+      <a class="br-button primary small entrar" href="{{ '#entrar' if request.path == '/' else '/entrar?rd=/dashboard' }}"><i class="fas fa-sign-in-alt" aria-hidden="true"></i> Entrar</a>
       {% endif %}
     </div>
   </div>

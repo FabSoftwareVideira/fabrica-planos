@@ -32,3 +32,7 @@
 .campos .br-tag{background:var(--gray-5);color:var(--gray-80);font-weight:var(--font-weight-medium)}
 .legenda{display:flex;flex-wrap:wrap;gap:var(--spacing-scale-2x) var(--spacing-scale-3x);margin-top:var(--spacing-scale-3x);
   font-size:var(--font-size-scale-down-01);color:var(--gray-70)}
+/* "Entrar" do cabeçalho (#entrar): destaca os botões de login por um instante */
+.logins{scroll-margin-top:120px;border-radius:var(--surface-rounder-md)}
+.logins:target{animation:destaca-login 1.6s ease-out}
+@keyframes destaca-login{0%,40%{box-shadow:0 0 0 6px var(--interactive-light)}100%{box-shadow:0 0 0 6px transparent}}

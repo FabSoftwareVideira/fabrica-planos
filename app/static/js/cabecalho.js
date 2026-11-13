@@ -1,3 +1,11 @@
+// Janela de perfil (details.perfil): fecha com Esc ou clicando fora.
+(() => {
+  const perfil = document.querySelector('.cabecalho .perfil');
+  if (!perfil) return;
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') perfil.open = false; });
+  document.addEventListener('click', e => { if (!perfil.contains(e.target)) perfil.open = false; });
+})();
+
 // Menu hambúrguer do cabeçalho (telas menores): abre e fecha o menu; fecha com Esc ou clicando fora.
 (() => {
   const botao = document.querySelector('.menu-botao');
