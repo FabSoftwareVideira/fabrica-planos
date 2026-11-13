@@ -16,7 +16,21 @@ permissions:
 
 jobs:
   testes:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: planos
+          POSTGRES_PASSWORD: teste
+          POSTGRES_DB: planos_teste
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U planos -d planos_teste"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
 
@@ -28,7 +42,18 @@ jobs:
 
       - run: pip install -r requirements-dev.txt
 
+      # Os testes de backup usam pg_dump e psql; o cliente deve acompanhar o servidor PostgreSQL 17.
+      - name: Instalar cliente PostgreSQL
+        run: |
+          sudo install -d /etc/apt/keyrings
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo tee /etc/apt/keyrings/postgresql.asc > /dev/null
+          echo "deb [signed-by=/etc/apt/keyrings/postgresql.asc] https://apt.postgresql.org/pub/repos/apt noble-pgdg main" | sudo tee /etc/apt/sources.list.d/postgresql.list > /dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y postgresql-client-17
+
       - run: pytest -q
+        env:
+          TEST_DATABASE_URL: postgresql://planos:teste@localhost:5432/planos_teste
 
       # Vulnerabilidades conhecidas nas dependências Python: falha aqui e o deploy não acontece
       - name: Auditar dependências
@@ -39,6 +64,8 @@ jobs:
 
       # E que os Compose de produção, desenvolvimento e do Ollama continuam válidos
       - run: docker compose -f docker-compose.yml config --quiet
+        env:
+          POSTGRES_PASSWORD: teste
       - run: docker compose -f docker-compose.dev.yml config --quiet
       - run: docker compose -f open-webui/docker-compose.yml config --quiet
 
