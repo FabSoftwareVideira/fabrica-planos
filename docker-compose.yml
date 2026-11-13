@@ -46,6 +46,11 @@ services:
       - POSTGRES_DB=planos
     volumes:
       - pgdata:/var/lib/postgresql/data
+    # Nome único na rede: "db" sozinho pode coincidir com o de outro projeto
+    networks:
+      default:
+        aliases:
+          - fabrica-planos-db
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U planos -d planos"]
       interval: 10s
@@ -126,7 +131,7 @@ services:
     depends_on:
       preparar-pastas:
         condition: service_completed_successfully
-      fabrica-planos-db:
+      db:
         condition: service_healthy
     # Saudável quando o gunicorn responde /health (a imagem não tem curl: usa o Python dela)
     healthcheck:
@@ -182,9 +187,9 @@ services:
       start_period: 10s
     depends_on:
       # Só recebe tráfego depois que o app está de pé
-      fabrica-planos-app:
+      app:
         condition: service_healthy
-      fabrica-planos-oauth2-proxy:
+      oauth2-proxy:
         condition: service_started
     # Sem ganhar privilégios depois de iniciar (setuid) e sem as capacidades de root que não usa
     security_opt:
