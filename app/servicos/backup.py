@@ -27,7 +27,7 @@ from ..banco import TABELAS
 # O backup automático roda todo dia na hora configurada (BACKUP_HORA) e mantém os últimos
 # BACKUP_MANTER arquivos automáticos. Os backups manuais e os feitos antes de uma restauração não são
 # apagados automaticamente. A restauração substitui os dados atuais e, antes disso, cria um backup do
-# estado que será substituído. Backups antigos (do tempo do SQLite) não têm banco.sql: restauram só os arquivos.
+# estado que será substituído. Backups antigos sem banco.sql restauram só os arquivos.
 
 log = logging.getLogger(__name__)
 

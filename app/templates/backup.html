@@ -45,9 +45,8 @@
         <h2>Backup dos dados</h2>
       </div>
       <div class="card-content">
-        <p class="ajuda">O backup guarda um ZIP com a pasta de planos (PDFs) e a pasta de resultados:
-          usuários, revisões, histórico das validações, PDFs assinados e os arquivos JSON. Os bancos SQLite
-          são copiados de forma consistente, mesmo com o sistema em uso.</p>
+        <p class="ajuda">O backup guarda um ZIP com os PDFs dos planos, o histórico das validações,
+          os PDFs assinados e os arquivos JSON, além dos usuários, papéis e revisões do PostgreSQL.</p>
         <p class="ajuda">O backup automático roda todo dia às <strong>{{ '%02d'|format(hora) }}h</strong> e mantém os
           <strong>{{ manter }}</strong> backups automáticos mais recentes. Os backups manuais e os feitos antes de uma
           restauração ficam guardados até serem excluídos.</p>
@@ -71,7 +70,7 @@
           <div class="icon"><i class="fas fa-exclamation-triangle fa-lg" aria-hidden="true"></i></div>
           <div class="content"><span class="message-body">Restaurar substitui <strong>todos</strong> os dados atuais
             pelos do backup. Antes de substituir, o sistema cria um backup do estado atual, com a origem
-            “Antes de restaurar”.</span></div>
+            “Antes de restaurar”. Backups antigos sem o banco PostgreSQL restauram apenas os arquivos.</span></div>
         </div>
         <ul class="arquivos backups">
           {% for b in backups %}

@@ -45,13 +45,7 @@ docker compose -f docker-compose.dev.yml exec -e TEST_DATABASE_URL=postgresql://
 
 #### Banco de dados
 
-Usuários e revisões ficam no PostgreSQL (variável `DATABASE_URL`; serviço `postgres` nos dois composes). Os demais dados continuam em arquivos. Para trazer os dados dos antigos `usuarios.sqlite3` e `revisoes.sqlite3` (em `resultados/`), rode uma vez, com o app e o banco no ar:
-
-```bash
-docker compose exec app python -m app.migrar_sqlite
-```
-
-Pode ser repetido sem duplicar. Depois, os arquivos `.sqlite3` podem ser apagados.
+Usuários, papéis em cursos e revisões ficam no PostgreSQL (variável `DATABASE_URL`; serviço `postgres` nos dois composes). Os demais dados continuam em arquivos.
 
 ### No servidor (produção)
 
@@ -103,6 +97,8 @@ Cada backup é um ZIP com:
 - `manifesto.json`: formato, data, origem e contagens do backup.
 
 A restauração substitui **todos** os dados atuais pelos do ZIP. Antes de substituir, o próprio sistema cria um backup do estado atual, com a origem “Antes de restaurar”, então dá para desfazer. A restauração é recusada enquanto houver uma validação em andamento. Os backups manuais e os de antes de restaurar não são apagados automaticamente.
+
+Backups antigos sem `banco.sql` restauram apenas os arquivos; os dados atuais do PostgreSQL não são substituídos.
 
 O backup fica na mesma VPS: ele protege contra exclusões e erros de operação, mas não contra a perda do servidor. Copie periodicamente os arquivos de `/srv/validador-planos/backups` para outro local (outra máquina, storage externo ou cópia offline). Para restaurar sem a interface (por exemplo, com o app fora do ar), descompacte o ZIP e copie as pastas por cima dos dados:
 
