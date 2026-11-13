@@ -1143,7 +1143,7 @@ def test_login_govbr_com_email_institucional(fabrica, monkeypatch):
 
 def test_login_govbr_recusado(fabrica, monkeypatch):
     c, _ = fabrica(**GOVBR)
-    _, volta, _ = _login_govbr(c, monkeypatch, email='fulano@gmail.com')
+    _, volta, _ = _login_govbr(c, monkeypatch, email='fulano@gmail.com', sub='')
     assert volta.status_code == 403 and 'e-mail institucional' in volta.get_data(as_text=True)
     _, volta, _ = _login_govbr(c, monkeypatch, email_verified=False)
     assert volta.status_code == 403
@@ -1159,6 +1159,70 @@ def test_login_govbr_recusado(fabrica, monkeypatch):
     # Cookie de sessão adulterado
     c.set_cookie('_planos_govbr', 'eyJlbWFpbCI6ImFkbWluQGlmYy5lZHUuYnIifQ.xxx.yyy')
     assert c.get('/auth/verificar').status_code == 401
+
+
+def _vincular_govbr(c, monkeypatch, cab, **claims):
+    """Quem já entrou (cabeçalhos do Caddy) vai ao gov.br vincular a conta e volta."""
+    from urllib.parse import parse_qs, urlsplit
+    import requests
+    r = c.get('/conta/govbr/vincular', headers=cab)
+    assert r.status_code == 302, r.get_data(as_text=True)
+    ida = parse_qs(urlsplit(r.headers['Location']).query)
+    padrao = {'iss': 'https://sso.acesso.gov.br/', 'aud': 'cliente', 'nonce': ida['nonce'][0], 'exp': 9999999999,
+              'sub': '12345678900', 'name': 'Fulano de Tal', 'email': 'fulano@gmail.com', 'email_verified': True}
+    padrao.update(claims)
+    monkeypatch.setattr(requests, 'post', lambda url, **kw: _Resposta(corpo={'id_token': _id_token(**padrao)}))
+    return c.get(f"/auth/govbr/callback?code=abc&state={ida['state'][0]}")
+
+
+def test_login_govbr_pela_conta_vinculada(fabrica, monkeypatch):
+    c, _ = fabrica(**GOVBR)
+    # Sem vínculo, o e-mail pessoal é recusado, com o caminho para vincular
+    _, volta, _ = _login_govbr(c, monkeypatch, email='fulano@gmail.com')
+    html = volta.get_data(as_text=True)
+    assert volta.status_code == 403 and 'vincule' in html and '/oauth2/start?rd=/conta/govbr/vincular' in html
+    # Entrou pelo Google: o cabeçalho oferece vincular
+    google = {'X-Usuario-Email': 'fulano@ifc.edu.br'}
+    assert 'href="/conta/govbr/vincular"' in c.get('/meus-planos', headers=google).get_data(as_text=True)
+    volta = _vincular_govbr(c, monkeypatch, google)
+    assert volta.status_code == 302 and volta.headers['Location'] == '/meus-planos'
+    assert c.get('/auth/verificar').status_code == 401  # vincular não abre sessão gov.br
+    html = c.get('/meus-planos', headers=google).get_data(as_text=True)
+    assert 'action="/conta/govbr/desvincular"' in html and 'href="/conta/govbr/vincular"' not in html
+    # O CPF não fica guardado
+    s = _servicos(c)
+    with s.usuarios._conexao() as con:
+        [linha] = con.execute('SELECT * FROM vinculos_govbr').fetchall()
+    assert linha['email'] == 'fulano@ifc.edu.br' and '12345678900' not in str(dict(linha))
+
+    # Agora o login gov.br com e-mail pessoal entra como o usuário vinculado
+    _, volta, _ = _login_govbr(c, monkeypatch, email='fulano@gmail.com')
+    assert volta.status_code == 302 and volta.headers['Location'] == '/meus-planos'
+    assert c.get('/auth/verificar').headers['X-Usuario-Email'] == 'fulano@ifc.edu.br'
+    c.get('/auth/sair')
+    # Outro CPF continua recusado
+    assert _login_govbr(c, monkeypatch, email='outro@gmail.com', sub='99999999999')[1].status_code == 403
+
+    # Desvincular (só pelo próprio site)
+    assert c.post('/conta/govbr/desvincular', headers={**google, 'Origin': 'https://outro.site'}).status_code == 403
+    assert c.post('/conta/govbr/desvincular', headers=google).status_code == 303
+    assert _login_govbr(c, monkeypatch, email='fulano@gmail.com')[1].status_code == 403
+
+
+def test_login_govbr_institucional_vincula_o_cpf(fabrica, monkeypatch):
+    c, _ = fabrica(**GOVBR)
+    _login_govbr(c, monkeypatch)  # e-mail institucional verificado: o CPF fica vinculado
+    c.get('/auth/sair')
+    # Depois, mesmo se o e-mail no gov.br mudar para um pessoal, o login continua
+    _, volta, _ = _login_govbr(c, monkeypatch, email='fulano@gmail.com')
+    assert volta.status_code == 302
+    assert c.get('/auth/verificar').headers['X-Usuario-Email'] == 'fulano@ifc.edu.br'
+
+
+def test_vincular_exige_login(fabrica):
+    c, _ = fabrica(**GOVBR)
+    assert c.get('/conta/govbr/vincular').status_code == 401  # sem login, o app nem chega à rota
+    assert c.post('/conta/govbr/desvincular').status_code in (401, 403)
 
 
 def test_login_govbr_troca_recusada_registra_o_motivo(fabrica, monkeypatch, caplog):

@@ -1,5 +1,6 @@
 import base64
 import hashlib
+import hmac
 import json
 import logging
 import secrets
@@ -10,13 +11,16 @@ import requests
 from flask import Blueprint, Response, make_response, redirect, render_template, request
 from itsdangerous import BadSignature, URLSafeTimedSerializer
 
-from .comum import servicos
+from .comum import email, mesma_origem, servicos
 
 # Login com a conta gov.br (Login Único, OpenID Connect com PKCE) e a verificação de sessão que o Caddy
 # consulta a cada requisição (forward_auth em /auth/verificar).
 #
-# O app identifica as pessoas pelo e-mail institucional: o login gov.br só é aceito quando o e-mail da
-# conta gov.br é do domínio da instituição (EMAIL_DOMINIO) e está verificado. A sessão gov.br é um cookie
+# O app identifica as pessoas pelo e-mail institucional. O login gov.br é aceito quando o e-mail da conta
+# gov.br é do domínio da instituição (EMAIL_DOMINIO) e está verificado, ou quando a conta gov.br (o CPF) já
+# foi vinculada a um usuário: quem tem e-mail pessoal no gov.br entra uma vez pelo Google institucional e
+# vincula (/conta/govbr/vincular). Do CPF o app guarda só um HMAC com SEGREDO_SESSAO (trocar o segredo
+# desfaz os vínculos; o próximo login com e-mail institucional, ou um novo vínculo, os refaz). A sessão gov.br é um cookie
 # assinado pelo próprio app; sem ela, /auth/verificar pergunta ao oauth2-proxy pela sessão do Google.
 # Nos dois casos o Caddy recebe os mesmos cabeçalhos (X-Usuario-Email e o token com o nome), então o resto
 # do app não sabe por onde a pessoa entrou.
@@ -53,8 +57,8 @@ def _cookie(resp, nome, valor, duracao):
                     samesite='Lax', path='/')
 
 
-def _recusa(motivo, status=403):
-    return render_template('login_recusado.html', motivo=motivo), status
+def _recusa(motivo, status=403, vincular=False):
+    return render_template('login_recusado.html', motivo=motivo, vincular=vincular), status
 
 
 def _claims(id_token):
@@ -80,6 +84,28 @@ def sessao():
     return dados if isinstance(dados, dict) and dados.get('email') else None
 
 
+def _chave_cpf(cpf):
+    """HMAC do CPF (claim `sub` do gov.br): identifica a conta sem guardar o número."""
+    return hmac.new(servicos().cfg.segredo_sessao.encode(), ('govbr-cpf:' + cpf).encode(), hashlib.sha256).hexdigest()
+
+
+def _ir_ao_govbr(estado):
+    """Redireciona ao /authorize do gov.br, guardando state, nonce e verificador PKCE no cookie."""
+    cfg = servicos().cfg
+    verificador = secrets.token_urlsafe(48)
+    estado = {**estado, 'state': secrets.token_urlsafe(24), 'nonce': secrets.token_urlsafe(24),
+              'verificador': verificador}
+    desafio = base64.urlsafe_b64encode(hashlib.sha256(verificador.encode()).digest()).decode().rstrip('=')
+    parametros = {
+        'response_type': 'code', 'client_id': cfg.govbr_client_id, 'scope': ESCOPOS,
+        'redirect_uri': _redirect_uri(), 'state': estado['state'], 'nonce': estado['nonce'],
+        'code_challenge': desafio, 'code_challenge_method': 'S256',
+    }
+    resp = redirect(cfg.govbr_url + '/authorize?' + urlencode(parametros), 302)
+    _cookie(resp, COOKIE_LOGIN, _serializador('login').dumps(estado), DURACAO_LOGIN)
+    return resp
+
+
 def token_de_nome(endereco, nome):
     """Token no formato que rotas/comum.py: nome() lê (só a carga importa; vem do próprio app)."""
     carga = base64.urlsafe_b64encode(json.dumps({'email': endereco, 'name': nome}).encode()).decode().rstrip('=')
@@ -93,18 +119,29 @@ def login():
     cfg = servicos().cfg
     if not cfg.govbr_ativo:
         return _recusa('O login com gov.br não está configurado neste servidor.', 404)
-    verificador = secrets.token_urlsafe(48)
-    estado = {'state': secrets.token_urlsafe(24), 'nonce': secrets.token_urlsafe(24), 'verificador': verificador,
-              'rd': destino(request.args.get('rd', ''))}
-    desafio = base64.urlsafe_b64encode(hashlib.sha256(verificador.encode()).digest()).decode().rstrip('=')
-    parametros = {
-        'response_type': 'code', 'client_id': cfg.govbr_client_id, 'scope': ESCOPOS,
-        'redirect_uri': _redirect_uri(), 'state': estado['state'], 'nonce': estado['nonce'],
-        'code_challenge': desafio, 'code_challenge_method': 'S256',
-    }
-    resp = redirect(cfg.govbr_url + '/authorize?' + urlencode(parametros), 302)
-    _cookie(resp, COOKIE_LOGIN, _serializador('login').dumps(estado), DURACAO_LOGIN)
-    return resp
+    return _ir_ao_govbr({'rd': destino(request.args.get('rd', ''))})
+
+
+@bp.get('/conta/govbr/vincular')
+def vincular():
+    """Quem já entrou (pelo Google, com o e-mail institucional) vai ao gov.br para ligar a conta gov.br a
+    este usuário. Fica atrás do login do Caddy; o e-mail segue assinado no cookie até a volta."""
+    cfg = servicos().cfg
+    if not cfg.govbr_ativo:
+        return _recusa('O login com gov.br não está configurado neste servidor.', 404)
+    usuario = email()
+    if not usuario:
+        return redirect('/entrar?rd=/conta/govbr/vincular', 302)
+    return _ir_ao_govbr({'rd': destino(request.args.get('rd', '') or '/meus-planos'), 'vincular': usuario})
+
+
+@bp.post('/conta/govbr/desvincular')
+def desvincular():
+    usuario = email()
+    if not usuario or not mesma_origem():
+        return Response('Requisição recusada', 403)
+    servicos().usuarios.desvincular_govbr(usuario)
+    return redirect(destino(request.form.get('rd', '') or '/meus-planos'), 303)
 
 
 @bp.get('/auth/govbr/callback')
@@ -141,16 +178,31 @@ def callback():
             or claims.get('exp', 0) < time.time()):
         log.warning('ID token do gov.br recusado (emissor, público, nonce ou validade)')
         return _recusa('A resposta do gov.br não pôde ser confirmada. Tente entrar de novo.', 400)
+    cpf = str(claims.get('sub') or '').strip()
+    usuarios = servicos().usuarios
+    resp = redirect(estado['rd'], 302)
+    resp.delete_cookie(COOKIE_LOGIN, path='/')
+    if estado.get('vincular'):
+        if not cpf:
+            return _recusa('O gov.br não informou a conta. Tente vincular de novo.', 400)
+        usuarios.vincular_govbr(_chave_cpf(cpf), estado['vincular'])
+        log.info('Conta gov.br vinculada a %s', estado['vincular'])
+        return resp
     endereco = str(claims.get('email') or '').strip().lower()
     verificado = claims.get('email_verified') in (True, 'true')
-    if endereco.rpartition('@')[2] != cfg.email_dominio or not verificado:
-        log.info('Login gov.br recusado: e-mail fora do domínio ou não verificado')
-        return _recusa(f'Sua conta gov.br precisa ter o e-mail institucional (@{cfg.email_dominio}) cadastrado e '
-                       'verificado. Altere o e-mail em contas.acesso.gov.br (Dados pessoais) e entre de novo.')
+    if endereco.rpartition('@')[2] == cfg.email_dominio and verificado:
+        if cpf:  # o próximo login segue valendo mesmo se o e-mail do gov.br mudar
+            usuarios.vincular_govbr(_chave_cpf(cpf), endereco)
+    else:
+        endereco = usuarios.email_do_govbr(_chave_cpf(cpf)) if cpf else None
+        if not endereco:
+            log.info('Login gov.br recusado: e-mail fora do domínio ou não verificado, e conta não vinculada')
+            return _recusa(f'Sua conta gov.br não tem o e-mail institucional (@{cfg.email_dominio}) e ainda não '
+                           'foi vinculada a um usuário. Entre uma vez com a conta Google institucional e vincule '
+                           'a sua conta gov.br; depois disso, o login com gov.br funciona direto.',
+                           vincular=cfg.login_google)
     nome = ' '.join(str(claims.get('name') or '').split())[:120]
-    resp = redirect(estado['rd'], 302)
     _cookie(resp, COOKIE_SESSAO, _serializador('sessao').dumps({'email': endereco, 'nome': nome}), DURACAO_SESSAO)
-    resp.delete_cookie(COOKIE_LOGIN, path='/')
     log.info('Login gov.br: %s', endereco)
     return resp
 

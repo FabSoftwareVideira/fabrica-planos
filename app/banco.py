@@ -12,7 +12,7 @@ from psycopg.rows import dict_row
 
 log = logging.getLogger(__name__)
 
-TABELAS = ('usuarios', 'papeis_curso', 'revisoes')
+TABELAS = ('usuarios', 'papeis_curso', 'vinculos_govbr', 'revisoes')
 _NOME_ESQUEMA = re.compile(r'^[a-z_][a-z0-9_]*$')
 
 

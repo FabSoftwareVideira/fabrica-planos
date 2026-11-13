@@ -18,6 +18,9 @@
         <span class="message-body">{{ motivo }}</span>
       </div>
     </div>
+    {% if vincular %}
+    <p><a class="br-button primary" href="/oauth2/start?rd=/conta/govbr/vincular"><i class="fab fa-google" aria-hidden="true"></i> Entrar com Google e vincular o gov.br</a></p>
+    {% endif %}
     <p><a class="br-button secondary" href="/"><i class="fas fa-arrow-left" aria-hidden="true"></i> Voltar à página inicial</a></p>
   </div>
 </main>

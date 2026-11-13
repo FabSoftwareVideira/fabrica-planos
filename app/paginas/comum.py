@@ -54,9 +54,16 @@ def _usuario():
         except Exception:
             nome_usuario = ''
     admin = bool(usuario) and eh_admin()
+    # Conta gov.br: o cabeçalho oferece vincular (para entrar pelo gov.br com e-mail pessoal) ou desvincular
+    govbr = None
+    if usuario and servicos().cfg.govbr_ativo:
+        try:
+            govbr = servicos().usuarios.tem_govbr(usuario)
+        except Exception:
+            govbr = None
     return {'usuario_email': usuario, 'usuario_nome': nome_usuario, 'usuario_admin': admin,
             'usuario_coordenacao': admin or bool(cursos_coordenados()),
-            'login_simulado': servicos().cfg.login_simulado}
+            'login_simulado': servicos().cfg.login_simulado, 'usuario_govbr': govbr}
 
 
 def ano_atual():

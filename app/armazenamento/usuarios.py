@@ -28,6 +28,16 @@ CREATE TABLE IF NOT EXISTS papeis_curso (
 )
 """
 
+# Conta gov.br vinculada ao usuário: quem tem e-mail pessoal no gov.br entra pelo CPF. Guarda só um HMAC
+# do CPF (rotas/govbr.py: _chave_cpf), nunca o número; uma conta gov.br por usuário e vice-versa.
+ESQUEMA_GOVBR = """
+CREATE TABLE IF NOT EXISTS vinculos_govbr (
+    chave_cpf TEXT PRIMARY KEY,
+    email TEXT NOT NULL UNIQUE,
+    vinculado_em TEXT NOT NULL
+)
+"""
+
 PAPEIS_CURSO = {'coordenador': 'Coordenação', 'nde': 'NDE', 'ndb': 'NDB'}
 
 ORDENS = {
@@ -53,6 +63,7 @@ class Usuarios:
         with self._conexao() as con:
             con.execute(ESQUEMA)
             con.execute(ESQUEMA_PAPEIS)
+            con.execute(ESQUEMA_GOVBR)
 
     def _conexao(self):
         return self.banco.conexao()
@@ -80,6 +91,28 @@ class Usuarios:
         with self._conexao() as con:
             linha = con.execute('SELECT * FROM usuarios WHERE email = %s', (email,)).fetchone()
         return dict(linha) if linha else None
+
+    # Vínculo com a conta gov.br --------------------------------------------------------------------
+
+    def vincular_govbr(self, chave_cpf, email):
+        """Liga a conta gov.br (pela chave do CPF) ao e-mail; desfaz o vínculo anterior de cada um."""
+        with self._trava, self._conexao() as con:
+            con.execute('DELETE FROM vinculos_govbr WHERE chave_cpf = %s OR email = %s', (chave_cpf, email))
+            con.execute('INSERT INTO vinculos_govbr (chave_cpf, email, vinculado_em) VALUES (%s, %s, %s)',
+                        (chave_cpf, email, _agora()))
+
+    def email_do_govbr(self, chave_cpf):
+        with self._conexao() as con:
+            linha = con.execute('SELECT email FROM vinculos_govbr WHERE chave_cpf = %s', (chave_cpf,)).fetchone()
+        return linha['email'] if linha else None
+
+    def tem_govbr(self, email):
+        with self._conexao() as con:
+            return con.execute('SELECT 1 FROM vinculos_govbr WHERE email = %s', (email,)).fetchone() is not None
+
+    def desvincular_govbr(self, email):
+        with self._trava, self._conexao() as con:
+            return con.execute('DELETE FROM vinculos_govbr WHERE email = %s', (email,)).rowcount > 0
 
     def definir_ativo(self, email, ativo):
         """Ativa ou desativa; devolve False se o usuário não existir."""
