@@ -1061,6 +1061,11 @@ class _Resposta:
     def json(self):
         return self._corpo
 
+    @property
+    def text(self):
+        import json
+        return json.dumps(self._corpo)
+
     def raise_for_status(self):
         if self.status_code >= 400:
             import requests
@@ -1153,6 +1158,18 @@ def test_login_govbr_recusado(fabrica, monkeypatch):
     assert c.get('/auth/govbr/callback?code=abc&state=forjado').status_code == 400
     # Cookie de sessão adulterado
     c.set_cookie('_planos_govbr', 'eyJlbWFpbCI6ImFkbWluQGlmYy5lZHUuYnIifQ.xxx.yyy')
+    assert c.get('/auth/verificar').status_code == 401
+
+
+def test_login_govbr_troca_recusada_registra_o_motivo(fabrica, monkeypatch, caplog):
+    from urllib.parse import parse_qs, urlsplit
+    import requests
+    c, _ = fabrica(**GOVBR)
+    ida = parse_qs(urlsplit(c.get('/auth/govbr/login').headers['Location']).query)
+    monkeypatch.setattr(requests, 'post', lambda url, **kw: _Resposta(401, {'error': 'invalid_client'}))
+    volta = c.get(f"/auth/govbr/callback?code=abc&state={ida['state'][0]}")
+    assert volta.status_code == 502 and 'Tente de novo' in volta.get_data(as_text=True)
+    assert 'HTTP 401' in caplog.text and 'invalid_client' in caplog.text
     assert c.get('/auth/verificar').status_code == 401
 
 

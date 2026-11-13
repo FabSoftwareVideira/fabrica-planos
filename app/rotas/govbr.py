@@ -125,10 +125,13 @@ def callback():
         r = requests.post(cfg.govbr_url + '/token', timeout=15, auth=(cfg.govbr_client_id, cfg.govbr_client_secret),
                           data={'grant_type': 'authorization_code', 'code': request.args.get('code', ''),
                                 'redirect_uri': _redirect_uri(), 'code_verifier': estado['verificador']})
-        r.raise_for_status()
+        if r.status_code >= 400:
+            # O corpo da recusa (ex.: {"error": "invalid_client"}) diz o motivo e não traz segredos
+            log.warning('gov.br recusou a troca do código: HTTP %s %s', r.status_code, ' '.join(r.text.split())[:500])
+            return _recusa('Não foi possível concluir o login com o gov.br agora. Tente de novo em instantes.', 502)
         tokens = r.json()
     except (requests.RequestException, ValueError) as erro:
-        log.warning('Falha na troca do código com o gov.br: %s', erro)
+        log.warning('Falha na troca do código com o gov.br (%s): %s', cfg.govbr_url, erro)
         return _recusa('Não foi possível concluir o login com o gov.br agora. Tente de novo em instantes.', 502)
     claims = _claims(tokens.get('id_token'))
     aud = (claims or {}).get('aud')
