@@ -86,7 +86,7 @@ services:
       - OLLAMA_NUM_CTX=${OLLAMA_NUM_CTX}
       - AGENDAMENTO_HORA=${AGENDAMENTO_HORA}
       - PDF_MAX_MB=${PDF_MAX_MB:-10}
-      - DATABASE_URL=postgresql://planos:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in your environment}@postgres:5432/planos
+      - DATABASE_URL=postgresql://planos:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in your environment}@fabrica-planos-db:5432/planos
       - AGENDAR=1
       # Backup diário de todos os dados (ver README, "Backup e restauração")
       - BACKUPS_DIR=/data/backups
