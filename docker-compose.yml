@@ -98,6 +98,7 @@ services:
       - EMAIL_DOMINIO=${EMAIL_DOMINIO:-ifc.edu.br}
       # Login com gov.br (rotas/govbr.py): ligado quando há cliente, segredo e SEGREDO_SESSAO. O app também
       # responde ao Caddy se há sessão (/auth/verificar), conferindo a do Google no oauth2-proxy.
+      - OAUTH2_PROXY_URL=http://fabrica-planos-oauth2-proxy:4180
       - GOVBR_CLIENT_ID=${GOVBR_CLIENT_ID:-}
       - GOVBR_CLIENT_SECRET=${GOVBR_CLIENT_SECRET:-}
       - GOVBR_AMBIENTE=${GOVBR_AMBIENTE:-producao}
