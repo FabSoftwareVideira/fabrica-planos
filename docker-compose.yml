@@ -12,7 +12,15 @@ services:
     # copiados com outro dono (backup, cp -a) não precisam de chown manual.
     image: busybox:1.36
     restart: "no"
-    command: ["chown", "-R", "10001:10001", "/data/planos", "/data/resultados", "/data/backups"]
+    command:
+      [
+        "chown",
+        "-R",
+        "10001:10001",
+        "/data/planos",
+        "/data/resultados",
+        "/data/backups",
+      ]
     volumes:
       - "${PLANOS_HOST_DIR:-/srv/validador-planos/planos}:/data/planos"
       - "${RESULTADOS_HOST_DIR:-/srv/validador-planos/resultados}:/data/resultados"
@@ -78,7 +86,7 @@ services:
       - OLLAMA_NUM_CTX=${OLLAMA_NUM_CTX}
       - AGENDAMENTO_HORA=${AGENDAMENTO_HORA}
       - PDF_MAX_MB=${PDF_MAX_MB:-10}
-      - DATABASE_URL=postgresql://planos:${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD}@postgres:5432/planos
+      - DATABASE_URL=postgresql://planos:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in your environment}@postgres:5432/planos
       - AGENDAR=1
       # Backup diário de todos os dados (ver README, "Backup e restauração")
       - BACKUPS_DIR=/data/backups
@@ -121,7 +129,13 @@ services:
         condition: service_healthy
     # Saudável quando o gunicorn responde /health (a imagem não tem curl: usa o Python dela)
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)",
+        ]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -159,7 +173,8 @@ services:
       - dokploy-network
     # Pelo próprio Caddy até o app: confere a porta de entrada e o repasse ao app de uma vez
     healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:80/health"]
+      test:
+        ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:80/health"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -176,7 +191,7 @@ services:
     cap_drop:
       - ALL
     cap_add:
-      - NET_BIND_SERVICE  # escutar na porta 80
+      - NET_BIND_SERVICE # escutar na porta 80
     # Só repassa requisições: bem menos que isto
     deploy:
       resources:
