@@ -66,9 +66,10 @@ def test_backup_guarda_e_restaura_todos_os_dados(tmp_path):
         assert {'manifesto.json', 'planos/a.pdf', 'planos/Plano Á.pdf', 'resultados/donos.json',
                 'resultados/ocultos.json', 'resultados/liberacoes.json', 'resultados/assinaturas.json',
                 'resultados/validacao_planos.csv', 'resultados/historico/20260101-000000/meta.json',
+                'resultados/validacao_planos.csv', 'resultados/historico/20260101-000000/meta.json',
                 'resultados/historico/20260101-000000/detalhes/a.pdf.json', 'resultados/assinados/a.pdf',
-                'resultados/usuarios.sqlite3', 'resultados/revisoes.sqlite3'} <= nomes
-        assert z.read('resultados/usuarios.sqlite3').startswith(b'SQLite format 3\x00')
+                'banco.sql'} <= nomes
+        assert b'usuarios' in z.read('banco.sql') and b'fulano@ifc.edu.br' in z.read('banco.sql')
         manifesto = json.loads(z.read('manifesto.json'))
         assert manifesto['formato'] == 1 and manifesto['planos']['arquivos'] == 2
 
@@ -82,7 +83,7 @@ def test_backup_guarda_e_restaura_todos_os_dados(tmp_path):
     s.revisao.revisoes.remover('a.pdf')
 
     resumo = s.backup.restaurar(nome)
-    assert resumo == {'planos': 2, 'resultados': 9}
+    assert resumo == {'planos': 2, 'resultados': 7, 'banco': True}
     assert (planos / 'a.pdf').read_bytes() == PDF
     assert (planos / 'Plano Á.pdf').read_bytes() == PDF
     assert json.loads((res / 'donos.json').read_text(encoding='utf-8'))['a.pdf']['email'] == 'fulano@ifc.edu.br'

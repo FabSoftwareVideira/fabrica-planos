@@ -1,5 +1,5 @@
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 GOVBR_PRODUCAO = 'https://sso.acesso.gov.br'
 GOVBR_HOMOLOGACAO = 'https://sso.staging.acesso.gov.br'
@@ -22,6 +22,9 @@ class Config:
     hora_agendada: int
     agendar: bool
     pdf_max_mb: int = 10
+    # PostgreSQL com o cadastro de usuários e as revisões (postgresql://usuario:senha@host:5432/banco).
+    # Lido do ambiente na criação da Config, para os testes poderem apontar para outro banco.
+    database_url: str = field(default_factory=lambda: os.environ.get('DATABASE_URL', ''))
     # Backup diário de tudo o que o app grava: os PDFs de planos_dir e o conteúdo de resultados_dir.
     # `backups_dir` vazio guarda em resultados_dir/backups (bom para testes e uso local); em produção o
     # docker-compose.yml aponta para /data/backups, num volume próprio.
@@ -77,16 +80,6 @@ class Config:
     @property
     def historico_dir(self):
         return os.path.join(self.resultados_dir, 'historico')
-
-    @property
-    def usuarios_path(self):
-        """Cadastro de quem já entrou (nome, ativo, acessos)."""
-        return os.path.join(self.resultados_dir, 'usuarios.sqlite3')
-
-    @property
-    def revisoes_path(self):
-        """Revisões manuais (coordenação, NDE, NDB) da avaliação da IA."""
-        return os.path.join(self.resultados_dir, 'revisoes.sqlite3')
 
     @property
     def csv_path(self):

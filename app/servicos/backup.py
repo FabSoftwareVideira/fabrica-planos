@@ -3,8 +3,8 @@ import logging
 import os
 import re
 import shutil
-import sqlite3
 import stat
+import subprocess
 import tempfile
 import threading
 import time
@@ -12,17 +12,22 @@ import zipfile
 from datetime import datetime, timedelta
 from pathlib import PurePosixPath
 
-# Backup de tudo o que o app grava: os PDFs da pasta de planos e o conteúdo da pasta de resultados
-# (SQLite de usuários e revisões, JSONs, histórico das validações e PDFs assinados). Cada backup é um
+import psycopg.conninfo
+
+from ..banco import TABELAS
+
+# Backup de tudo o que o app grava: os PDFs da pasta de planos, o conteúdo da pasta de resultados
+# (JSONs, histórico das validações e PDFs assinados) e o PostgreSQL (usuários e revisões). Cada backup é um
 # ZIP com:
 #   manifesto.json           formato, data, origem e contagens
 #   planos/...               cópia dos PDFs
-#   resultados/...           cópia dos resultados (os SQLite são copiados pela API de backup do SQLite)
+#   resultados/...           cópia dos resultados
+#   banco.sql                dump das tabelas do PostgreSQL (pg_dump; restaurado com psql)
 #
 # O backup automático roda todo dia na hora configurada (BACKUP_HORA) e mantém os últimos
 # BACKUP_MANTER arquivos automáticos. Os backups manuais e os feitos antes de uma restauração não são
 # apagados automaticamente. A restauração substitui os dados atuais e, antes disso, cria um backup do
-# estado que será substituído.
+# estado que será substituído. Backups antigos (do tempo do SQLite) não têm banco.sql: restauram só os arquivos.
 
 log = logging.getLogger(__name__)
 
@@ -34,7 +39,7 @@ ROTULOS = {
     'manual': 'Manual',
     'antes-restauracao': 'Antes de restaurar',
 }
-RAIZES = {'planos', 'resultados', 'manifesto.json'}
+RAIZES = {'planos', 'resultados', 'manifesto.json', 'banco.sql'}
 SUFIXOS_TEMPORARIOS = ('.tmp', '.enviando', '.parcial')
 
 
@@ -47,9 +52,10 @@ class BackupOcupado(Exception):
 
 
 class Backup:
-    def __init__(self, cfg, validador=None):
+    def __init__(self, cfg, validador=None, banco=None):
         self.cfg = cfg
         self.validador = validador
+        self.banco = banco
         self.dir = cfg.pasta_backups
         # BACKUPS_DIR apontando para a própria pasta de dados apagaria os backups na restauração.
         for dados in (cfg.planos_dir, cfg.resultados_dir):
@@ -135,12 +141,15 @@ class Backup:
             with zipfile.ZipFile(parcial, 'w', zipfile.ZIP_DEFLATED, compresslevel=6) as z:
                 planos, bytes_planos = self._adicionar_pasta(z, self.cfg.planos_dir, 'planos')
                 resultados, bytes_resultados = self._adicionar_pasta(z, self.cfg.resultados_dir, 'resultados')
+                dump = self._dump()
+                z.writestr('banco.sql', dump)
                 manifesto = {
                     'formato': FORMATO,
                     'criado_em': agora.isoformat(timespec='seconds'),
                     'origem': origem,
                     'planos': {'arquivos': planos, 'bytes': bytes_planos},
                     'resultados': {'arquivos': resultados, 'bytes': bytes_resultados},
+                    'banco': {'bytes': len(dump)},
                 }
                 z.writestr('manifesto.json', json.dumps(manifesto, ensure_ascii=False, indent=1))
             os.replace(parcial, destino)
@@ -177,37 +186,44 @@ class Backup:
                     continue
                 arco = prefixo + '/' + os.path.relpath(caminho, raiz).replace(os.sep, '/')
                 try:
-                    if nome.endswith('.sqlite3'):
-                        self._adicionar_sqlite(z, caminho, arco)
-                    else:
-                        z.write(caminho, arco)
+                    z.write(caminho, arco)
                     arquivos += 1
                     bytes_ += os.stat(caminho).st_size
                 except OSError:
                     log.warning('Arquivo fora do backup: %s', caminho, exc_info=True)
         return arquivos, bytes_
 
-    def _adicionar_sqlite(self, z, caminho, arco):
-        """Copia o SQLite pela API de backup (um arquivo aberto no meio de uma escrita continua íntegro)."""
-        descritor, temporario = tempfile.mkstemp(prefix='.copia-', suffix='.sqlite3', dir=self.dir)
-        os.close(descritor)
+    # Banco de dados -----------------------------------------------------------------------------
+
+    def _env_banco(self):
+        """Variáveis PG* para o pg_dump/psql, para a senha não aparecer na linha de comando."""
+        if self.banco is None:
+            raise BackupInvalido('O banco de dados não está configurado')
+        dados = psycopg.conninfo.conninfo_to_dict(self.banco.url)
+        nomes = {'host': 'PGHOST', 'port': 'PGPORT', 'user': 'PGUSER', 'password': 'PGPASSWORD',
+                 'dbname': 'PGDATABASE', 'sslmode': 'PGSSLMODE'}
+        return {**os.environ, **{nomes[k]: str(v) for k, v in dados.items() if k in nomes}}
+
+    def _executar(self, comando, **opcoes):
         try:
-            origem = sqlite3.connect(caminho, timeout=10)
-            destino = sqlite3.connect(temporario)
-            try:
-                origem.backup(destino)
-            finally:
-                destino.close()
-                origem.close()
-            z.write(temporario, arco)
-        except sqlite3.Error:
-            log.warning('SQLite copiado como arquivo comum: %s', caminho, exc_info=True)
-            z.write(caminho, arco)
-        finally:
-            try:
-                os.remove(temporario)
-            except FileNotFoundError:
-                pass
+            return subprocess.run(comando, env=self._env_banco(), capture_output=True, check=True, timeout=600,
+                                  **opcoes)
+        except FileNotFoundError as erro:
+            raise RuntimeError(f'{comando[0]} não encontrado (instale o postgresql-client)') from erro
+        except subprocess.CalledProcessError as erro:
+            detalhe = (erro.stderr or b'').decode('utf-8', 'replace').strip()
+            raise RuntimeError(f'{comando[0]} falhou: {detalhe}') from erro
+
+    def _dump(self):
+        """SQL (bytes) que recria as tabelas do app, com os dados, no esquema em uso."""
+        esquema = self.banco.esquema if self.banco else 'public'
+        comando = ['pg_dump', '--clean', '--if-exists', '--no-owner', '--no-privileges']
+        for tabela in TABELAS:
+            comando += ['--table', f'{esquema}.{tabela}']
+        return self._executar(comando).stdout
+
+    def _restaurar_banco(self, arquivo):
+        self._executar(['psql', '--quiet', '--single-transaction', '--set', 'ON_ERROR_STOP=1', '--file', arquivo])
 
     def _ignorar(self, caminho):
         nome = os.path.basename(caminho)
@@ -347,7 +363,7 @@ class Backup:
                         raise BackupInvalido('O backup contém caminhos inválidos')
                     if partes.parts[0] not in RAIZES:
                         raise BackupInvalido('O backup não tem o formato esperado')
-                    if partes.parts[0] == 'manifesto.json' and len(partes.parts) != 1:
+                    if partes.parts[0] in ('manifesto.json', 'banco.sql') and len(partes.parts) != 1:
                         raise BackupInvalido('O backup não tem o formato esperado')
                     if stat.S_ISLNK(info.external_attr >> 16):
                         raise BackupInvalido('O backup contém links simbólicos')
@@ -385,6 +401,10 @@ class Backup:
         for prefixo, destino in (('planos', self.cfg.planos_dir), ('resultados', self.cfg.resultados_dir)):
             self._limpar(destino, self._preservar(destino))
             resumo[prefixo] = self._copiar(os.path.join(staging, prefixo), destino)
+        dump = os.path.join(staging, 'banco.sql')
+        if os.path.isfile(dump):
+            self._restaurar_banco(dump)
+            resumo['banco'] = True
         return resumo
 
     def _preservar(self, destino):

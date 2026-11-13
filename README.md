@@ -37,11 +37,21 @@ Na primeira vez, baixe o modelo:
 docker compose -f docker-compose.dev.yml exec ollama ollama pull qwen2.5:7b
 ```
 
-Para rodar os testes:
+Para rodar os testes (precisam de um PostgreSQL, que é o serviço `postgres` do compose de desenvolvimento; cada teste usa um esquema próprio, apagado ao final):
 
 ```bash
-docker compose -f docker-compose.dev.yml exec app pytest -q
+docker compose -f docker-compose.dev.yml exec -e TEST_DATABASE_URL=postgresql://planos:planos@postgres:5432/planos app pytest -q
 ```
+
+#### Banco de dados
+
+Usuários e revisões ficam no PostgreSQL (variável `DATABASE_URL`; serviço `postgres` nos dois composes). Os demais dados continuam em arquivos. Para trazer os dados dos antigos `usuarios.sqlite3` e `revisoes.sqlite3` (em `resultados/`), rode uma vez, com o app e o banco no ar:
+
+```bash
+docker compose exec app python -m app.migrar_sqlite
+```
+
+Pode ser repetido sem duplicar. Depois, os arquivos `.sqlite3` podem ser apagados.
 
 ### No servidor (produção)
 
@@ -88,7 +98,8 @@ O sistema faz um backup automático todo dia às `BACKUP_HORA` (padrão **3h**, 
 Cada backup é um ZIP com:
 
 - `planos/`: os PDFs da pasta de planos;
-- `resultados/`: usuários e revisões (SQLite copiados pela API de backup do SQLite, para não pegar um arquivo no meio de uma escrita), `validacao_planos.csv`, `donos.json`, `ocultos.json`, `liberacoes.json`, `assinaturas.json`, o histórico das validações e os PDFs assinados;
+- `resultados/`: `validacao_planos.csv`, `donos.json`, `ocultos.json`, `liberacoes.json`, `assinaturas.json`, o histórico das validações e os PDFs assinados;
+- `banco.sql`: dump do PostgreSQL (usuários e revisões), feito com `pg_dump` e restaurado com `psql`;
 - `manifesto.json`: formato, data, origem e contagens do backup.
 
 A restauração substitui **todos** os dados atuais pelos do ZIP. Antes de substituir, o próprio sistema cria um backup do estado atual, com a origem “Antes de restaurar”, então dá para desfazer. A restauração é recusada enquanto houver uma validação em andamento. Os backups manuais e os de antes de restaurar não são apagados automaticamente.
@@ -99,6 +110,7 @@ O backup fica na mesma VPS: ele protege contra exclusões e erros de operação,
 unzip -o /srv/validador-planos/backups/AAAAMMDD-HHMMSS-manual.zip -d /tmp/restaurar
 rsync -a --delete /tmp/restaurar/planos/ /srv/validador-planos/planos/
 rsync -a --delete /tmp/restaurar/resultados/ /srv/validador-planos/resultados/
+docker compose exec -T postgres psql -U planos -d planos -v ON_ERROR_STOP=1 --single-transaction < /tmp/restaurar/banco.sql
 ```
 
 O serviço `preparar-pastas` ajusta o dono das três pastas a cada deploy. As variáveis `BACKUP_HORA`, `BACKUP_MANTER`, `BACKUP_AGENDAR` e `BACKUPS_HOST_DIR` estão explicadas no `.env.example`.

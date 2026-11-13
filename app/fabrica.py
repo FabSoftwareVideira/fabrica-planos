@@ -1,4 +1,5 @@
 import logging
+import os
 from dataclasses import dataclass
 
 from flask import Flask
@@ -7,6 +8,7 @@ from . import rotas
 from .paginas import comum as paginas
 from .armazenamento.revisoes import Revisoes
 from .armazenamento.usuarios import Usuarios
+from .banco import Banco
 from .config import Config, carregar
 from .servicos.assinatura import Assinaturas
 from .servicos.backup import Backup
@@ -34,11 +36,13 @@ def criar_app(cfg=None, executar=None):
     validador = Validador(cfg, executar) if executar else Validador(cfg)
     app = Flask(__name__)
     app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # soma dos PDFs de um envio
-    usuarios = Usuarios(cfg.usuarios_path)
-    revisoes = Revisoes(cfg.revisoes_path)  # excluir um plano também apaga a revisão dele
+    banco = Banco(cfg.database_url)
+    os.makedirs(cfg.resultados_dir, exist_ok=True)
+    usuarios = Usuarios(banco)
+    revisoes = Revisoes(banco)  # excluir um plano também apaga a revisão dele
     revisao = Revisao(cfg, revisoes, usuarios)
     assinaturas = Assinaturas(cfg, revisao)
-    backup = Backup(cfg, validador)
+    backup = Backup(cfg, validador, banco)
     app.extensions['servicos'] = Servicos(cfg, validador, PastaDePlanos(cfg, validador, revisoes, assinaturas),
                                            usuarios, revisao, assinaturas, backup)
     paginas.registrar(app)

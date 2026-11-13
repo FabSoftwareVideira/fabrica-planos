@@ -1,9 +1,7 @@
-import os
-import sqlite3
 import threading
 from datetime import datetime
 
-# Revisões manuais da avaliação da IA, em resultados/revisoes.sqlite3: uma por plano (a mais recente),
+# Revisões manuais da avaliação da IA, no PostgreSQL (tabela revisoes): uma por plano (a mais recente),
 # feita por quem é da coordenação, do NDE ou do NDB do curso do plano. A assinatura (tamanho e data do
 # PDF revisado) diz se a revisão ainda vale: um PDF novo com o mesmo nome a invalida (ver servicos/revisao.py).
 
@@ -24,17 +22,14 @@ CREATE TABLE IF NOT EXISTS revisoes (
 
 
 class Revisoes:
-    def __init__(self, caminho):
-        self.caminho = caminho
+    def __init__(self, banco):
+        self.banco = banco
         self._trava = threading.Lock()
-        os.makedirs(os.path.dirname(caminho), exist_ok=True)
         with self._conexao() as con:
             con.execute(ESQUEMA)
 
     def _conexao(self):
-        con = sqlite3.connect(self.caminho, timeout=10)
-        con.row_factory = sqlite3.Row
-        return con
+        return self.banco.conexao()
 
     def salvar(self, arquivo, assinatura, status, status_ia, comentario, curso, revisor_email, revisor_nome, papel):
         """Grava a revisão do plano, substituindo a anterior. Devolve a revisão gravada."""
@@ -44,13 +39,14 @@ class Revisoes:
             'papel': papel, 'revisado_em': datetime.now().isoformat(timespec='seconds'),
         }
         with self._trava, self._conexao() as con:
-            con.execute(f'INSERT OR REPLACE INTO revisoes ({", ".join(revisao)}) '
-                        f'VALUES ({", ".join("?" * len(revisao))})', list(revisao.values()))
+            atualizar = ', '.join(f'{c} = EXCLUDED.{c}' for c in revisao if c != 'arquivo')
+            con.execute(f'INSERT INTO revisoes ({", ".join(revisao)}) VALUES ({", ".join(["%s"] * len(revisao))}) '
+                        f'ON CONFLICT (arquivo) DO UPDATE SET {atualizar}', list(revisao.values()))
         return revisao
 
     def obter(self, arquivo):
         with self._conexao() as con:
-            linha = con.execute('SELECT * FROM revisoes WHERE arquivo = ?', (arquivo,)).fetchone()
+            linha = con.execute('SELECT * FROM revisoes WHERE arquivo = %s', (arquivo,)).fetchone()
         return dict(linha) if linha else None
 
     def todas(self):
@@ -60,4 +56,4 @@ class Revisoes:
 
     def remover(self, arquivo):
         with self._trava, self._conexao() as con:
-            return con.execute('DELETE FROM revisoes WHERE arquivo = ?', (arquivo,)).rowcount > 0
+            return con.execute('DELETE FROM revisoes WHERE arquivo = %s', (arquivo,)).rowcount > 0

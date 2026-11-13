@@ -1,9 +1,7 @@
-import os
-import sqlite3
 import threading
 from datetime import datetime, timedelta
 
-# Usuários que já entraram no sistema, em resultados/usuarios.sqlite3: e-mail, nome (lido no login),
+# Usuários que já entraram no sistema, no PostgreSQL (tabelas usuarios e papeis_curso): e-mail, nome (lido no login),
 # se está ativo, primeiro e último acesso, e os papéis em cursos (coordenação, NDE ou NDB), que dão
 # direito a revisar os planos daquele curso. Quem é administrador continua vindo de ADMIN_EMAILS.
 
@@ -34,7 +32,7 @@ PAPEIS_CURSO = {'coordenador': 'Coordenação', 'nde': 'NDE', 'ndb': 'NDB'}
 
 ORDENS = {
     'acesso': 'ultimo_acesso DESC, email',
-    'nome': "CASE WHEN nome = '' THEN 1 ELSE 0 END, nome COLLATE NOCASE, email",
+    'nome': "CASE WHEN nome = '' THEN 1 ELSE 0 END, lower(nome), email",
     'email': 'email',
     'cadastro': 'primeiro_acesso DESC, email',
 }
@@ -49,68 +47,67 @@ def _como_texto(texto):
 
 
 class Usuarios:
-    def __init__(self, caminho):
-        self.caminho = caminho
+    def __init__(self, banco):
+        self.banco = banco
         self._trava = threading.Lock()
-        os.makedirs(os.path.dirname(caminho), exist_ok=True)
         with self._conexao() as con:
             con.execute(ESQUEMA)
             con.execute(ESQUEMA_PAPEIS)
 
     def _conexao(self):
-        con = sqlite3.connect(self.caminho, timeout=10)
-        con.row_factory = sqlite3.Row
-        return con
+        return self.banco.conexao()
 
     def registrar_acesso(self, email, nome=''):
         """Cadastra no primeiro acesso; depois atualiza o nome (quando vem um) e o último acesso, no máximo
         a cada INTERVALO_ACESSO. Devolve o usuário (dict)."""
         agora = datetime.now()
         with self._trava, self._conexao() as con:
-            atual = con.execute('SELECT * FROM usuarios WHERE email = ?', (email,)).fetchone()
+            atual = con.execute('SELECT * FROM usuarios WHERE email = %s', (email,)).fetchone()
             if atual is None:
-                con.execute('INSERT INTO usuarios (email, nome, primeiro_acesso, ultimo_acesso) VALUES (?, ?, ?, ?)',
+                con.execute('INSERT INTO usuarios (email, nome, primeiro_acesso, ultimo_acesso) '
+                            'VALUES (%s, %s, %s, %s)',
                             (email, nome, agora.isoformat(timespec='seconds'), agora.isoformat(timespec='seconds')))
-                return dict(con.execute('SELECT * FROM usuarios WHERE email = ?', (email,)).fetchone())
+                return dict(con.execute('SELECT * FROM usuarios WHERE email = %s', (email,)).fetchone())
             nome_novo = nome or atual['nome']
             antigo = datetime.fromisoformat(atual['ultimo_acesso'])
             if nome_novo != atual['nome'] or agora - antigo >= INTERVALO_ACESSO:
-                con.execute('UPDATE usuarios SET nome = ?, ultimo_acesso = ? WHERE email = ?',
+                con.execute('UPDATE usuarios SET nome = %s, ultimo_acesso = %s WHERE email = %s',
                             (nome_novo, agora.isoformat(timespec='seconds'), email))
-                atual = con.execute('SELECT * FROM usuarios WHERE email = ?', (email,)).fetchone()
+                atual = con.execute('SELECT * FROM usuarios WHERE email = %s', (email,)).fetchone()
             return dict(atual)
 
     def obter(self, email):
         with self._conexao() as con:
-            linha = con.execute('SELECT * FROM usuarios WHERE email = ?', (email,)).fetchone()
+            linha = con.execute('SELECT * FROM usuarios WHERE email = %s', (email,)).fetchone()
         return dict(linha) if linha else None
 
     def definir_ativo(self, email, ativo):
         """Ativa ou desativa; devolve False se o usuário não existir."""
         with self._trava, self._conexao() as con:
-            return con.execute('UPDATE usuarios SET ativo = ? WHERE email = ?', (1 if ativo else 0, email)).rowcount > 0
+            return con.execute('UPDATE usuarios SET ativo = %s WHERE email = %s',
+                               (1 if ativo else 0, email)).rowcount > 0
 
     def listar(self, busca='', situacao='', papel='', admins=(), ordem='acesso', pagina=1, por_pagina=20):
         """Página de usuários filtrada. situacao: 'ativos', 'inativos' ou '' (todos); papel: 'admin',
         'consulta' ou '' (todos), conforme a lista de administradores. Devolve (usuários, total)."""
         condicoes, valores = [], []
         if busca:
-            condicoes.append("(lower(nome) LIKE ? OR lower(email) LIKE ?)")
+            condicoes.append("(lower(nome) LIKE %s OR lower(email) LIKE %s)")
             valores += ['%' + _como_texto(busca) + '%'] * 2
         if situacao in ('ativos', 'inativos'):
-            condicoes.append('ativo = ?')
+            condicoes.append('ativo = %s')
             valores.append(1 if situacao == 'ativos' else 0)
         if papel == 'revisor':
             condicoes.append('email IN (SELECT email FROM papeis_curso)')
         elif papel in ('admin', 'consulta'):
-            marcas = ','.join('?' * len(admins)) or "''"
+            marcas = ','.join(['%s'] * len(admins)) or "''"
             condicoes.append(f"email {'IN' if papel == 'admin' else 'NOT IN'} ({marcas})")
             valores += list(admins)
         onde = ('WHERE ' + ' AND '.join(condicoes)) if condicoes else ''
         with self._conexao() as con:
-            total = con.execute(f'SELECT count(*) FROM usuarios {onde}', valores).fetchone()[0]
+            total = con.execute(f'SELECT count(*) AS n FROM usuarios {onde}', valores).fetchone()['n']
             linhas = con.execute(f'SELECT * FROM usuarios {onde} ORDER BY {ORDENS.get(ordem, ORDENS["acesso"])} '
-                                 'LIMIT ? OFFSET ?', valores + [por_pagina, (pagina - 1) * por_pagina]).fetchall()
+                                 'LIMIT %s OFFSET %s', valores + [por_pagina, (pagina - 1) * por_pagina]).fetchall()
         return [dict(l) for l in linhas], total
 
     # Papéis em cursos ------------------------------------------------------------------------------
@@ -118,7 +115,7 @@ class Usuarios:
     def papeis(self, email):
         """[(curso, papel)] do usuário, em ordem de curso."""
         with self._conexao() as con:
-            linhas = con.execute('SELECT curso, papel FROM papeis_curso WHERE email = ? ORDER BY curso, papel',
+            linhas = con.execute('SELECT curso, papel FROM papeis_curso WHERE email = %s ORDER BY curso, papel',
                                  (email,)).fetchall()
         return [(l['curso'], l['papel']) for l in linhas]
 
@@ -127,7 +124,7 @@ class Usuarios:
         emails = list(emails)
         if not emails:
             return {}
-        marcas = ','.join('?' * len(emails))
+        marcas = ','.join(['%s'] * len(emails))
         with self._conexao() as con:
             linhas = con.execute(f'SELECT email, curso, papel FROM papeis_curso WHERE email IN ({marcas}) '
                                  'ORDER BY curso, papel', emails).fetchall()
@@ -139,23 +136,25 @@ class Usuarios:
     def adicionar_papel(self, email, curso, papel):
         """Dá ao usuário (já cadastrado) o papel no curso; devolve False se o usuário não existir."""
         with self._trava, self._conexao() as con:
-            if con.execute('SELECT 1 FROM usuarios WHERE email = ?', (email,)).fetchone() is None:
+            if con.execute('SELECT 1 FROM usuarios WHERE email = %s', (email,)).fetchone() is None:
                 return False
-            con.execute('INSERT OR IGNORE INTO papeis_curso (email, curso, papel) VALUES (?, ?, ?)',
-                        (email, curso, papel))
+            con.execute('INSERT INTO papeis_curso (email, curso, papel) VALUES (%s, %s, %s) '
+                        'ON CONFLICT DO NOTHING', (email, curso, papel))
             return True
 
     def remover_papel(self, email, curso, papel):
         with self._trava, self._conexao() as con:
-            return con.execute('DELETE FROM papeis_curso WHERE email = ? AND curso = ? AND papel = ?',
+            return con.execute('DELETE FROM papeis_curso WHERE email = %s AND curso = %s AND papel = %s',
                                (email, curso, papel)).rowcount > 0
 
     def cursos_com_papel(self):
         """Siglas dos cursos que já têm alguém com papel (para a lista de cursos da administração)."""
         with self._conexao() as con:
-            return [l[0] for l in con.execute('SELECT DISTINCT curso FROM papeis_curso ORDER BY curso')]
+            return [l['curso'] for l in con.execute('SELECT DISTINCT curso FROM papeis_curso ORDER BY curso')]
 
     def contar(self):
         with self._conexao() as con:
-            total, ativos = con.execute('SELECT count(*), coalesce(sum(ativo), 0) FROM usuarios').fetchone()
+            linha = con.execute('SELECT count(*) AS total, coalesce(sum(ativo), 0)::int AS ativos '
+                                'FROM usuarios').fetchone()
+        total, ativos = linha['total'], linha['ativos']
         return {'total': total, 'ativos': ativos, 'inativos': total - ativos}

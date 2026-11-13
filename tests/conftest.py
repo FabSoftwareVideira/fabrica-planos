@@ -1,3 +1,27 @@
+import os
+import uuid
+
+import pytest
+
+
+@pytest.fixture(autouse=True)
+def banco_isolado(monkeypatch):
+    """Cada teste usa um esquema próprio do PostgreSQL apontado por TEST_DATABASE_URL, apagado ao final.
+    Sem a variável, os testes que sobem o app falham (os demais rodam normalmente)."""
+    url = os.environ.get('TEST_DATABASE_URL')
+    if not url:
+        monkeypatch.delenv('DATABASE_URL', raising=False)
+        yield
+        return
+    esquema = 'teste_' + uuid.uuid4().hex[:12]
+    monkeypatch.setenv('DATABASE_URL', url)
+    monkeypatch.setenv('DB_ESQUEMA', esquema)
+    yield
+    import psycopg
+    with psycopg.connect(url, autocommit=True) as con:
+        con.execute(f'DROP SCHEMA IF EXISTS {esquema} CASCADE')
+
+
 def gerar_pdf(linhas=()):
     """PDF mínimo válido de uma página; sem linhas, a página não tem texto (como um digitalizado)."""
     conteudo = 'BT /F1 10 Tf 40 800 Td 12 TL\n' + ''.join(

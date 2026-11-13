@@ -24,6 +24,7 @@ services:
       - OLLAMA_MODEL=${DEV_OLLAMA_MODEL:-qwen2.5:7b}
       - OLLAMA_NUM_CTX=${DEV_OLLAMA_NUM_CTX:-8192}
       - PDF_MAX_MB=10
+      - DATABASE_URL=postgresql://planos:${DEV_POSTGRES_PASSWORD:-planos}@postgres:5432/planos
       # Login simulado: em vez do Google, escolhe-se uma persona (administração, coordenação, NDE, NDB,
       # professor) ou qualquer e-mail em /dev/login. Com DEV_EXIGIR_LOGIN=0, sem login nenhum: todo
       # acesso conta como administrador.
@@ -53,6 +54,28 @@ services:
     extra_hosts:
       # host.docker.internal também no Linux (no Windows e no macOS ele já existe)
       - "host.docker.internal:host-gateway"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # PostgreSQL do desenvolvimento: usuários e revisões. Dados no volume validador-planos-dev_pgdata;
+  # a porta fica só no seu computador, para conectar com psql ou DBeaver (DEV_POSTGRES_PORT).
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=planos
+      - POSTGRES_PASSWORD=${DEV_POSTGRES_PASSWORD:-planos}
+      - POSTGRES_DB=planos
+    ports:
+      - "127.0.0.1:${DEV_POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U planos -d planos"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
   # Ollama na GPU NVIDIA (precisa do Docker com suporte a GPU: Docker Desktop + driver NVIDIA no Windows,
   # ou o NVIDIA Container Toolkit no Linux).
@@ -85,6 +108,7 @@ services:
         aliases: [ollama]
 
 volumes:
+  pgdata:
   # Modelos baixados: por padrão o mesmo volume do docker-compose.yml (validador-planos_ollama-data),
   # para não baixar de novo os ~5 GB do qwen2.5:7b se a produção já rodou nesta máquina.
   modelos:

@@ -27,6 +27,36 @@ services:
       - CHOWN
       - DAC_READ_SEARCH
 
+  postgres:
+    # Usuários e revisões. Só o app o alcança (rede interna do compose, sem "ports"). Os dados ficam no volume
+    # pgdata; o backup do app (pg_dump dentro do ZIP) é a cópia de segurança.
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=planos
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD}
+      - POSTGRES_DB=planos
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U planos -d planos"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: ${POSTGRES_MEMORIA:-512m}
+          cpus: "${POSTGRES_CPUS:-0.5}"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   app:
     build:
       context: .
@@ -46,6 +76,7 @@ services:
       - OLLAMA_NUM_CTX=${OLLAMA_NUM_CTX}
       - AGENDAMENTO_HORA=${AGENDAMENTO_HORA}
       - PDF_MAX_MB=${PDF_MAX_MB:-10}
+      - DATABASE_URL=postgresql://planos:${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD}@postgres:5432/planos
       - AGENDAR=1
       # Backup diário de todos os dados (ver README, "Backup e restauração")
       - BACKUPS_DIR=/data/backups
@@ -84,6 +115,8 @@ services:
     depends_on:
       preparar-pastas:
         condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
     # Saudável quando o gunicorn responde /health (a imagem não tem curl: usa o Python dela)
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
@@ -209,3 +242,6 @@ networks:
   ollama-shared:
     name: ollama-shared
     external: true
+
+volumes:
+  pgdata:
