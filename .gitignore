@@ -14,3 +14,7 @@ graphify-out/
 .graphify/
 __pycache__/
 *.pyc
+# Cobertura dos testes (pytest --cov)
+.coverage
+.coverage.*
+htmlcov/

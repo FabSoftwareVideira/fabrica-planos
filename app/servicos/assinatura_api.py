@@ -81,7 +81,7 @@ def acs_do_cms(cms_der):
     """Certificados de AC que vieram dentro do CMS (a cadeia do certificado do professor)."""
     try:
         certificados = cms.ContentInfo.load(cms_der)['content']['certificates'] or []
-    except (ValueError, KeyError):
+    except (ValueError, KeyError, TypeError):  # TypeError: estrutura ASN.1 válida, mas sem conteúdo de CMS
         return []
     return [c.chosen for c in certificados if c.name == 'certificate' and c.chosen.ca]
 

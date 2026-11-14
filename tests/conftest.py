@@ -22,6 +22,29 @@ def banco_isolado(monkeypatch):
         con.execute(f'DROP SCHEMA IF EXISTS {esquema} CASCADE')
 
 
+@pytest.fixture
+def fabrica(tmp_path):
+    """Cria a aplicação (teste de integração) com pastas temporárias; as avaliações rodam na hora, sem
+    thread. Devolve (cliente de teste, pasta de planos)."""
+    from app.config import Config
+    from app.fabrica import criar_app
+
+    def criar(**opcoes):
+        planos = tmp_path / 'planos'
+        planos.mkdir(exist_ok=True)
+        cfg = Config(
+            planos_dir=str(planos), resultados_dir=str(tmp_path / 'res'), ollama_url='http://ollama:11434',
+            modelo='m', num_ctx=1, hora_agendada=5, agendar=False, pdf_max_mb=1, **opcoes,
+        )
+        return criar_app(cfg, executar=lambda tarefa: tarefa()).test_client(), planos
+    return criar
+
+
+def servicos_de(cliente):
+    """Serviços (camada de negócio) do app por trás do cliente de teste."""
+    return cliente.application.extensions['servicos']
+
+
 def gerar_pdf(linhas=()):
     """PDF mínimo válido de uma página; sem linhas, a página não tem texto (como um digitalizado)."""
     conteudo = 'BT /F1 10 Tf 40 800 Td 12 TL\n' + ''.join(

@@ -44,6 +44,19 @@ Para rodar os testes (precisam de um PostgreSQL, que é o serviço `postgres` do
 docker compose -f docker-compose.dev.yml exec -e TEST_DATABASE_URL=postgresql://planos:planos@postgres:5432/planos app pytest -q
 ```
 
+Com o relatório de cobertura (o CI exige pelo menos 90%, configurado em `.coveragerc`):
+
+```bash
+docker compose -f docker-compose.dev.yml exec -e TEST_DATABASE_URL=postgresql://planos:planos@postgres:5432/planos app pytest -q --cov --cov-report=term-missing
+```
+
+Os testes ficam em `tests/`:
+
+- **Unitários**, sem o app nem a rede: `test_nomes.py` (conferência do nome do docente), `test_config.py`, `test_validador.py` (fila de avaliação), `test_backup_servico.py`, `test_assinatura_api.py`, além dos da extração e da avaliação (`test_extrator.py`, `test_secoes.py`, `test_regras.py`, `test_identificacao.py`, `test_csv.py`, `test_ollama.py`, `test_pipeline.py`, `test_assinatura.py`).
+- **Integração**, com o app montado (`fabrica`, em `conftest.py`) e o PostgreSQL: `test_web.py` (fluxos principais), `test_rotas.py` (erros e bordas das rotas), `test_armazenamento.py` (tabelas e arquivos JSON) e `test_backup.py`.
+
+A IA (Ollama), o gov.br e o Google nunca são chamados: os testes trocam essas chamadas por respostas falsas.
+
 #### Banco de dados
 
 Usuários, papéis em cursos e revisões ficam no PostgreSQL (variável `DATABASE_URL`; serviço `postgres` nos dois composes). Os demais dados continuam em arquivos.

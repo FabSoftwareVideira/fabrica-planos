@@ -1,2 +1,4 @@
 -r requirements.txt
 pytest==8.3.3
+# Cobertura dos testes (configuração em .coveragerc)
+pytest-cov==6.0.0

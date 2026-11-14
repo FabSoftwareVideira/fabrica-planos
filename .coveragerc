@@ -1,0 +1,15 @@
+# Cobertura dos testes (pytest --cov). O CI falha se ela cair abaixo de fail_under.
+[run]
+source = app
+branch = True
+# Pontos de entrada, sem lógica própria: o gunicorn (web.py) e o script de depuração da extração
+omit =
+    app/web.py
+    app/depurar.py
+
+[report]
+fail_under = 90
+show_missing = True
+skip_covered = True
+exclude_also =
+    if __name__ == .__main__.:

@@ -148,7 +148,8 @@ def nomes_parecidos(a, b):
         return False
 
     def casa(p):
-        return any(p == q or (len(p) == 1 and q.startswith(p))
+        # A inicial pode estar em qualquer um dos dois nomes (A. Paula Rocha / Ana Paula Rocha)
+        return any(p == q or (len(p) == 1 and q.startswith(p)) or (len(q) == 1 and p.startswith(q))
                    or (min(len(p), len(q)) >= 4 and _uma_letra(p, q)) for q in maior)
 
     casadas = sum(1 for p in menor if casa(p))
