@@ -1,0 +1,32 @@
+{% extends 'disciplinas_base.html' %}
+{#- Etapa 1: o período letivo do novo planejamento (o próximo é sugerido; semestral ou anual conforme o curso). -#}
+
+{% block passo %}
+<section class="br-card">
+  <div class="card-header"><h2>1. Período letivo</h2></div>
+  <div class="card-content">
+    <p class="ajuda">Escolha o {{ 'ano' if tipo == 'anual' else 'semestre' }} que você vai planejar. Sugerimos o próximo ainda sem planejamento. O planejamento começa como <strong>rascunho</strong>: os docentes só veem as disciplinas depois que você publicar, na última etapa.</p>
+    <form method="post" action="/disciplinas/novo" class="etapa-form">
+      {% if cursos|length > 1 %}
+      <div class="campo">
+        <label for="curso">Curso</label>
+        <select id="curso" name="curso">
+          {% for sigla, nome in cursos.items() %}<option value="{{ sigla }}"{% if sigla == curso %} selected{% endif %}>{{ nome }}</option>{% endfor %}
+        </select>
+      </div>
+      {% else %}<input type="hidden" name="curso" value="{{ curso }}">{% endif %}
+      <div class="campo periodo-grande">
+        <label for="periodo">{{ 'Ano letivo' if tipo == 'anual' else 'Semestre (ano.semestre)' }}</label>
+        <input id="periodo" name="periodo" value="{{ sugestao }}" required autofocus
+               pattern="{{ '\\d{4}' if tipo == 'anual' else '\\d{4}\\.[12]' }}" placeholder="{{ sugestao }}">
+        <p class="dica">{{ 'Ex.: 2027.' if tipo == 'anual' else 'Ex.: 2027.1 para o 1º semestre de 2027, 2027.2 para o 2º.' }}</p>
+      </div>
+      {% if existentes %}<p class="dica">Já planejados: {{ existentes|join(', ') }}. Para continuar um deles, volte à <a href="/disciplinas">lista</a>.</p>{% endif %}
+      <div class="navegacao">
+        <a class="br-button secondary" href="/disciplinas">Cancelar</a>
+        <button class="br-button primary" type="submit">Começar o planejamento <i class="fas fa-arrow-right" aria-hidden="true"></i></button>
+      </div>
+    </form>
+  </div>
+</section>
+{% endblock %}

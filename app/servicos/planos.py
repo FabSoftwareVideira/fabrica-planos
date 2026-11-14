@@ -128,7 +128,7 @@ class PastaDePlanos:
         só conferidos: se não baterem com a disciplina, o plano entra com um aviso, que o professor e a
         coordenação veem (`nomes_docentes`: os nomes do cadastro dos docentes da disciplina)."""
         oferta = self.disciplinas.oferta(oferta_id) if self.disciplinas else None
-        if not oferta:
+        if not oferta or not self.disciplinas.publicado(oferta):
             raise Recusado('Disciplina não encontrada.')
         if self.cfg.exigir_login and email not in oferta['docentes']:
             raise Recusado('Você não é docente desta disciplina. Peça à coordenação do curso que vincule você a ela.')

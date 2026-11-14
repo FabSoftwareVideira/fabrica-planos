@@ -1,0 +1,84 @@
+{% extends 'disciplinas_base.html' %}
+{#- Etapa 3: as disciplinas do período, por fase: renomear (só neste período), código, carga, turma, outra
+    turma e remover; e incluir outra disciplina da matriz ou uma avulsa. Cada ação salva na hora. -#}
+
+{% block passo %}
+<section class="br-card">
+  <div class="card-header"><h2>3. Disciplinas do período <span class="contagem">({{ total }})</span></h2></div>
+  <div class="card-content">
+    <p class="ajuda">Confira as disciplinas que entraram pelas fases. Renomeie as optativas (o nome vale só em {{ periodo }}; a matriz não muda), abra outra turma quando houver duas (cada turma tem o seu plano, como no SIGAA) e tire as que não serão ofertadas. Cada alteração já fica salva.</p>
+    {% for fase, ofertas in grade %}
+    <h3 class="fase">{{ '%dª fase' % fase if fase else 'Avulsas (sem fase)' }} <span class="contagem">{{ ofertas|length }}</span></h3>
+    <ul class="linhas-oferta">
+      {% for o in ofertas %}
+      <li id="oferta-{{ o.id }}">
+        <details>
+          <summary>
+            <span class="nome-oferta">{{ o.nome }}</span>
+            <span class="sub">{{ o.codigo or 'sem código' }} · {{ o.carga_horaria }}h · Turma {{ o.turma }}</span>
+            <span class="marcas">
+              {% if not o.componente_id %}<span class="tag avulsa">avulsa</span>{% endif %}
+              {% if o.tem_plano %}<span class="tag enviado"><i class="fas fa-check" aria-hidden="true"></i> plano enviado</span>{% endif %}
+              {% if o.tem_plano and o.aviso %}<span class="tag aviso" title="{{ o.aviso }}"><i class="fas fa-exclamation-triangle" aria-hidden="true"></i> aviso</span>{% endif %}
+              <span class="editar-dica"><i class="fas fa-pen" aria-hidden="true"></i> editar</span>
+            </span>
+            {% if o.tem_plano and o.aviso %}<span class="aviso-plano">{{ o.aviso }}</span>{% endif %}
+          </summary>
+          <form class="linha" method="post" action="/disciplinas/{{ o.id }}/alterar">
+            <div class="campo codigo"><label for="codigo-{{ o.id }}">Código</label><input id="codigo-{{ o.id }}" name="codigo" value="{{ o.codigo }}"></div>
+            <div class="campo nome"><label for="nome-{{ o.id }}">Nome em {{ periodo }}</label><input id="nome-{{ o.id }}" name="nome" value="{{ o.nome }}" required></div>
+            <div class="campo carga"><label for="carga-{{ o.id }}">Carga (h)</label><input id="carga-{{ o.id }}" name="carga_horaria" type="number" min="0" value="{{ o.carga_horaria }}"></div>
+            <div class="campo turma"><label for="turma-{{ o.id }}">Turma</label><input id="turma-{{ o.id }}" name="turma" value="{{ o.turma }}" required></div>
+            <button class="br-button secondary small" type="submit">Salvar</button>
+          </form>
+          <div class="linha acoes-oferta">
+            <form method="post" action="/disciplinas/{{ o.id }}/turma"><button class="br-button secondary small" type="submit"><i class="fas fa-clone" aria-hidden="true"></i> Abrir outra turma</button></form>
+            <form method="post" action="/disciplinas/{{ o.id }}/remover" onsubmit='return confirm({{ ("Tirar " ~ o.nome ~ " (turma " ~ o.turma ~ ") de " ~ periodo ~ "?")|tojson }})'><button class="br-button small remover" type="submit"{% if o.tem_plano %} disabled title="Já tem plano enviado"{% endif %}><i class="fas fa-trash-alt" aria-hidden="true"></i> Tirar do período</button></form>
+          </div>
+        </details>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="vazio">Nenhuma disciplina ainda. Volte à etapa <a href="/disciplinas/{{ curso }}/{{ periodo }}/fases">Fases</a> ou inclua abaixo.</p>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="br-card">
+  <div class="card-header"><h2>Incluir outra disciplina</h2></div>
+  <div class="card-content">
+    <form class="linha" method="post" action="/disciplinas/incluir">
+      <input type="hidden" name="curso" value="{{ curso }}"><input type="hidden" name="periodo" value="{{ periodo }}">
+      <div class="campo largo">
+        <label for="componente">Da matriz do curso (de qualquer fase)</label>
+        <select id="componente" name="componente" required>
+          <option value="">Escolha a disciplina</option>
+          {% for fase, componentes in fora_do_periodo if componentes %}
+          <optgroup label="{{ fase }}ª fase">
+            {% for c in componentes %}<option value="{{ c.id }}">{{ c.codigo ~ ' · ' if c.codigo }}{{ c.nome }} ({{ c.carga_horaria }}h)</option>{% endfor %}
+          </optgroup>
+          {% endfor %}
+        </select>
+      </div>
+      <button class="br-button secondary small" type="submit"><i class="fas fa-plus" aria-hidden="true"></i> Incluir</button>
+    </form>
+    <details class="avulsa-bloco">
+      <summary>Disciplina fora da matriz (avulsa, só neste período)</summary>
+      <form class="linha" method="post" action="/disciplinas/incluir">
+        <input type="hidden" name="curso" value="{{ curso }}"><input type="hidden" name="periodo" value="{{ periodo }}">
+        <div class="campo codigo"><label for="av-codigo">Código</label><input id="av-codigo" name="codigo" placeholder="opcional"></div>
+        <div class="campo nome"><label for="av-nome">Nome</label><input id="av-nome" name="nome" required></div>
+        <div class="campo carga"><label for="av-carga">Carga (h)</label><input id="av-carga" name="carga_horaria" type="number" min="0" value="60"></div>
+        <div class="campo turma"><label for="av-fase">Fase</label><input id="av-fase" name="fase" type="number" min="1" max="20"></div>
+        <button class="br-button secondary small" type="submit"><i class="fas fa-plus" aria-hidden="true"></i> Incluir avulsa</button>
+      </form>
+    </details>
+  </div>
+</section>
+
+<div class="navegacao">
+  <a class="br-button secondary" href="/disciplinas/{{ curso }}/{{ periodo }}/fases"><i class="fas fa-arrow-left" aria-hidden="true"></i> Fases</a>
+  <a class="br-button primary" href="/disciplinas/{{ curso }}/{{ periodo }}/docentes">Continuar para os docentes <i class="fas fa-arrow-right" aria-hidden="true"></i></a>
+</div>
+{% endblock %}

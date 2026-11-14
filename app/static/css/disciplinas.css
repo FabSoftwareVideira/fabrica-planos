@@ -1,52 +1,138 @@
-/* Disciplinas do semestre (sobre o Design System gov.br e ds.css): seleção do semestre, fases e lista de ofertas. */
+/* Disciplinas (sobre o Design System gov.br e ds.css): lista de planejamentos e o assistente em etapas
+   (período, fases, disciplinas, docentes, revisão e publicação). */
 h2{font-size:var(--font-size-scale-up-02);margin:0}
-h3{font-size:var(--font-size-scale-up-01);margin:var(--spacing-scale-2x) 0 var(--spacing-scale-base)}
+h3{font-size:var(--font-size-scale-up-01);margin:var(--spacing-scale-3x) 0 var(--spacing-scale-base)}
 .br-message{margin-bottom:var(--spacing-scale-2x)}
 .br-card{margin-bottom:var(--spacing-scale-3x)}
 .ajuda,.dica{color:var(--gray-60);font-size:var(--font-size-scale-down-01)}
-.ajuda{margin:0 0 var(--spacing-scale-2x)}
+.ajuda{margin:0 0 var(--spacing-scale-2x);max-width:80ch}
 .dica{margin:var(--spacing-scale-half) 0 var(--spacing-scale-2x)}
 .contagem{font-size:var(--font-size-scale-base);font-weight:var(--font-weight-regular);color:var(--gray-60)}
+.sub{color:var(--gray-60);font-size:var(--font-size-scale-down-01);font-weight:var(--font-weight-regular)}
 .vazio{color:var(--gray-60)}
+.falta{color:#b45309}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 
-/* Formulários em linha */
+/* Campos */
 .linha{display:flex;flex-wrap:wrap;align-items:flex-end;gap:var(--spacing-scale-base) var(--spacing-scale-2x)}
 .linha form{margin:0}
 .campo{display:flex;flex-direction:column;flex:0 1 170px;min-width:0}
 .campo.nome,.campo.largo{flex:1 1 280px}
-.campo.codigo{flex:0 1 120px}.campo.carga,.campo.turma{flex:0 1 90px}.campo.periodo{flex:0 1 120px}
+.campo.codigo{flex:0 1 120px}.campo.carga,.campo.turma{flex:0 1 90px}
 label,legend{font-weight:var(--font-weight-semi-bold);font-size:var(--font-size-scale-down-01);margin-bottom:var(--spacing-scale-half)}
 input:not([type=checkbox]),select{height:40px;border:1px solid var(--gray-40);border-radius:var(--surface-rounder-sm);
   padding:0 var(--spacing-scale-base);background:var(--background);font:inherit;color:var(--color);width:100%;min-width:0}
-input:focus,select:focus{outline:2px solid var(--focus-color);outline-offset:2px}
-.curso-unico{margin:0 0 var(--spacing-scale-base)}
-.fases{border-top:1px solid var(--gray-10);margin-top:var(--spacing-scale-2x);padding-top:var(--spacing-scale-base)}
-.caixas{border:0;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:var(--spacing-scale-half) var(--spacing-scale-2x);align-items:center}
-.caixas legend{width:100%}
-.caixas label{font-weight:normal;font-size:var(--font-size-scale-base);display:inline-flex;align-items:center;gap:4px;margin:0}
-.caixas input{width:18px;height:18px}
+input:focus,select:focus,summary:focus{outline:2px solid var(--focus-color);outline-offset:2px}
+.etapa-form{display:flex;flex-direction:column;gap:var(--spacing-scale-2x);max-width:520px}
+.etapa-form .campo{flex:none}
+.periodo-grande input{height:56px;font-size:var(--font-size-scale-up-02);font-weight:var(--font-weight-semi-bold);max-width:220px}
+.periodo-grande .dica{margin-bottom:0}
 
-/* Ofertas */
+/* Navegação entre etapas */
+.navegacao{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:var(--spacing-scale-2x);
+  margin:var(--spacing-scale-2x) 0 var(--spacing-scale-3x)}
+.navegacao .direita{display:flex;flex-wrap:wrap;gap:var(--spacing-scale-base);margin-left:auto}
+.remover{color:var(--danger) !important}
+
+/* Topo do planejamento: curso, período, situação e etapas */
+.planejamento-topo{margin-bottom:var(--spacing-scale-3x)}
+.identificacao{display:flex;flex-wrap:wrap;align-items:center;gap:var(--spacing-scale-base) var(--spacing-scale-2x)}
+.identificacao h1{font-size:var(--font-size-scale-up-03);margin:0;flex:0 1 auto}
+.voltar-lista{flex-basis:100%;font-size:var(--font-size-scale-down-01)}
+.situacao-plan{border-radius:var(--surface-rounder-pill);padding:2px 12px;font-size:var(--font-size-scale-down-01);
+  font-weight:var(--font-weight-semi-bold);background:#fff5c2;color:#8a6d00}
+.situacao-plan.publicado{background:#e3f5e1;color:#168821}
+.situacao-plan.novo{background:var(--gray-10);color:var(--gray-70)}
+.etapas{list-style:none;margin:var(--spacing-scale-2x) 0 0;padding:0;display:flex;flex-wrap:wrap;gap:var(--spacing-scale-base);counter-reset:none}
+.etapas li{flex:1 1 150px;min-width:0}
+.etapas li>a,.etapas li>span{display:flex;align-items:center;gap:var(--spacing-scale-base);height:100%;
+  padding:var(--spacing-scale-base) var(--spacing-scale-2x);border-radius:var(--surface-rounder-md);
+  border:1px solid var(--gray-20);background:var(--background);color:var(--gray-70);font-size:var(--font-size-scale-down-01);
+  font-weight:var(--font-weight-semi-bold);text-decoration:none}
+.etapas .numero{display:inline-flex;align-items:center;justify-content:center;flex:0 0 28px;height:28px;border-radius:50%;
+  background:var(--gray-10);color:var(--gray-70);font-size:var(--font-size-scale-down-01)}
+.etapas li.atual>span{border-color:var(--interactive);background:#eef3fd;color:var(--interactive)}
+.etapas li.atual .numero{background:var(--interactive);color:#fff}
+.etapas li.feita .numero{background:#168821;color:#fff}
+.etapas li>a:hover{border-color:var(--interactive);color:var(--interactive)}
+.rascunho-nota{margin:var(--spacing-scale-base) 0 0;font-size:var(--font-size-scale-down-01);color:var(--gray-60)}
+.rascunho-nota.publicado{color:#168821}
+
+/* Lista de planejamentos */
+.cab-curso{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:var(--spacing-scale-2x)}
+.cab-curso .sub{margin:var(--spacing-scale-half) 0 0}
+.planejamentos{list-style:none;margin:0;padding:0}
+.planejamentos li{display:flex;flex-wrap:wrap;align-items:center;gap:var(--spacing-scale-base) var(--spacing-scale-3x);
+  padding:var(--spacing-scale-2x) 0;border-top:1px solid var(--gray-10)}
+.planejamentos li:first-child{border-top:0}
+.periodo-plan{display:flex;align-items:center;gap:var(--spacing-scale-base);flex:0 0 200px}
+.periodo-plan strong{font-size:var(--font-size-scale-up-01)}
+.numeros{display:flex;flex-wrap:wrap;gap:var(--spacing-scale-half) var(--spacing-scale-2x);flex:1 1 260px;
+  font-size:var(--font-size-scale-down-01);color:var(--gray-70)}
+
+/* Fases */
+.fases-grade{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:var(--spacing-scale-2x)}
+.fase-cartao{display:flex;gap:var(--spacing-scale-base);align-items:flex-start;margin:0;cursor:pointer;
+  border:1px solid var(--gray-20);border-radius:var(--surface-rounder-md);padding:var(--spacing-scale-2x);font-weight:normal}
+.fase-cartao:has(input:checked){border-color:var(--interactive);background:#eef3fd}
+.fase-cartao input{width:20px;height:20px;margin-top:2px;flex:0 0 auto}
+.fase-corpo{display:flex;flex-direction:column;gap:2px;min-width:0}
+.fase-titulo{font-weight:var(--font-weight-semi-bold);font-size:var(--font-size-scale-up-01)}
+.sugerida{font-size:var(--font-size-scale-down-02);background:#e8f0fe;color:#1351b4;border-radius:var(--surface-rounder-pill);
+  padding:1px 8px;vertical-align:middle;font-weight:var(--font-weight-semi-bold)}
+.fase-resumo{font-size:var(--font-size-scale-down-01);color:var(--gray-70)}
+.fase-nomes{font-size:var(--font-size-scale-down-02);color:var(--gray-60)}
+
+/* Disciplinas */
 h3.fase{border-bottom:1px solid var(--gray-10);padding-bottom:var(--spacing-scale-half)}
-.ofertas{list-style:none;margin:0 0 var(--spacing-scale-2x);padding:0;display:grid;gap:var(--spacing-scale-2x)}
-.oferta{border:1px solid var(--gray-10);border-radius:var(--surface-rounder-md);padding:var(--spacing-scale-2x);scroll-margin-top:120px}
-.oferta:target{box-shadow:0 0 0 3px var(--interactive-light)}
-.topo{display:flex;justify-content:space-between;gap:var(--spacing-scale-2x);flex-wrap:wrap}
-.titulo{display:flex;flex-direction:column}
-.sub{color:var(--gray-60);font-size:var(--font-size-scale-down-01)}
+h3.fase .contagem{font-size:var(--font-size-scale-down-01)}
+.linhas-oferta{list-style:none;margin:0;padding:0}
+.linhas-oferta li{border-bottom:1px solid var(--gray-10);scroll-margin-top:120px}
+.linhas-oferta li:target{background:#eef3fd}
+.linhas-oferta summary{display:flex;flex-wrap:wrap;align-items:center;gap:var(--spacing-scale-half) var(--spacing-scale-2x);
+  padding:var(--spacing-scale-base) var(--spacing-scale-half);cursor:pointer;list-style:none}
+.linhas-oferta summary::-webkit-details-marker{display:none}
+.linhas-oferta summary:hover{background:var(--gray-2)}
+.nome-oferta{font-weight:var(--font-weight-semi-bold)}
+.marcas{display:flex;gap:var(--spacing-scale-half);align-items:center;margin-left:auto}
+.editar-dica{font-size:var(--font-size-scale-down-01);color:var(--interactive)}
+.linhas-oferta details[open]{padding-bottom:var(--spacing-scale-2x)}
+.linhas-oferta details[open] .editar-dica{visibility:hidden}
+.linhas-oferta details>form,.acoes-oferta{padding:0 var(--spacing-scale-half);margin-top:var(--spacing-scale-base)}
 .tag{display:inline-flex;align-items:center;gap:4px;border-radius:var(--surface-rounder-pill);padding:2px 10px;
   font-size:var(--font-size-scale-down-02);font-weight:var(--font-weight-semi-bold);background:var(--gray-10);color:var(--gray-70)}
-.tag.enviado{background:#e3f5e1;color:#168821}.tag.aviso{background:#fff5c2;color:#8a6d00}.tag.avulsa{background:#e8f0fe;color:#1351b4}
-.plano{display:flex;gap:var(--spacing-scale-half);align-items:flex-start;flex-wrap:wrap}
-.aviso-plano{margin:var(--spacing-scale-base) 0 0;font-size:var(--font-size-scale-down-01);color:#8a6d00}
-.docentes{margin-top:var(--spacing-scale-2x)}
-.docentes .linha input{flex:1 1 320px}
+.tag.enviado{background:#e3f5e1;color:#168821}.tag.avulsa{background:#e8f0fe;color:#1351b4}.tag.aviso{background:#fff5c2;color:#8a6d00}
+.aviso-plano{flex-basis:100%;font-size:var(--font-size-scale-down-01);color:#8a6d00}
+.avulsa-bloco{margin-top:var(--spacing-scale-2x);border-top:1px solid var(--gray-10);padding-top:var(--spacing-scale-2x)}
+.avulsa-bloco summary{cursor:pointer;color:var(--interactive);font-size:var(--font-size-scale-down-01);margin-bottom:var(--spacing-scale-base)}
+
+/* Docentes */
+.docentes-lista{display:flex;flex-direction:column}
+.docente-linha{display:grid;grid-template-columns:minmax(200px,1fr) 2fr;gap:var(--spacing-scale-base) var(--spacing-scale-2x);
+  align-items:start;padding:var(--spacing-scale-base) 0;border-bottom:1px solid var(--gray-10);scroll-margin-top:120px}
+.docente-linha label{display:flex;flex-direction:column;margin:0;padding-top:8px}
+.docente-linha.vazio input{border-color:#e0a800;background:#fffbea}
 .quem{margin:var(--spacing-scale-half) 0 0;display:flex;flex-wrap:wrap;gap:var(--spacing-scale-half)}
-.quem.sem{color:var(--danger);font-size:var(--font-size-scale-down-01)}
 .pessoa{background:var(--gray-2);border-radius:var(--surface-rounder-pill);padding:2px 10px;font-size:var(--font-size-scale-down-01)}
 .pessoa.novo{background:#fff5c2}
-.editar{margin-top:var(--spacing-scale-base)}
-.editar summary{cursor:pointer;color:var(--interactive);font-size:var(--font-size-scale-down-01)}
-.editar[open] summary{margin-bottom:var(--spacing-scale-base)}
-.remover{color:var(--danger) !important}
-.avulsa{border-top:1px solid var(--gray-10);padding-top:var(--spacing-scale-2x)}
+@media (max-width:640px){.docente-linha{grid-template-columns:1fr}.docente-linha label{padding-top:0}}
+
+/* Revisão */
+.resumo-numeros{display:flex;flex-wrap:wrap;gap:var(--spacing-scale-2x);margin-bottom:var(--spacing-scale-3x)}
+.resumo-numeros div{flex:1 1 120px;border:1px solid var(--gray-10);border-radius:var(--surface-rounder-md);
+  padding:var(--spacing-scale-2x);display:flex;flex-direction:column}
+.resumo-numeros b{font-size:var(--font-size-scale-up-04);line-height:1.1}
+.resumo-numeros span{color:var(--gray-60);font-size:var(--font-size-scale-down-01)}
+.resumo-numeros .falta b{color:#b45309}.resumo-numeros .ok b{color:#168821}
+.tabela-resumo{width:100%;border-collapse:collapse;font-size:var(--font-size-scale-down-01)}
+.tabela-resumo th{text-align:left;background:var(--gray-2);padding:var(--spacing-scale-base) var(--spacing-scale-2x);border-bottom:1px solid var(--gray-20)}
+.tabela-resumo td{padding:var(--spacing-scale-base) var(--spacing-scale-2x);border-bottom:1px solid var(--gray-10)}
+@media (max-width:640px){
+  .tabela-resumo thead{display:none}
+  .tabela-resumo tr{display:block;border-bottom:1px solid var(--gray-10);padding:var(--spacing-scale-base) 0}
+  .tabela-resumo td{display:block;border:0;padding:2px var(--spacing-scale-half)}
+  .tabela-resumo td::before{content:attr(data-rotulo) ': ';color:var(--gray-60)}
+}
+.publicar .confirmar{display:flex;gap:var(--spacing-scale-base);align-items:flex-start;font-weight:normal;font-size:var(--font-size-scale-base)}
+.publicar .confirmar input{width:20px;height:20px;margin-top:2px;flex:0 0 auto}
+.descartar{margin-top:var(--spacing-scale-2x);border-top:1px solid var(--gray-10);padding-top:var(--spacing-scale-2x)}

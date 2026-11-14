@@ -8,6 +8,12 @@ CURSOS = {
     'CC': 'Ciência da Computação',
 }
 
+# Tipo de oferta de cada curso: 'semestral' (períodos 2027.1, 2027.2) ou 'anual' (período 2027). Sem tipo
+# definido, vale semestral.
+TIPOS = {
+    'CC': 'semestral',
+}
+
 MATRIZES = {
     'CC': [
         (1, 'CCC0701', 'Algoritmos', 90),

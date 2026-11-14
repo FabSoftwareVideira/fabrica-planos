@@ -1,0 +1,70 @@
+{% extends 'base.html' %}
+{#- Base das telas de Disciplinas (rotas/disciplinas.py): cabeçalho, avisos e, nas etapas do planejamento de
+    um período, o indicador de etapas com a situação (rascunho ou publicado). As telas preenchem `passo`. -#}
+
+{% block titulo %}Disciplinas · Validação de Planos de Ensino{% endblock %}
+
+{% block estilos %}
+{% include '_ds.html' %}
+  <link rel="stylesheet" href="{{ estatico('css/disciplinas.css') }}">
+{% endblock %}
+
+
+{% block corpo %}
+{% set titulo_pagina = 'Disciplinas do período letivo' %}{% set pagina_atual = 'disciplinas' %}
+{% include '_cabecalho.html' %}
+
+<main id="main">
+  <div class="container-lg py-4">
+    {% include '_titulo_pagina.html' %}
+
+    {% if etapas is defined %}
+    <section class="planejamento-topo">
+      <div class="identificacao">
+        <a class="voltar-lista" href="/disciplinas"><i class="fas fa-arrow-left" aria-hidden="true"></i> Planejamentos</a>
+        <h1>{{ nome_curso }}{% if periodo %} · {{ periodo }}{% endif %}</h1>
+        {% if planejamento %}
+        <span class="situacao-plan {{ planejamento.situacao }}">{{ 'Publicado' if planejamento.situacao == 'publicado' else 'Rascunho' }}</span>
+        {% else %}<span class="situacao-plan novo">Novo</span>{% endif %}
+      </div>
+      <ol class="etapas" aria-label="Etapas do planejamento">
+        {% set posicao = namespace(atual=0) %}
+        {% for chave, rotulo in etapas %}{% if chave == etapa %}{% set posicao.atual = loop.index %}{% endif %}{% endfor %}
+        {% for chave, rotulo in etapas %}
+        {% set estado = 'atual' if loop.index == posicao.atual else ('feita' if loop.index < posicao.atual else 'proxima') %}
+        <li class="{{ estado }}"{% if estado == 'atual' %} aria-current="step"{% endif %}>
+          {% if planejamento and chave != 'periodo' and estado != 'atual' %}
+          <a href="/disciplinas/{{ curso }}/{{ periodo }}/{{ chave }}"><span class="numero">{{ loop.index }}</span> {{ rotulo }}</a>
+          {% else %}
+          <span><span class="numero">{% if estado == 'feita' %}<i class="fas fa-check" aria-hidden="true"></i>{% else %}{{ loop.index }}{% endif %}</span> {{ rotulo }}</span>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ol>
+      {% if planejamento and planejamento.situacao == 'rascunho' %}
+      <p class="rascunho-nota"><i class="fas fa-save" aria-hidden="true"></i> Cada etapa salva o rascunho; os docentes só veem as disciplinas depois que você publicar. Você pode <a href="/disciplinas">sair e continuar depois</a>.</p>
+      {% elif planejamento %}
+      <p class="rascunho-nota publicado"><i class="fas fa-broadcast-tower" aria-hidden="true"></i> Publicado: as mudanças valem na hora para os docentes.</p>
+      {% endif %}
+    </section>
+    {% endif %}
+
+    {% if aviso %}{% set tipo, icone, texto_aviso = aviso %}
+    <div class="br-message {{ tipo }}" role="status">
+      <div class="icon"><i class="fas fa-{{ icone }} fa-lg" aria-hidden="true"></i></div>
+      <div class="content"><span class="message-body">{{ texto_aviso }}</span></div>
+    </div>
+    {% endif %}
+    {% if erro %}
+    <div class="br-message danger" role="alert">
+      <div class="icon"><i class="fas fa-times-circle fa-lg" aria-hidden="true"></i></div>
+      <div class="content"><span class="message-body">{{ erro }}</span></div>
+    </div>
+    {% endif %}
+
+    {% block passo %}{% endblock %}
+  </div>
+</main>
+
+{% include '_rodape.html' %}
+{% endblock %}

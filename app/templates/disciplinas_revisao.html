@@ -1,0 +1,84 @@
+{% extends 'disciplinas_base.html' %}
+{#- Etapa 5: resumo do planejamento, pendências e publicação (com confirmação). Publicado, os docentes veem as
+    disciplinas em "Meus planos"; sem planos enviados ainda, dá para voltar a rascunho ou descartar o rascunho. -#}
+
+{% block passo %}
+{% set ofertas_total = planejamento.disciplinas %}
+<section class="br-card">
+  <div class="card-header"><h2>5. Revisão e publicação</h2></div>
+  <div class="card-content">
+    <div class="resumo-numeros">
+      <div><b>{{ ofertas_total }}</b><span>disciplina{{ 's' if ofertas_total != 1 }}</span></div>
+      <div><b>{{ grade|length }}</b><span>{{ 'fase' if grade|length == 1 else 'fases' }}</span></div>
+      <div><b>{{ docentes|length }}</b><span>docente{{ 's' if docentes|length != 1 }}</span></div>
+      <div class="{{ 'falta' if sem_docente else 'ok' }}"><b>{{ sem_docente|length }}</b><span>sem docente</span></div>
+      {% if planejamento.situacao == 'publicado' %}<div><b>{{ planejamento.enviados }}</b><span>plano{{ 's' if planejamento.enviados != 1 }} enviado{{ 's' if planejamento.enviados != 1 }}</span></div>{% endif %}
+    </div>
+
+    {% if sem_docente %}
+    <div class="br-message warning">
+      <div class="icon"><i class="fas fa-exclamation-triangle fa-lg" aria-hidden="true"></i></div>
+      <div class="content"><span class="message-body"><strong>{{ sem_docente|length }} disciplina{{ 's' if sem_docente|length != 1 }} sem docente:</strong>
+        {{ sem_docente|map(attribute='nome')|join(', ') }}. Ninguém poderá enviar o plano delas até você <a href="/disciplinas/{{ curso }}/{{ periodo }}/docentes">vincular os docentes</a>.</span></div>
+    </div>
+    {% endif %}
+    {% if novos %}
+    <p class="dica"><i class="fas fa-user-clock" aria-hidden="true"></i> Ainda não entraram no sistema: {{ novos|join(', ') }}. Eles verão as disciplinas no primeiro acesso.</p>
+    {% endif %}
+
+    {% for fase, ofertas in grade %}
+    <h3 class="fase">{{ '%dª fase' % fase if fase else 'Avulsas (sem fase)' }}</h3>
+    <table class="tabela-resumo">
+      <caption class="sr-only">{{ '%dª fase' % fase if fase else 'Avulsas' }}</caption>
+      <thead><tr><th scope="col">Disciplina</th><th scope="col">Código</th><th scope="col">Turma</th><th scope="col">Docentes</th></tr></thead>
+      <tbody>
+        {% for o in ofertas %}
+        <tr>
+          <td data-rotulo="Disciplina">{{ o.nome }} <span class="sub">{{ o.carga_horaria }}h</span></td>
+          <td data-rotulo="Código">{{ o.codigo or '—' }}</td>
+          <td data-rotulo="Turma">{{ o.turma }}</td>
+          <td data-rotulo="Docentes">{% for d in o.docentes_info %}{{ d.nome or d.email }}{{ ', ' if not loop.last }}{% else %}<span class="falta">sem docente</span>{% endfor %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="vazio">Nenhuma disciplina no período.</p>
+    {% endfor %}
+  </div>
+</section>
+
+{% if planejamento.situacao == 'rascunho' %}
+<section class="br-card publicar">
+  <div class="card-header"><h2>Publicar</h2></div>
+  <div class="card-content">
+    <p class="ajuda">Ao publicar, cada docente passa a ver as suas disciplinas de {{ periodo }} em "Meus planos" e pode enviar os planos. Depois de publicado, você ainda pode ajustar disciplinas e docentes.</p>
+    <form method="post" action="/disciplinas/{{ curso }}/{{ periodo }}/publicar">
+      <label class="confirmar"><input type="checkbox" name="confirmo" value="1" required> Conferi as disciplinas e os docentes de {{ periodo }}{% if sem_docente %} (e sei que {{ sem_docente|length }} ainda {{ 'está' if sem_docente|length == 1 else 'estão' }} sem docente){% endif %}.</label>
+      <div class="navegacao">
+        <a class="br-button secondary" href="/disciplinas/{{ curso }}/{{ periodo }}/docentes"><i class="fas fa-arrow-left" aria-hidden="true"></i> Docentes</a>
+        <span class="direita">
+          <a class="br-button secondary" href="/disciplinas"><i class="fas fa-save" aria-hidden="true"></i> Manter como rascunho</a>
+          <button class="br-button primary" type="submit"{% if not ofertas_total %} disabled{% endif %}><i class="fas fa-check" aria-hidden="true"></i> Publicar planejamento</button>
+        </span>
+      </div>
+    </form>
+    <form class="descartar" method="post" action="/disciplinas/{{ curso }}/{{ periodo }}/excluir" onsubmit='return confirm({{ ("Descartar o rascunho de " ~ periodo ~ " e as disciplinas dele?")|tojson }})'>
+      <button class="br-button small remover" type="submit"><i class="fas fa-trash-alt" aria-hidden="true"></i> Descartar rascunho</button>
+    </form>
+  </div>
+</section>
+{% else %}
+<section class="br-card publicar">
+  <div class="card-header"><h2>Publicado</h2></div>
+  <div class="card-content">
+    <p class="ajuda">Publicado{% if planejamento.publicado_em %} em {{ planejamento.publicado_em|data_br }}{% endif %}{% if planejamento.publicado_por %} por {{ planejamento.publicado_por }}{% endif %}. Os docentes já veem as disciplinas e enviam os planos; ajustes em <a href="/disciplinas/{{ curso }}/{{ periodo }}/disciplinas">Disciplinas</a> e <a href="/disciplinas/{{ curso }}/{{ periodo }}/docentes">Docentes</a> valem na hora.</p>
+    {% if not planejamento.enviados %}
+    <form method="post" action="/disciplinas/{{ curso }}/{{ periodo }}/rascunho" onsubmit='return confirm({{ ("Voltar " ~ periodo ~ " a rascunho? Os docentes deixam de ver estas disciplinas.")|tojson }})'>
+      <button class="br-button secondary small" type="submit"><i class="fas fa-undo" aria-hidden="true"></i> Voltar a rascunho</button>
+    </form>
+    {% endif %}
+  </div>
+</section>
+{% endif %}
+{% endblock %}

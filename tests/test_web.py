@@ -1428,8 +1428,8 @@ def test_aviso_aparece_para_a_coordenacao(com_login, sem_ia):
     o = dar_disciplina(c, 'fulano@ifc.edu.br')
     enviar_plano(c, o, _plano_de('CICLANO SOUZA'), cab=FULANO)
     _dar_papel(c, 'coord@ifc.edu.br', papel='coordenador')
-    html = c.get('/disciplinas', headers={'X-Usuario-Email': 'coord@ifc.edu.br'}).get_data(as_text=True)
-    assert 'Plano enviado' in html and 'Ciclano Souza' in html
+    html = c.get('/disciplinas/CC/2026.2/disciplinas', headers={'X-Usuario-Email': 'coord@ifc.edu.br'}).get_data(as_text=True)
+    assert 'plano enviado' in html and 'class="tag aviso"' in html and 'Ciclano Souza' in html
 
 
 def test_sem_nome_no_cadastro_o_docente_nao_e_conferido(com_login, sem_ia):

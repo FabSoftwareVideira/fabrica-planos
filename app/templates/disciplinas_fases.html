@@ -1,0 +1,31 @@
+{% extends 'disciplinas_base.html' %}
+{#- Etapa 2: as fases do período. Abre as disciplinas da matriz das fases marcadas e tira as das desmarcadas
+    (as que ainda não têm plano). Vêm marcadas as sugeridas: no semestral, ímpares no 1º semestre e pares no 2º. -#}
+
+{% block passo %}
+<form method="post" action="/disciplinas/{{ curso }}/{{ periodo }}/fases">
+  <section class="br-card">
+    <div class="card-header"><h2>2. Fases do período</h2></div>
+    <div class="card-content">
+      <p class="ajuda">Marque as fases que terão turma em {{ periodo }}. {% if tipo == 'semestral' %}Sugerimos as fases {{ 'ímpares' if periodo.endswith('.1') else 'pares' }}, como de costume no {{ periodo[-1] }}º semestre, mas você pode mudar.{% else %}Sugerimos todas as fases do curso.{% endif %} As disciplinas da matriz das fases marcadas entram no período; na próxima etapa você ajusta cada uma (renomear, outra turma, tirar ou incluir avulsas).</p>
+      <div class="fases-grade">
+        {% for fase, componentes in matriz %}
+        <label class="fase-cartao">
+          <input type="checkbox" name="fase" value="{{ fase }}"{% if fase in marcadas %} checked{% endif %}>
+          <span class="fase-corpo">
+            <span class="fase-titulo">{{ fase }}ª fase{% if fase in sugeridas %} <span class="sugerida">sugerida</span>{% endif %}</span>
+            <span class="fase-resumo">{{ componentes|length }} disciplina{{ 's' if componentes|length != 1 }} · {{ componentes|sum(attribute='carga_horaria') }}h</span>
+            <span class="fase-nomes">{{ componentes|map(attribute='nome')|join(' · ') }}</span>
+          </span>
+        </label>
+        {% endfor %}
+      </div>
+      {% if planejamento.disciplinas %}<p class="dica"><i class="fas fa-info-circle" aria-hidden="true"></i> Desmarcar uma fase tira do período as disciplinas dela que ainda não têm plano enviado. As disciplinas avulsas ficam.</p>{% endif %}
+    </div>
+  </section>
+  <div class="navegacao">
+    <a class="br-button secondary" href="/disciplinas">Sair (o rascunho fica salvo)</a>
+    <button class="br-button primary" type="submit">Salvar e continuar <i class="fas fa-arrow-right" aria-hidden="true"></i></button>
+  </div>
+</form>
+{% endblock %}

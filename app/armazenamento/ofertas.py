@@ -6,6 +6,8 @@ from . import ppc
 
 # Disciplinas de cada curso e semestre, no PostgreSQL:
 #   componentes      a matriz curricular do PPC de cada curso (preenchida com armazenamento/ppc.py);
+#   planejamentos    o planejamento de cada curso e período letivo: rascunho, enquanto a coordenação o
+#                    monta, ou publicado (só então os docentes veem as disciplinas e enviam os planos);
 #   ofertas          as disciplinas que a coordenação abriu num semestre (período '2026.2'), cada uma com o
 #                    seu plano de ensino: o PDF fica na pasta de planos com o nome guardado em `arquivo`;
 #   oferta_docentes  os professores de cada oferta, pelo e-mail institucional (cadastrados ou não: quem
@@ -44,6 +46,20 @@ CREATE TABLE IF NOT EXISTS ofertas (
 )
 """
 
+ESQUEMA_PLANEJAMENTOS = """
+CREATE TABLE IF NOT EXISTS planejamentos (
+    curso TEXT NOT NULL,
+    periodo TEXT NOT NULL,
+    situacao TEXT NOT NULL DEFAULT 'rascunho',
+    fases TEXT NOT NULL DEFAULT '',
+    criado_em TEXT NOT NULL,
+    criado_por TEXT NOT NULL DEFAULT '',
+    publicado_em TEXT,
+    publicado_por TEXT,
+    PRIMARY KEY (curso, periodo)
+)
+"""
+
 ESQUEMA_DOCENTES = """
 CREATE TABLE IF NOT EXISTS oferta_docentes (
     oferta_id INTEGER NOT NULL REFERENCES ofertas (id) ON DELETE CASCADE,
@@ -76,6 +92,11 @@ class Ofertas:
             con.execute(ESQUEMA_COMPONENTES)
             con.execute(ESQUEMA_OFERTAS)
             con.execute(ESQUEMA_DOCENTES)
+            con.execute(ESQUEMA_PLANEJAMENTOS)
+            # Ofertas de antes dos planejamentos: o período delas fica publicado, como já estava
+            con.execute("INSERT INTO planejamentos (curso, periodo, situacao, criado_em, publicado_em) "
+                        "SELECT DISTINCT curso, periodo, 'publicado', %s, %s FROM ofertas "
+                        "ON CONFLICT DO NOTHING", (_agora(), _agora()))
             for curso, disciplinas in ppc.MATRIZES.items():  # matriz do PPC, na primeira vez
                 if con.execute('SELECT 1 FROM componentes WHERE curso = %s LIMIT 1', (curso,)).fetchone() is None:
                     for fase, codigo, nome, carga in disciplinas:
@@ -191,6 +212,51 @@ class Ofertas:
             con.execute('DELETE FROM oferta_docentes WHERE oferta_id = %s', (id_,))
             for e in dict.fromkeys(emails):
                 con.execute('INSERT INTO oferta_docentes (oferta_id, email) VALUES (%s, %s)', (id_, e))
+
+    # Planejamentos ----------------------------------------------------------------------------------
+
+    def planejamentos(self, curso=None):
+        """Planejamentos (do período mais recente para o mais antigo), cada um com as contagens:
+        disciplinas, sem_docente e enviados (planos enviados)."""
+        onde, valores = ('WHERE p.curso = %s', [curso]) if curso else ('', [])
+        with self._conexao() as con:
+            return [dict(l) for l in con.execute(
+                f'SELECT p.*, count(o.id) AS disciplinas, '
+                f'count(o.id) FILTER (WHERE NOT EXISTS (SELECT 1 FROM oferta_docentes d WHERE d.oferta_id = o.id)) '
+                f'AS sem_docente, count(o.enviado_em) AS enviados '
+                f'FROM planejamentos p LEFT JOIN ofertas o ON o.curso = p.curso AND o.periodo = p.periodo '
+                f'{onde} GROUP BY p.curso, p.periodo ORDER BY p.periodo DESC, p.curso', valores)]
+
+    def planejamento(self, curso, periodo):
+        for p in self.planejamentos(curso):
+            if p['periodo'] == periodo:
+                return p
+        return None
+
+    def criar_planejamento(self, curso, periodo, email):
+        with self._trava, self._conexao() as con:
+            return con.execute('INSERT INTO planejamentos (curso, periodo, criado_em, criado_por) '
+                               'VALUES (%s, %s, %s, %s) ON CONFLICT DO NOTHING',
+                               (curso, periodo, _agora(), email)).rowcount > 0
+
+    def alterar_planejamento(self, curso, periodo, **campos):
+        permitidos = {k: v for k, v in campos.items() if k in ('situacao', 'fases', 'publicado_em', 'publicado_por')}
+        sets = ', '.join(f'{k} = %s' for k in permitidos)
+        with self._trava, self._conexao() as con:
+            con.execute(f'UPDATE planejamentos SET {sets} WHERE curso = %s AND periodo = %s',
+                        list(permitidos.values()) + [curso, periodo])
+
+    def excluir_planejamento(self, curso, periodo):
+        """Apaga o planejamento e as disciplinas dele (com os docentes)."""
+        with self._trava, self._conexao() as con:
+            con.execute('DELETE FROM ofertas WHERE curso = %s AND periodo = %s', (curso, periodo))
+            con.execute('DELETE FROM planejamentos WHERE curso = %s AND periodo = %s', (curso, periodo))
+
+    def publicados(self):
+        """{(curso, período)} dos planejamentos publicados."""
+        with self._conexao() as con:
+            return {(l['curso'], l['periodo']) for l in con.execute(
+                "SELECT curso, periodo FROM planejamentos WHERE situacao = 'publicado'")}
 
     # Plano enviado --------------------------------------------------------------------------------
 

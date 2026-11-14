@@ -1,0 +1,41 @@
+{% extends 'disciplinas_base.html' %}
+{#- Disciplinas: os planejamentos de cada curso que a pessoa coordena, com o botão para planejar o próximo
+    período e o atalho para continuar um rascunho. -#}
+
+{% block passo %}
+{% for sigla, nome, tipo, planejamentos, sugestao in grupos %}
+<section class="br-card">
+  <div class="card-header cab-curso">
+    <div>
+      <h2>{{ nome }}</h2>
+      <p class="sub">Curso {{ tipo }} · as disciplinas de cada {{ 'ano' if tipo == 'anual' else 'semestre' }} são planejadas a partir da matriz do PPC.</p>
+    </div>
+    <a class="br-button primary" href="/disciplinas/novo?curso={{ sigla }}"><i class="fas fa-plus" aria-hidden="true"></i> Planejar {{ sugestao }}</a>
+  </div>
+  <div class="card-content">
+    {% if planejamentos %}
+    <ul class="planejamentos">
+      {% for p in planejamentos %}
+      <li>
+        <div class="periodo-plan">
+          <strong>{{ p.periodo }}</strong>
+          <span class="situacao-plan {{ p.situacao }}">{{ 'Publicado' if p.situacao == 'publicado' else 'Rascunho' }}</span>
+        </div>
+        <div class="numeros">
+          <span><b>{{ p.disciplinas }}</b> disciplina{{ 's' if p.disciplinas != 1 }}</span>
+          {% if p.sem_docente %}<span class="falta"><b>{{ p.sem_docente }}</b> sem docente</span>{% endif %}
+          {% if p.situacao == 'publicado' %}<span><b>{{ p.enviados }}</b> plano{{ 's' if p.enviados != 1 }} enviado{{ 's' if p.enviados != 1 }}</span>{% endif %}
+        </div>
+        <a class="br-button secondary small" href="/disciplinas/{{ sigla }}/{{ p.periodo }}">
+          {% if p.situacao == 'rascunho' %}<i class="fas fa-pen" aria-hidden="true"></i> Continuar{% else %}<i class="fas fa-eye" aria-hidden="true"></i> Abrir{% endif %}
+        </a>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="vazio">Nenhum período planejado ainda. Comece pelo botão <strong>Planejar {{ sugestao }}</strong>.</p>
+    {% endif %}
+  </div>
+</section>
+{% endfor %}
+{% endblock %}

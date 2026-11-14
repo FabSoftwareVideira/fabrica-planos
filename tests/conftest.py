@@ -47,9 +47,11 @@ def servicos_de(cliente):
 
 def dar_disciplina(cliente, *docentes, arquivo=None, curso='CC', periodo='2026.2', codigo='CCC0723',
                    nome='Desenvolvimento Web I', fase=4, carga=60, turma='01'):
-    """Abre uma disciplina no semestre (como a coordenação, em /disciplinas) com esses docentes e devolve a
-    oferta. `arquivo` troca o nome do PDF do plano (para os testes que já têm o PDF na pasta com outro nome)."""
+    """Abre uma disciplina num planejamento publicado (como a coordenação, em /disciplinas) com esses docentes
+    e devolve a oferta. `arquivo` troca o nome do PDF do plano (para os testes que já têm o PDF na pasta com outro nome)."""
     ofertas = servicos_de(cliente).disciplinas.ofertas
+    if ofertas.criar_planejamento(curso, periodo, 'teste'):  # publicado: os docentes já veem a disciplina
+        ofertas.alterar_planejamento(curso, periodo, situacao='publicado')
     oferta = ofertas.criar(curso, periodo, nome, codigo, carga, fase, turma)
     if arquivo:
         with ofertas._conexao() as con:
