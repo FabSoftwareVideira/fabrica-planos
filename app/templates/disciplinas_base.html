@@ -11,8 +11,9 @@
 
 
 {% block corpo %}
-{% set titulo_pagina = 'Disciplinas do período letivo' %}{% set pagina_atual = 'disciplinas' %}
+{% set titulo_pagina = 'Coordenação' %}{% set pagina_atual = 'coordenacao' %}
 {% include '_cabecalho.html' %}
+{% with aba='disciplinas' %}{% include '_abas_coordenacao.html' %}{% endwith %}
 
 <main id="main">
   <div class="container-lg py-4">

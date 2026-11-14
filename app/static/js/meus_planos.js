@@ -1,12 +1,7 @@
 // "Meus planos": as disciplinas do professor, com o envio do plano de cada uma, a situação da avaliação e a
-// exclusão. MAX_MB vem da página.
-const $ = id => document.getElementById(id);
+// exclusão. MAX_MB vem da página; $, msg, hora e corpo, de status.js (a barra de status, carregada antes).
 const CORES = { OK: '#22c55e', PENDENTE: '#eab308', INCOMPLETO: '#eab308' };
-let timer;
-
-function msg(el, texto, tipo) { el.textContent = texto; el.className = 'msg' + (tipo ? ' ' + tipo : ''); el.hidden = !texto; }
-function hora(iso) { return iso ? new Date(iso).toLocaleString('pt-BR') : ''; }
-async function corpo(resp) { try { return await resp.json(); } catch { return {}; } }
+let timerLista;
 function selo(texto, cor) { const s = document.createElement('span'); s.className = 'br-tag status-plano'; s.style.background = cor; s.textContent = texto; return s; }
 
 function situacao(p) {
@@ -56,7 +51,7 @@ function item(p) {
     // Enviar (ou substituir) o plano: não depois de assinado, a menos que a coordenação libere o reenvio
     if (!p.assinatura || p.reenvio_liberado) acoes.append(botaoEnviar(p));
     if (p.tem_plano) {
-      const del = document.createElement('button'); del.type = 'button'; del.className = 'br-button small excluir';
+      const del = document.createElement('button'); del.type = 'button'; del.className = 'br-button small excluir-plano';
       del.innerHTML = '<i class="fas fa-trash-alt" aria-hidden="true"></i> Excluir';
       del.onclick = () => excluir(p);
       acoes.append(del);
@@ -147,11 +142,14 @@ async function enviarAssinado(nome, arquivo) {
   carregar();
 }
 
+// A barra de status (status.js) chama ao fim de uma avaliação: só atualiza a lista, sem sair da página.
+function aoTerminar() { carregar(); }
+
 async function carregar() {
-  clearTimeout(timer);
+  clearTimeout(timerLista);
   let r;
   try { r = await fetch('/meus-planos/lista'); }
-  catch { timer = setTimeout(carregar, 10000); return; }
+  catch { timerLista = setTimeout(carregar, 10000); return; }
   if (r.status === 401) { location.reload(); return; }  // sessão expirou: recarregar leva ao login
   const { planos = [] } = await corpo(r);
   $('qtd').textContent = `(${planos.length})`;
@@ -173,7 +171,7 @@ async function carregar() {
   }
   $('lista').replaceChildren(...itens);
   const andamento = planos.some(p => p.situacao === 'na_fila' || p.situacao === 'validando');
-  timer = setTimeout(carregar, andamento ? 3000 : 30000);
+  timerLista = setTimeout(carregar, andamento ? 3000 : 30000);
 }
 
 async function excluir(p) {

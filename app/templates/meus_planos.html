@@ -13,6 +13,7 @@
 {% block corpo %}
 {% set titulo_pagina = 'Meus planos de ensino' %}{% set pagina_atual = 'meus' %}
 {% include '_cabecalho.html' %}
+{% include '_status.html' %}
 
 <main id="main">
   <div class="container-lg py-4">
@@ -32,6 +33,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script>const MAX_MB = {{ max_mb }}, ASSINATURA_API = {{ 'true' if assinatura_api else 'false' }};</script>
+<script>const MAX_MB = {{ max_mb }}, ASSINATURA_API = {{ 'true' if assinatura_api else 'false' }}, ADMIN = false;</script>
+<script src="{{ estatico('js/status.js') }}"></script>
 <script src="{{ estatico('js/meus_planos.js') }}"></script>
 {% endblock %}

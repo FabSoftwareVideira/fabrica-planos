@@ -185,7 +185,7 @@ def test_relatorio_navega_entre_planos_e_volta_ao_card(cliente):
     assert '<span class="off">‹ Anterior</span>' in primeiro
 
     dashboard = c.get('/dashboard').get_data(as_text=True)
-    assert 'id="plano-1"' in dashboard and 'const MAX_MB = 1, ADMIN = true, EXPORTAR = true;' in dashboard
+    assert 'id="plano-1"' in dashboard and 'const MAX_MB = 1, ADMIN = true;' in dashboard
 
 
 def test_relatorio_de_plano_desconhecido(cliente):
@@ -203,7 +203,7 @@ def test_dashboard_mostra_so_a_validacao_atual(cliente):
     html = c.get('/dashboard').get_data(as_text=True)
     assert 'novo.pdf' in html and 'velho.pdf' not in html
     assert 'id="historico"' not in html  # sem seletor de validações anteriores
-    assert f'/validacoes/{nova.id}/pdfs.zip' in html and f'/validacoes/{nova.id}/csv' in html
+    assert 'pdfs.zip' not in html and '/csv' not in html  # a exportação fica na coordenação
     assert 'href="/dashboard#plano-0"' in c.get('/relatorio?arquivo=novo.pdf').get_data(as_text=True)
     assert c.get('/relatorio?arquivo=velho.pdf').status_code == 404
 
@@ -387,7 +387,7 @@ def test_servidor_consulta_mas_nao_administra(com_login):
     # Quem está logado e o papel aparecem no cabeçalho
     assert 'fulano@ifc.edu.br' in html and 'papel-usuario">Consulta<' in html and 'href="/auth/sair"' in html
     assert 'id="validar"' not in html and 'id="soltar"' not in html and 'class="revalidar"' not in html
-    assert 'ADMIN = false,' in html and 'href="/meus-planos"' in html and 'href="/administracao"' not in html
+    assert 'ADMIN = false;' in html and 'href="/meus-planos"' in html and 'href="/administracao"' not in html
     r = c.get('/administracao', headers=SERVIDOR)
     assert r.status_code == 302 and r.headers['Location'].endswith('/dashboard')
     assert 'id="revalidar"' not in c.get('/relatorio?arquivo=a.pdf', headers=SERVIDOR).get_data(as_text=True)
@@ -811,7 +811,8 @@ def test_sem_login_simulado_o_cookie_nao_vale(com_login):
     assert c.post('/dev/login', data={'email': 'admin@ifc.edu.br'}).status_code == 401
 
 
-def test_so_coordenacao_e_administracao_baixam_csv_e_zip(com_login):
+def test_exportacao_so_pela_coordenacao_e_do_periodo_escolhido(com_login):
+    import zipfile
     c, planos = com_login
     execucao = _plano_cc(c, planos)
     (Path(execucao.pdfs_dir) / 'web.pdf').write_bytes(PDF)
@@ -819,15 +820,27 @@ def test_so_coordenacao_e_administracao_baixam_csv_e_zip(com_login):
     _dar_papel(c, 'coord@ifc.edu.br', papel='coordenador')
     coord = {'X-Usuario-Email': 'coord@ifc.edu.br'}
     rotas = (f'/validacoes/{execucao.id}/csv', f'/validacoes/{execucao.id}/pdfs.zip')
+    for cab in (SERVIDOR, NDE, coord, ADMIN):  # no painel, ninguém exporta
+        html = c.get('/dashboard', headers=cab).get_data(as_text=True)
+        assert '/csv' not in html and 'pdfs.zip' not in html and 'EXPORTAR' not in html
     for cab in (SERVIDOR, NDE):
         assert all(c.get(r, headers=cab).status_code == 403 for r in rotas)
-        html = c.get('/dashboard', headers=cab).get_data(as_text=True)
-        assert '/csv"' not in html and 'pdfs.zip' not in html and 'EXPORTAR = false' in html
         # cada plano e PDF continua abrindo
         assert c.get(f'/validacoes/{execucao.id}/pdf?arquivo=web.pdf', headers=cab).status_code == 200
     for cab in (coord, ADMIN):
         assert all(c.get(r, headers=cab).status_code == 200 for r in rotas)
-        assert 'EXPORTAR = true' in c.get('/dashboard', headers=cab).get_data(as_text=True)
+    # Na coordenação: o zip e o CSV do período escolhido
+    html = c.get('/coordenacao?curso=CC&periodo=2026.2', headers=coord).get_data(as_text=True)
+    assert 'PDFs de 2º semestre de 2026 (zip)' in html and 'CSV de 2º semestre de 2026' in html
+    import html as html_
+    url_csv = html_.unescape(html.split('CSV de 2º')[0].rsplit('href="', 1)[1].split('"')[0])
+    url_zip = html_.unescape(html.split('PDFs de 2º')[0].rsplit('href="', 1)[1].split('"')[0])
+    r = c.get(url_csv, headers=coord)
+    assert r.status_code == 200 and 'ciencia-da-computacao-2o-semestre-de-2026' in r.headers['Content-Disposition']
+    linhas = r.data.decode('utf-8-sig').splitlines()
+    assert len(linhas) == 2 and linhas[1].startswith('"web.pdf"')
+    assert zipfile.ZipFile(io.BytesIO(c.get(url_zip, headers=coord).data)).namelist() == ['web.pdf']
+    assert c.get(f'/validacoes/{execucao.id}/csv?arquivo=fora.pdf', headers=coord).status_code == 404
 
 
 def test_docente_do_plano_nao_o_revisa(com_login):
@@ -1474,3 +1487,13 @@ def test_tela_de_vincular_e_sem_entrar_na_inicial(fabrica, monkeypatch):
     html = _login_govbr(c, monkeypatch, email='fulano@gmail.com')[1].get_data(as_text=True)
     assert 'Vincule sua conta gov.br' in html and 'Entrar com Google</a>' in html and '<svg' in html
     assert 'class="br-button primary small entrar"' not in c.get('/').get_data(as_text=True)
+
+
+def test_meus_planos_tem_a_barra_de_status(com_login):
+    c, _ = com_login
+    for cab in (SERVIDOR, ADMIN):
+        html = c.get('/meus-planos', headers=cab).get_data(as_text=True)
+        assert 'class="barra-status"' in html and 'id="validar"' not in html  # sem "Validar agora" aqui
+        assert html.index('js/status.js') < html.index('js/meus_planos.js') and 'ADMIN = false;' in html
+    js = c.get('/static/js/meus_planos.js').get_data(as_text=True)
+    assert 'function aoTerminar()' in js and 'const $ =' not in js  # $ e msg vêm de status.js

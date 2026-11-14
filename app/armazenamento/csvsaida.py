@@ -56,6 +56,17 @@ def escrever_csv(caminho, linhas):
             escritor.writerow(linha)
 
 
+def csv_em_bytes(linhas):
+    """O CSV dessas linhas (mesmo formato do arquivo da validação), para baixar."""
+    import io
+    saida = io.StringIO()
+    escritor = csv.DictWriter(saida, fieldnames=COLUNAS, delimiter=';', quoting=csv.QUOTE_ALL, extrasaction='ignore')
+    escritor.writeheader()
+    for linha in linhas:
+        escritor.writerow(linha)
+    return ('\ufeff' + saida.getvalue()).encode('utf-8')
+
+
 def ler_csv(caminho):
     if not os.path.exists(caminho):
         return []

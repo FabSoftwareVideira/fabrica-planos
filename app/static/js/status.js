@@ -1,5 +1,6 @@
-// Barra de status da validação (dashboard e administração): andamento via /status, "Validar agora" e
-// revalidação de um plano. Ao terminar, abre a validação mais recente no dashboard. ADMIN vem da página.
+// Barra de status da validação (dashboard, administração e "Meus planos"): andamento via /status, "Validar
+// agora" e revalidação de um plano. Ao terminar, abre a validação mais recente no dashboard, ou chama
+// aoTerminar() se a página a definir ("Meus planos" só atualiza a lista). ADMIN vem da página.
 const $ = id => document.getElementById(id);
 let rodando = false, estavaRodando = false, timer;
 
@@ -37,7 +38,8 @@ async function atualizarStatus() {
     else msg($('status-msg'), 'Nenhuma validação em andamento');
   }
   // Ao terminar, abre a validação mais recente; numa revalidação, já no card do plano.
-  if (estavaRodando && !rodando) {
+  if (estavaRodando && !rodando && typeof aoTerminar === 'function') aoTerminar();
+  else if (estavaRodando && !rodando) {
     history.replaceState(null, '', '/dashboard' + (s.unico ? '#arquivo=' + encodeURIComponent(s.unico) : ''));
     location.reload();
     return;

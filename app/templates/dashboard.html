@@ -23,10 +23,6 @@
         {%- if meta.modelo %} · modelo {{ meta.modelo }}{% endif %}
         {%- if meta.erro %} · <span class="erro">interrompida após {{ meta.processados or 0 }} de {{ meta.total or 0 }} plano(s): {{ meta.erro }}</span>{% endif -%}
       </p>
-      {% if exportar %}
-      {% if tem_pdfs %}<a class="br-button secondary small" href="/validacoes/{{ execucao.id }}/pdfs.zip"><i class="fas fa-file-archive" aria-hidden="true"></i> PDFs (zip)</a>{% endif %}
-      <a class="br-button secondary small" href="/validacoes/{{ execucao.id }}/csv"><i class="fas fa-file-csv" aria-hidden="true"></i> CSV</a>
-      {% endif %}
     </div>
     {% endif %}
 
@@ -101,7 +97,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script>const MAX_MB = {{ max_mb }}, ADMIN = {{ 'true' if admin else 'false' }}, EXPORTAR = {{ 'true' if exportar else 'false' }};</script>
+<script>const MAX_MB = {{ max_mb }}, ADMIN = {{ 'true' if admin else 'false' }};</script>
 <script src="{{ estatico('js/status.js') }}"></script>
 <script src="{{ estatico('js/dashboard.js') }}"></script>
 {% endblock %}

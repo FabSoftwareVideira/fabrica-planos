@@ -1,0 +1,7 @@
+{#- Abas da coordenação (mesmo estilo das abas da administração). Usa: aba ('planos' ou 'disciplinas'). -#}
+<nav class="abas-admin" aria-label="Seções da coordenação">
+  <div class="container-lg">
+    <a href="/coordenacao"{% if aba == 'planos' %} class="ativa" aria-current="page"{% endif %}><i class="fas fa-chart-pie" aria-hidden="true"></i> Situação dos planos</a>
+    <a href="/disciplinas"{% if aba == 'disciplinas' %} class="ativa" aria-current="page"{% endif %}><i class="fas fa-book" aria-hidden="true"></i> Disciplinas do período</a>
+  </div>
+</nav>

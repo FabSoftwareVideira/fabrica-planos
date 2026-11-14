@@ -1,3 +1,4 @@
+import io
 import os
 import re
 import tempfile
@@ -6,7 +7,7 @@ import zipfile
 
 from flask import Blueprint, request, send_file, send_from_directory
 
-from ..armazenamento import historico
+from ..armazenamento import csvsaida, historico
 from ..avaliacao import pipeline
 from .comum import json_, servicos, somente_exportadores, texto
 
@@ -30,11 +31,21 @@ def listar_validacoes():
 @bp.get('/<id_>/csv')
 @somente_exportadores
 def baixar_csv(id_):
+    """CSV da validação; com ?arquivo=... (repetido), só as linhas desses planos (o CSV de um período, na
+    coordenação), e ?nome= dá o nome do arquivo baixado."""
     execucao, erro = _execucao_ou_404(id_)
     if erro:
         return erro
-    return send_file(execucao.csv_path, mimetype='text/csv', as_attachment=True,
-                     download_name=f'validacao-{execucao.id}.csv')
+    pedidos = set(request.args.getlist('arquivo'))
+    grupo = _nome_de_arquivo(request.args.get('nome', ''))
+    nome = f'validacao-{grupo + "-" if grupo else ""}{execucao.id}.csv'
+    if not pedidos:
+        return send_file(execucao.csv_path, mimetype='text/csv', as_attachment=True, download_name=nome)
+    linhas = [l for l in csvsaida.ler_csv(execucao.csv_path) if l.get('Arquivo') in pedidos]
+    if not linhas:
+        return texto('Nenhum dos planos pedidos está nessa validação.', 404)
+    return send_file(io.BytesIO(csvsaida.csv_em_bytes(linhas)), mimetype='text/csv', as_attachment=True,
+                     download_name=nome)
 
 
 @bp.get('/<id_>/pdf')

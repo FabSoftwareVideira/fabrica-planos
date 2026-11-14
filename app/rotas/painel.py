@@ -7,7 +7,7 @@ from ..armazenamento import csvsaida, detalhes, historico
 from ..avaliacao import identificacao, pipeline
 from ..paginas import dashboard, relatorio
 from ..servicos import assinatura, revisao
-from .comum import eh_admin, email, json_, mesma_origem, nome as nome_usuario, pode_exportar, servicos, texto
+from .comum import eh_admin, email, json_, mesma_origem, nome as nome_usuario, servicos, texto
 
 # Consulta (qualquer servidor logado): dashboard, relatório de um plano, andamento e PDFs da pasta.
 # Os caminhos /webhook/... mantêm compatíveis a página validacao.html e os links antigos do n8n.
@@ -63,7 +63,7 @@ def pagina_dashboard():
     # Nos planos que pode revisar, o card ganha o botão Revisar.
     return render_template('dashboard.html', **dashboard.contexto(
         linhas, cfg.pdf_max_mb, execucao, email(), eh_admin(), idents, docentes, revisoes,
-        exportar=pode_exportar(), revisaveis=revisaveis(idents)))
+        revisaveis=revisaveis(idents)))
 
 
 @bp.get('/relatorio')

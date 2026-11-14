@@ -5,8 +5,7 @@
     alto do <main> (templates/_titulo_pagina.html). -#}
 {% include '_barra_utilidade.html' %}
 {% set itens = [] if sem_menu else [('painel', 'Painel', '/dashboard', 'chart-bar')]
-             + ([('coordenacao', 'Coordenação', '/coordenacao', 'chart-pie'),
-                  ('disciplinas', 'Disciplinas', '/disciplinas', 'book')] if usuario_coordenacao else [])
+             + ([('coordenacao', 'Coordenação', '/coordenacao', 'chart-pie')] if usuario_coordenacao else [])
              + ([('administracao', 'Administração', '/administracao', 'cog')] if usuario_admin else [])
              + [('meus', 'Meus planos', '/meus-planos', 'folder-open')] %}
 <header class="br-header cabecalho" id="header">

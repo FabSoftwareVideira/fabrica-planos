@@ -67,9 +67,9 @@ def _filtros(linhas, grupos):
 
 
 def contexto(linhas, max_mb=10, execucao=None, usuario='', admin=True, idents=None, docentes=None, revisoes=None,
-             exportar=True, revisaveis=()):
-    """`revisoes`: {arquivo: resumo da revisão vigente} (servicos/revisao.py: resumo); `exportar`: pode baixar
-    o CSV e os zips; `revisaveis`: arquivos que o usuário pode revisar."""
+             revisaveis=()):
+    """`revisoes`: {arquivo: resumo da revisão vigente} (servicos/revisao.py: resumo); `revisaveis`: arquivos
+    que o usuário pode revisar. A exportação (zip dos PDFs e CSV) fica na visão da coordenação."""
     revisoes = revisoes or {}
     # Com revisão vigente, o status do revisor substitui o da IA em tudo (filtros e agrupamento).
     linhas = [dict(l, **{'Status Geral': revisoes[l.get('Arquivo')]['status']}) if l.get('Arquivo') in revisoes else l
@@ -77,7 +77,6 @@ def contexto(linhas, max_mb=10, execucao=None, usuario='', admin=True, idents=No
     ctx = {
         'max_mb': int(max_mb),
         'admin': admin,
-        'exportar': exportar,
         'usuario': usuario,
         'execucao': execucao,
         'cards': [],

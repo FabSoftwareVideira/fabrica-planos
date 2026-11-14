@@ -101,13 +101,15 @@ def contexto(execucao, linhas, idents, docentes, revisoes, cursos, curso, period
               for n in [sum(1 for p in planos if rotulo in p['problemas'])] if n]
     campos.sort(key=lambda c: -c[1])
     titulo_periodo = dict(periodos).get(periodo, 'Todos os períodos')
-    zip_ = ''
+    # Exportação do período escolhido: os PDFs (zip) e o CSV da avaliação dos planos dele
+    zip_ = csv_ = ''
     if exportar and execucao and total:
+        nome = [('nome', cursos[curso] + ' ' + titulo_periodo)]
         guardados = set(execucao.pdfs())
         nomes = [p['arquivo'] for p in planos if p['arquivo'] in guardados]
         if nomes:
-            zip_ = (f'/validacoes/{execucao.id}/pdfs.zip?'
-                    + urlencode([('nome', cursos[curso] + ' ' + titulo_periodo)] + [('arquivo', n) for n in nomes]))
+            zip_ = f'/validacoes/{execucao.id}/pdfs.zip?' + urlencode(nome + [('arquivo', n) for n in nomes])
+        csv_ = f'/validacoes/{execucao.id}/csv?' + urlencode(nome + [('arquivo', p['arquivo']) for p in planos])
     ctx.update({
         'periodos': periodos + ([(TODOS, 'Todos os períodos')] if len(periodos) > 1 else []),
         'periodo': periodo,
@@ -122,5 +124,6 @@ def contexto(execucao, linhas, idents, docentes, revisoes, cursos, curso, period
         'campos': campos,
         'docentes': _docentes(planos),
         'url_zip': zip_,
+        'url_csv': csv_,
     })
     return ctx

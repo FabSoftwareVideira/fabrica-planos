@@ -302,7 +302,10 @@ def test_so_coordenacao_e_administracao_planejam(app):
         assert c.post(f'/disciplinas/CC/2027.1/{acao}', headers=NDE).status_code == 403
     for cab in (COORD, ADMIN):
         html = c.get('/disciplinas', headers=cab).get_data(as_text=True)
-        assert 'Planejar ' in html and 'href="/disciplinas"' in html  # item do menu
+        assert 'Planejar ' in html and 'aria-label="Seções da coordenação"' in html  # aba da Coordenação
+        assert 'href="/disciplinas"' in c.get('/coordenacao', headers=cab).get_data(as_text=True)
+        menu = html[html.index('id="menu-principal"'):html.index('</nav>', html.index('id="menu-principal"'))]
+        assert 'Disciplinas' not in menu and 'class="ativo" aria-current="page"><i class="fas fa-chart-pie"' in menu
     assert 'href="/disciplinas"' not in c.get('/dashboard', headers=NDE).get_data(as_text=True)
 
 

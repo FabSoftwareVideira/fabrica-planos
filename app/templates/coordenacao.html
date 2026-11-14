@@ -13,6 +13,7 @@
 {% block corpo %}
 {% set titulo_pagina = 'Visão da coordenação' %}{% set pagina_atual = 'coordenacao' %}
 {% include '_cabecalho.html' %}
+{% with aba='planos' %}{% include '_abas_coordenacao.html' %}{% endwith %}
 
 <main id="main">
   <div class="container-lg py-4">
@@ -26,7 +27,10 @@
         <h2>{{ nome_curso }}</h2>
         {% if meta.finalizado_em %}<p class="meta-validacao">Validação concluída em {{ meta.finalizado_em|data_br }}</p>{% endif %}
       </div>
-      {% if url_zip %}<a class="br-button secondary small" href="{{ url_zip }}"><i class="fas fa-file-archive" aria-hidden="true"></i> PDFs do curso (zip)</a>{% endif %}
+      {% if url_zip or url_csv %}<div class="exportar" aria-label="Exportar o período escolhido">
+        {% if url_zip %}<a class="br-button secondary small" href="{{ url_zip }}"><i class="fas fa-file-archive" aria-hidden="true"></i> PDFs de {{ titulo_periodo }} (zip)</a>{% endif %}
+        {% if url_csv %}<a class="br-button secondary small" href="{{ url_csv }}"><i class="fas fa-file-csv" aria-hidden="true"></i> CSV de {{ titulo_periodo }}</a>{% endif %}
+      </div>{% endif %}
     </div>
     <form class="br-card escolha" method="get" action="/coordenacao">
       {% if cursos|length > 1 %}

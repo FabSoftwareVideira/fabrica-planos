@@ -44,11 +44,6 @@ function agrupar() {
         const ok = n('OK'), pend = n('PENDENTE');
         resumo.textContent = `${g.cards.length} plano(s) · ${ok} OK · ${pend} pendente(s) · ${g.cards.length - ok - pend} com problemas`;
         cab.append(g.titulo, resumo);
-        if (EXPORTAR) {  // zip do grupo: só coordenação e administração
-          const zip = document.createElement('a'); zip.className = 'zip'; zip.innerHTML = '<i class="fas fa-file-archive" aria-hidden="true"></i> PDFs (zip)';
-          zip.dataset.titulo = g.titulo;
-          cab.append(zip);
-        }
         secao.append(cab);
       }
       secao.append(...g.cards);
@@ -57,19 +52,6 @@ function agrupar() {
   area.replaceChildren(...secoes);
   try { localStorage.setItem('agrupar', agruparPor); } catch {}
   aplicarFiltros();
-}
-
-// Link do zip de cada grupo: os PDFs dos planos visíveis nele (só a última validação guarda os PDFs).
-function atualizarZips() {
-  const validacao = $('resultados') && $('resultados').dataset.validacao;
-  document.querySelectorAll('.grupo').forEach(g => {
-    const zip = g.querySelector('.zip');
-    if (!zip) return;
-    const nomes = [...g.querySelectorAll('.plano[data-pdf]:not([hidden])')].map(c => c.dataset.arquivo);
-    zip.hidden = !nomes.length;
-    zip.href = `/validacoes/${encodeURIComponent(validacao)}/pdfs.zip?` + new URLSearchParams(
-      [['nome', zip.dataset.titulo], ...nomes.map(n => ['arquivo', n])]);
-  });
 }
 
 function aplicarFiltros() {
@@ -89,7 +71,6 @@ function aplicarFiltros() {
   $('busca').value = filtro.busca;
   if ($('grupo')) $('grupo').value = filtro.grupo;
   document.querySelectorAll('.grupo').forEach(g => g.hidden = !g.querySelector('.plano:not([hidden])'));
-  atualizarZips();
   const ativo = filtro.busca || filtro.status || filtro.grupo;
   $('contagem').textContent = ativo ? `${visiveis} de ${cards.length} plano(s)` : `${cards.length} plano(s)`;
   $('limpar-filtros').hidden = !ativo;
