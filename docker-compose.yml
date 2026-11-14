@@ -85,8 +85,8 @@ services:
     environment:
       - PLANOS_DIR=/data/planos
       - RESULTADOS_DIR=/data/resultados
-      # Ollama neste mesmo Compose, também acessível por projetos confiáveis na rede compartilhada
-      - OLLAMA_URL=${OLLAMA_URL:-http://ollama:11434}
+      # Ollama do projeto Open WebUI, alcançado pela rede Docker compartilhada
+      - OLLAMA_URL=${OLLAMA_URL}
       - OLLAMA_MODEL=${OLLAMA_MODEL}
       - OLLAMA_NUM_CTX=${OLLAMA_NUM_CTX}
       - AGENDAMENTO_HORA=${AGENDAMENTO_HORA}
@@ -158,45 +158,6 @@ services:
           cpus: "${APP_CPUS:-1.5}"
           pids: 256
     # Logs do Docker giram em até 3 arquivos de 10 MB (sem isso crescem até encher o disco)
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  ollama:
-    image: ollama/ollama:latest
-    restart: unless-stopped
-    networks:
-      - default
-      - ollama-shared
-    ports:
-      - "${OLLAMA_BIND:-127.0.0.1}:${OLLAMA_PORT:-11434}:11434"
-    environment:
-      TZ: ${TZ:-America/Sao_Paulo}
-      OLLAMA_CONTEXT_LENGTH: ${OLLAMA_CONTEXT_LENGTH:-32768}
-      OLLAMA_MAX_LOADED_MODELS: ${OLLAMA_MAX_LOADED_MODELS:-1}
-      OLLAMA_NUM_PARALLEL: ${OLLAMA_NUM_PARALLEL:-1}
-    volumes:
-      - ollama-data:/root/.ollama
-    healthcheck:
-      test: ["CMD", "ollama", "list"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 10s
-    security_opt:
-      - no-new-privileges:true
-    deploy:
-      resources:
-        limits:
-          memory: ${OLLAMA_MEMORIA:-8g}
-          cpus: "${OLLAMA_CPUS:-2}"
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
     logging:
       driver: json-file
       options:
@@ -306,10 +267,7 @@ networks:
     external: true
   ollama-shared:
     name: ollama-shared
+    external: true
 
 volumes:
   pgdata:
-  # Modelos do Ollama. Sem "external": se já existir um volume com esse nome (ex.: o do Ollama que rodava
-  # separado), ele é usado com os modelos baixados; senão, é criado vazio no primeiro deploy.
-  ollama-data:
-    name: ${OLLAMA_VOLUME_NAME:-ollama-modelos}

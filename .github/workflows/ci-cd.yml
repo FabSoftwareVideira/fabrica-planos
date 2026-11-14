@@ -63,11 +63,12 @@ jobs:
       # Garante que a imagem de produção ainda constrói antes de chegar ao servidor
       - run: docker build --target producao -t validador-planos:ci .
 
-      # E que os Compose de produção (com o Ollama) e de desenvolvimento continuam válidos
+      # E que os Compose de produção, desenvolvimento e do Ollama continuam válidos
       - run: docker compose -f docker-compose.yml config --quiet
         env:
           POSTGRES_PASSWORD: teste
       - run: docker compose -f docker-compose.dev.yml config --quiet
+      - run: docker compose -f open-webui/docker-compose.yml config --quiet
 
   deploy:
     needs: testes

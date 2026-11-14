@@ -73,11 +73,15 @@ A produção roda no [Dokploy](https://dokploy.com), como recurso do tipo **Dock
 4. Em **Domains**, aponte o domínio para o serviço `caddy`, porta `80`, com HTTPS.
 5. Coloque em `app/certificados/` o certificado da AC Raiz do Governo Federal do Brasil v1 (veja o [LEIA-ME](app/certificados/LEIA-ME.md)). Sem ele, os planos assinados são recusados.
 6. Para o botão **Assinar com gov.br**, peça ao gov.br as credenciais da **API de Assinatura Eletrônica** (separadas das do login), com o endereço de retorno `https://SEU_DOMINIO/assinatura/govbr/callback`, e preencha as variáveis `GOVBR_ASSINATURA_*` (veja o `.env.example`). Sem elas, o professor assina em assinador.iti.br e envia o PDF, como antes. Assinar exige conta gov.br **prata ou ouro**. Em homologação, a conta de teste é criada em sso.staging.acesso.gov.br, o código de SMS pode ser `12345`, e a cadeia de teste do ITI é aceita a partir da própria resposta da API; em produção, só valem os certificados de `app/certificados/`.
+7. Faça o deploy do projeto do Ollama conforme [`open-webui/README.md`](./open-webui/README.md) antes do validador.
+
 #### Ollama e acesso por outros projetos
 
-O serviço `ollama` faz parte do mesmo `docker-compose.yml` da aplicação e é implantado junto com ela. A rede `ollama-shared` também é criada por esse Compose. Os modelos ficam no volume `OLLAMA_VOLUME_NAME` (padrão `ollama-modelos`): se ele já existir, é usado; senão, é criado vazio no primeiro deploy, e os modelos precisam ser baixados de novo (`docker exec <container do ollama> ollama pull qwen2.5:7b`). Para aproveitar os modelos do Ollama que rodava separado, descubra o nome do volume dele no servidor (`docker volume ls | grep -i ollama`) e ponha esse nome em `OLLAMA_VOLUME_NAME` antes do deploy. Não remova esse volume ao desativar o Compose independente antigo.
+O Ollama fica em um projeto Compose independente na pasta [`open-webui/`](./open-webui/), implantável separadamente no Dokploy apontando para este repositório GitHub e usando o arquivo `./open-webui/docker-compose.yml`. Assim, o Ollama não é reiniciado junto com o validador.
 
-Na migração, pare/remova o serviço Ollama independente no Dokploy sem apagar o volume de modelos e, então, implante o Compose principal. O `app` acessa a API em `http://ollama:11434`. O Caddy acessa o app pelo alias `fabrica-planos-web-interno` na rede privada, evitando confusão com outros serviços chamados `app` na rede do Dokploy. Outros projetos na mesma máquina podem usar o Ollama anexando seus serviços à rede externa `ollama-shared`. Exemplo no Compose consumidor:
+Implante primeiro esse projeto: ele cria a rede `ollama-shared` e inicia o Ollama; depois implante o validador. As variáveis do Ollama estão em [`open-webui/.env.example`](./open-webui/.env.example), e os modelos ficam no volume persistente `ollama-data`.
+
+O serviço `app` do validador também se conecta à rede compartilhada e acessa a API em `http://ollama:11434`. O Caddy o acessa pelo alias `fabrica-planos-web-interno` na rede privada, evitando confusão com outros serviços chamados `app` na rede do Dokploy. Outros projetos na mesma máquina podem usar o Ollama anexando seus serviços à rede externa `ollama-shared`. Exemplo no Compose consumidor:
 
 ```yaml
 services:
@@ -93,7 +97,7 @@ networks:
     external: true
 ```
 
-Essa rede dá acesso à API do Ollama sem abrir a porta `11434` para a internet. Por padrão, a porta publicada no host só aceita conexões locais. Como o Ollama não oferece autenticação, só conecte à rede serviços confiáveis. Mantenha o Compose principal em execução para garantir que a rede exista; outros Compose a declaram como externa e não a removem.
+Essa rede dá acesso à API do Ollama sem abrir a porta `11434` para a internet. Por padrão, a porta publicada no host só aceita conexões locais. Como o Ollama não oferece autenticação, só conecte à rede serviços confiáveis. Mantenha este projeto em execução para garantir que a rede exista; outros Compose a declaram como externa e não a removem.
 
 Os PDFs, os resultados e os backups ficam em pastas fixas do servidor (padrão `/srv/validador-planos/`), preparadas automaticamente a cada deploy.
 
