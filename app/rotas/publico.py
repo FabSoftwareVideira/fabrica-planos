@@ -1,8 +1,9 @@
 from urllib.parse import quote
 
 from flask import Blueprint, current_app, redirect, render_template, request
+from werkzeug.exceptions import HTTPException
 
-from ..paginas import inicio
+from ..paginas import erros, inicio
 from . import govbr
 from .comum import eh_admin, email, json_, mesma_origem, nome, servicos, texto
 
@@ -87,10 +88,21 @@ def cabecalhos_seguranca(resp):
     return resp
 
 
-@bp.app_errorhandler(413)
-def grande_demais(_erro):
-    limite = current_app.config['MAX_CONTENT_LENGTH'] // (1024 * 1024)
-    return json_({'erro': f'Envio maior que {limite} MB; mande menos arquivos por vez'}, 413)
+@bp.app_errorhandler(HTTPException)
+def erro_http(erro):
+    """Erros HTTP (404, 405, 413...) e os inesperados (500, já registrados no log pelo Flask): a página de
+    erro para quem navega; JSON com `erro` para as chamadas das páginas (fetch). Redirecionamentos internos
+    do Flask (3xx) passam como estão."""
+    status = erro.code or 500
+    if status < 400:
+        return erro
+    mensagem = ''
+    if status == 413:
+        limite = current_app.config['MAX_CONTENT_LENGTH'] // (1024 * 1024)
+        mensagem = f'Envio maior que {limite} MB; mande menos arquivos por vez'
+    if erros.quer_pagina():
+        return erros.pagina(status, mensagem)
+    return json_({'erro': mensagem or erros.dados(status)[0]}, status)
 
 
 @bp.get('/')

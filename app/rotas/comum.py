@@ -88,6 +88,11 @@ def json_(obj, status=200):
 
 
 def texto(mensagem, status):
+    """Resposta curta em texto. Num erro (4xx/5xx) para quem está navegando, vira a página de erro no padrão
+    do Design System, com a mensagem como detalhe (paginas/erros.py)."""
+    from ..paginas import erros
+    if status >= 400 and erros.quer_pagina():
+        return erros.pagina(status, mensagem)
     return Response(mensagem, status, mimetype='text/plain; charset=utf-8')
 
 

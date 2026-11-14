@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+{#- Página de erro (paginas/erros.py) no padrão do Design System gov.br: código, título, explicação, o detalhe
+    da recusa (quando a rota disse o motivo) e os caminhos de volta. -#}
+
+{% block titulo %}{{ titulo }} · Validação de Planos de Ensino{% endblock %}
+
+{% block estilos %}
+{% include '_ds.html' %}
+<style>
+  .erro-pagina{display:flex;flex-direction:column;align-items:flex-start;gap:var(--spacing-scale-2x);max-width:720px}
+  .erro-codigo{font-size:clamp(56px,12vw,96px);font-weight:var(--font-weight-bold);line-height:1;color:var(--blue-warm-vivid-70);margin:0}
+  .erro-pagina h1{font-size:var(--font-size-scale-up-04);margin:0}
+  .erro-pagina .br-message{width:100%;margin:0}
+  .erro-acoes{display:flex;flex-wrap:wrap;gap:var(--spacing-scale-base)}
+  html.alto-contraste .erro-codigo{color:#ffd700}
+</style>
+{% endblock %}
+
+{% block corpo %}
+{% include '_cabecalho.html' %}
+<main id="main">
+  <div class="container-lg py-5">
+    <section class="erro-pagina" aria-labelledby="erro-titulo">
+      <p class="erro-codigo" aria-hidden="true">{{ codigo }}</p>
+      <h1 id="erro-titulo">{{ titulo }}</h1>
+      <div class="br-message {{ tipo }}" role="alert">
+        <div class="icon"><i class="fas fa-{{ icone }} fa-lg" aria-hidden="true"></i></div>
+        <div class="content">
+          <span class="message-body">{{ explicacao }}{% if detalhe %}<br><strong>Detalhe:</strong> {{ detalhe }}{% endif %}</span>
+        </div>
+      </div>
+      <div class="erro-acoes">
+        <button class="br-button secondary" type="button" onclick="history.length > 1 ? history.back() : location.assign('/')"><i class="fas fa-arrow-left" aria-hidden="true"></i> Voltar</button>
+        {% if codigo == 401 %}
+        <a class="br-button primary" href="/entrar?rd={{ request.full_path.rstrip('?')|urlencode }}"><i class="fas fa-sign-in-alt" aria-hidden="true"></i> Entrar</a>
+        {% elif usuario_email %}
+        <a class="br-button primary" href="/dashboard"><i class="fas fa-chart-bar" aria-hidden="true"></i> Ir para o painel</a>
+        {% else %}
+        <a class="br-button primary" href="/"><i class="fas fa-home" aria-hidden="true"></i> Página inicial</a>
+        {% endif %}
+      </div>
+    </section>
+  </div>
+</main>
+{% include '_rodape.html' %}
+{% endblock %}
