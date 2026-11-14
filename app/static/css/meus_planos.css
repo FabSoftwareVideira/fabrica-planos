@@ -1,25 +1,57 @@
-/* "Meus planos": lista dos planos do servidor (sobre o Design System gov.br e ds.css). */
+/* "Meus planos" (sobre o Design System gov.br e ds.css): abas de período, disciplinas e detalhes recolhidos. */
+h2{font-size:var(--font-size-scale-up-02);margin:0}
+.cab-meus{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:var(--spacing-scale-2x)}
+.contagem{font-size:var(--font-size-scale-base);font-weight:var(--font-weight-regular);color:var(--gray-60)}
+
+/* Períodos: o atual e o próximo como abas, os demais num seletor */
+.seletor-periodo{display:flex;flex-wrap:wrap;gap:var(--spacing-scale-base);align-items:center}
+.aba-periodo{display:inline-flex;align-items:baseline;gap:4px;border:1px solid var(--gray-20);border-radius:var(--surface-rounder-pill);
+  background:var(--background);color:var(--gray-70);padding:6px 16px;font:inherit;cursor:pointer}
+.aba-periodo span{font-size:var(--font-size-scale-down-01);color:var(--gray-60)}
+.aba-periodo:hover{border-color:var(--interactive)}
+.aba-periodo.ativa{background:var(--interactive);border-color:var(--interactive);color:#fff}
+.aba-periodo.ativa span{color:#e8f0fe}
+.outros-periodos{height:36px;border:1px solid var(--gray-20);border-radius:var(--surface-rounder-pill);padding:0 12px;
+  background:var(--background);color:var(--gray-70);font:inherit;font-size:var(--font-size-scale-down-01)}
+.outros-periodos.ativa{border-color:var(--interactive);color:var(--interactive);font-weight:var(--font-weight-semi-bold)}
+.aba-periodo:focus,.outros-periodos:focus,.detalhes summary:focus,.ajuda-envio summary:focus{outline:2px solid var(--focus-color);outline-offset:2px}
+.resumo-periodo{margin:0 0 var(--spacing-scale-base);color:var(--gray-60);font-size:var(--font-size-scale-down-01)}
+.resumo-periodo:empty{display:none}
+
+/* Disciplinas */
 .meus{list-style:none;margin:0;padding:0}
-.meus li{border-top:1px solid var(--gray-10);padding:var(--spacing-scale-2x) var(--spacing-scale-half);display:flex;
-  flex-wrap:wrap;gap:var(--spacing-scale-base) var(--spacing-scale-2x);align-items:center}
-.meus li:first-child{border-top:0}
+.meus li.cab-grupo{border:0;padding:var(--spacing-scale-2x) 0 var(--spacing-scale-half);font-weight:var(--font-weight-bold);color:var(--gray-80)}
+.meus li.disciplina{border-top:1px solid var(--gray-10);padding:var(--spacing-scale-2x) var(--spacing-scale-half);scroll-margin-top:120px}
+.meus li.cab-grupo+li.disciplina{border-top:0}
+.topo{display:flex;flex-wrap:wrap;gap:var(--spacing-scale-base) var(--spacing-scale-2x);align-items:center;justify-content:space-between}
 .meus .nome{flex:1 1 240px;font-weight:var(--font-weight-semi-bold);overflow-wrap:anywhere}
 .meus .sub{display:block;font-size:var(--font-size-scale-down-01);font-weight:var(--font-weight-regular);color:var(--gray-60);margin-top:2px}
-.meus li.cab-grupo{display:block;border-top:0;padding:var(--spacing-scale-3x) var(--spacing-scale-half) var(--spacing-scale-half);
-  font-weight:var(--font-weight-bold);color:var(--gray-80)}
-.meus li.cab-grupo:first-child{padding-top:0}
-.meus .info{flex-basis:100%;font-size:var(--font-size-scale-down-01);color:var(--gray-60);overflow-wrap:anywhere}
 .meus .acoes{display:flex;flex-wrap:wrap;gap:var(--spacing-scale-base) var(--spacing-scale-2x);align-items:center}
-.meus .acoes a{font-weight:var(--font-weight-semi-bold)}
+.meus .frase{margin:var(--spacing-scale-half) 0 0;font-size:var(--font-size-scale-down-01);color:var(--gray-60);overflow-wrap:anywhere}
+.meus .aviso{margin:var(--spacing-scale-half) 0 0;font-size:var(--font-size-scale-down-01);color:#8a6d00}
 .meus .excluir-plano{color:var(--danger)}
-.meus .assinatura{flex-basis:100%;border-left:4px solid #eab308;background:var(--gray-2);border-radius:var(--surface-rounder-sm);
-  padding:var(--spacing-scale-base) var(--spacing-scale-2x);font-size:var(--font-size-scale-down-01)}
-.meus .assinatura.feita{border-left-color:#168821}
+
+/* Assinatura pendente: chamada visível */
+.meus .assinatura{border-left:4px solid #eab308;background:var(--gray-2);border-radius:var(--surface-rounder-sm);
+  padding:var(--spacing-scale-base) var(--spacing-scale-2x);font-size:var(--font-size-scale-down-01);margin-top:var(--spacing-scale-base)}
 .meus .assinatura p{margin:0}
 .meus .assinatura ol{margin:var(--spacing-scale-half) 0 var(--spacing-scale-base);padding-left:var(--spacing-scale-3x)}
 .meus .assinatura .nota{margin:var(--spacing-scale-half) 0;font-size:var(--font-size-scale-down-01);color:var(--gray-60)}
 .meus .assinatura .alternativa summary{cursor:pointer;color:var(--interactive);font-size:var(--font-size-scale-down-01)}
-.ajuda{margin:0 0 var(--spacing-scale-2x);color:var(--gray-60);font-size:var(--font-size-scale-down-01)}
-.contagem{font-size:var(--font-size-scale-base);font-weight:var(--font-weight-regular);color:var(--gray-60)}
-.meus .info.aviso{color:#8a6d00}
+
+/* Detalhes e versões, recolhidos */
+.detalhes{margin-top:var(--spacing-scale-base)}
+.detalhes summary{cursor:pointer;color:var(--interactive);font-size:var(--font-size-scale-down-01);width:max-content}
+.detalhes[open] summary{margin-bottom:var(--spacing-scale-base)}
+.versao{display:flex;flex-wrap:wrap;align-items:center;gap:var(--spacing-scale-half) var(--spacing-scale-2x);
+  padding:var(--spacing-scale-base) var(--spacing-scale-2x);border-left:3px solid var(--gray-20);margin:0 0 var(--spacing-scale-half);
+  font-size:var(--font-size-scale-down-01)}
+.versao.atual{border-left-color:var(--interactive);background:#f5f8fe}
+.versao .quando,.versao .marca-versao{color:var(--gray-60)}
+.versao .links{display:flex;flex-wrap:wrap;gap:var(--spacing-scale-base) var(--spacing-scale-2x);align-items:center;margin-left:auto}
+.versao .links a{font-weight:var(--font-weight-semi-bold)}
+
+.ajuda-envio{margin-top:var(--spacing-scale-3x);font-size:var(--font-size-scale-down-01);color:var(--gray-60)}
+.ajuda-envio summary{cursor:pointer;color:var(--interactive)}
+.ajuda-envio p{margin:var(--spacing-scale-base) 0 0;max-width:80ch}
 .msg.aviso{color:#8a6d00}

@@ -8,6 +8,7 @@ from . import rotas
 from .paginas import comum as paginas
 from .armazenamento.ofertas import Ofertas
 from .armazenamento.revisoes import Revisoes
+from .armazenamento.versoes import Versoes
 from .armazenamento.usuarios import Usuarios
 from .banco import Banco
 from .config import Config, carregar
@@ -48,7 +49,8 @@ def criar_app(cfg=None, executar=None):
     revisao = Revisao(cfg, revisoes, usuarios, disciplinas)
     assinaturas = Assinaturas(cfg, revisao, disciplinas)
     backup = Backup(cfg, validador, banco)
-    planos = PastaDePlanos(cfg, validador, revisoes, assinaturas, disciplinas)
+    # Atualizar um plano (mesmo assinado) guarda a versão anterior no histórico
+    planos = PastaDePlanos(cfg, validador, revisoes, assinaturas, disciplinas, Versoes(banco, cfg.resultados_dir))
     app.extensions['servicos'] = Servicos(cfg, validador, planos, usuarios, revisao, assinaturas, backup, disciplinas)
     paginas.registrar(app)
     rotas.registrar(app)

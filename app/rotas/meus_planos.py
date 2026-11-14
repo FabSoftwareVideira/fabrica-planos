@@ -1,16 +1,19 @@
 import logging
 
-from flask import Blueprint, render_template, request
+import os
+
+from flask import Blueprint, render_template, request, send_file
 
 from ..avaliacao import pipeline
 from ..paginas import meus_planos
 from ..servicos import assinatura, revisao
 from ..servicos.planos import Ocupado, Proibido, Recusado
-from .comum import email, json_, nome as nome_usuario, ocupado, servicos
+from .comum import email, json_, nome as nome_usuario, ocupado, servicos, texto
 
 # "Meus planos": cada professor vê as disciplinas em que a coordenação o vinculou como docente e entrega
 # o plano de cada uma (a entrega oficial, que vai para a mesma pasta do NDE), acompanha a avaliação e pode
-# substituí-lo ou excluí-lo. Sem disciplina vinculada, não há onde enviar plano.
+# atualizá-lo (mesmo assinado: a versão anterior vai para o histórico) ou excluí-lo. Sem disciplina vinculada,
+# não há onde enviar plano.
 log = logging.getLogger(__name__)
 bp = Blueprint('meus_planos', __name__, url_prefix='/meus-planos')
 
@@ -31,13 +34,37 @@ def listar():
     s = servicos()
     planos = s.planos.do_professor(_dono())
     vigentes = s.revisao.vigentes()
+    versoes = s.planos.versoes.de_varios(p['nome'] for p in planos) if s.planos.versoes else {}
     for plano in planos:  # parecer da coordenação/NDE/NDB, que vale sobre a avaliação da IA
         plano['revisao'] = revisao.resumo(vigentes.get(plano['nome']))
         # Aprovado na revisão: o professor assina pelo gov.br e envia o PDF assinado
         plano['assinatura'] = assinatura.resumo(s.assinaturas.vigente(plano['nome']))
         plano['pode_assinar'] = s.assinaturas.liberado(plano['nome'], _dono())
-        plano['reenvio_liberado'] = s.planos.reenvio_liberado(plano['nome'])
+        # Versões anteriores (a atual é a de número len + 1)
+        plano['versoes'] = versoes.get(plano['nome'], [])
+        plano['versao'] = len(plano['versoes']) + 1 if plano['tem_plano'] else None
     return json_({'planos': planos})
+
+
+@bp.get('/versao')
+def baixar_versao():
+    """PDF de uma versão anterior do plano (?arquivo=, ?numero=; ?assinado=1 para o assinado)."""
+    s = servicos()
+    nome = request.args.get('arquivo', '')
+    try:
+        numero = int(request.args.get('numero', ''))
+    except ValueError:
+        return texto('Versão inválida.', 400)
+    versao = s.planos.versoes.obter(nome, numero) if pipeline.nome_valido(nome) and s.planos.versoes else None
+    assinado = request.args.get('assinado') == '1'
+    if not versao or (assinado and not versao['tem_assinado']):
+        return texto('Versão não encontrada.', 404)
+    caminho = s.planos.versoes.caminho(nome, numero, assinado)
+    if not os.path.isfile(caminho):
+        return texto('Versão não encontrada.', 404)
+    sufixo = '-assinado' if assinado else ''
+    return send_file(caminho, mimetype='application/pdf',
+                     download_name=f"{os.path.splitext(nome)[0]}-v{numero}{sufixo}.pdf")
 
 
 @bp.post('')

@@ -1,7 +1,8 @@
 {% extends 'base.html' %}
-{#- "Meus planos": as disciplinas em que a coordenação vinculou o professor como docente, cada uma com o envio
-    do plano (a entrega oficial ao NDE) e a situação da avaliação, que começa logo após o envio ou espera a
-    vez na fila. A lista vem de /meus-planos/lista (static/js/meus_planos.js). -#}
+{#- "Meus planos": as disciplinas em que a coordenação vinculou o professor como docente, separadas por período
+    letivo (o atual e o próximo primeiro). Cada disciplina mostra a situação do plano e a ação principal
+    (enviar, atualizar, assinar); PDFs, aviso, exclusão e versões anteriores ficam em "Detalhes". A lista vem de
+    /meus-planos/lista (static/js/meus_planos.js). -#}
 
 {% block titulo %}Meus planos · Validação de Planos de Ensino{% endblock %}
 
@@ -19,11 +20,18 @@
   <div class="container-lg py-4">
     {% include '_titulo_pagina.html' %}
     <section class="br-card">
-      <div class="card-header"><h2>Minhas disciplinas <span class="contagem" id="qtd"></span></h2></div>
+      <div class="card-header cab-meus">
+        <h2>Minhas disciplinas</h2>
+        <div class="seletor-periodo" id="periodos" role="tablist" aria-label="Período letivo"></div>
+      </div>
       <div class="card-content">
-        <p class="ajuda">Envie o PDF do plano gerado pelo SIGAA em cada disciplina (com texto selecionável, até {{ max_mb }} MB; o nome do arquivo não importa). Ele é a entrega do plano ao NDE, e a avaliação automática começa logo em seguida. Se algo precisar de ajuste, corrija no SIGAA, gere o PDF de novo e envie outra vez na mesma disciplina.</p>
+        <p class="resumo-periodo" id="resumo"></p>
         <p class="msg" id="envio-msg" role="status" hidden></p>
         <ul class="meus" id="lista"><li><span class="msg">Carregando…</span></li></ul>
+        <details class="ajuda-envio">
+          <summary>Como enviar e atualizar o plano</summary>
+          <p>Envie o PDF do plano gerado pelo SIGAA em cada disciplina (com texto selecionável, até {{ max_mb }} MB; o nome do arquivo não importa). Ele é a entrega do plano ao NDE, e a avaliação automática começa logo em seguida. Para corrigir, gere o PDF de novo no SIGAA e use <strong>Atualizar</strong>, mesmo que o plano já esteja assinado: a versão anterior fica guardada no histórico, e a nova passa outra vez pela avaliação, pela revisão e pela assinatura.</p>
+        </details>
       </div>
     </section>
   </div>
@@ -33,7 +41,8 @@
 {% endblock %}
 
 {% block scripts %}
-<script>const MAX_MB = {{ max_mb }}, ASSINATURA_API = {{ 'true' if assinatura_api else 'false' }}, ADMIN = false;</script>
+<script>const MAX_MB = {{ max_mb }}, ASSINATURA_API = {{ 'true' if assinatura_api else 'false' }}, ADMIN = false,
+  DESTAQUES = {{ destaques|tojson }};</script>
 <script src="{{ estatico('js/status.js') }}"></script>
 <script src="{{ estatico('js/meus_planos.js') }}"></script>
 {% endblock %}

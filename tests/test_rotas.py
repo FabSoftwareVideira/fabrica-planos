@@ -337,25 +337,16 @@ def test_erro_inesperado_ao_conferir_a_assinatura(admin, monkeypatch, caplog):
 
 # Coordenação e histórico ------------------------------------------------------------------------------------
 
-def test_liberar_reenvio_pedidos_invalidos(admin):
+def test_nao_ha_mais_liberacao_de_reenvio(admin):
     c, _ = admin
-    assert c.post('/coordenacao/liberar', headers=ADMIN, data={'arquivo': 'a.txt'}).status_code == 400
-    r = c.post('/coordenacao/liberar', headers=ADMIN, data={'arquivo': 'nao-existe.pdf'})
-    assert r.status_code == 404
+    assert c.post('/coordenacao/liberar', headers=ADMIN, data={'arquivo': 'a.pdf'}).status_code in (404, 405)
 
 
-def test_liberar_e_cancelar_reenvio(admin, sem_ia):
-    from app.armazenamento import liberacoes
-    from conftest import dar_disciplina
-    c, planos = admin
-    s = servicos_de(c)
-    (planos / 'a.pdf').write_bytes(PDF)
-    dar_disciplina(c, 'fulano@ifc.edu.br', arquivo='a.pdf')
-    r = c.post('/coordenacao/liberar', headers=ADMIN, data={'arquivo': 'a.pdf'})
-    assert r.status_code == 400 and 'não está assinado' in r.get_data(as_text=True)
-    liberacoes.liberar(s.cfg.resultados_dir, 'a.pdf', 'admin@ifc.edu.br')
-    r = c.post('/coordenacao/liberar', headers=ADMIN, data={'arquivo': 'a.pdf', 'acao': 'cancelar'})
-    assert r.status_code in (200, 302, 303) and not liberacoes.liberado(s.cfg.resultados_dir, 'a.pdf')
+@pytest.mark.parametrize('numero, extra', [('x', ''), ('1', ''), ('1', '&assinado=1')])
+def test_versao_que_nao_existe(admin, numero, extra):
+    c, _ = admin
+    r = c.get(f'/meus-planos/versao?arquivo=a.pdf&numero={numero}{extra}', headers=FULANO)
+    assert r.status_code == (400 if numero == 'x' else 404)
 
 
 @pytest.mark.parametrize('url', ['/validacoes/20990101-000000/csv', '/validacoes/20990101-000000/pdf?arquivo=a.pdf',

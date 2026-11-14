@@ -196,7 +196,7 @@ html.alto-contraste .cabecalho .logo{background:#fff;padding:2px 6px;border-radi
 html.alto-contraste .cabecalho::after{background:linear-gradient(90deg,#00e676 0 22%,#ffd700 22% 100%)}
 html.alto-contraste .br-footer a{color:#fff}
 html.alto-contraste .br-footer .logo .sigla{color:#00e676}
-html.alto-contraste .assinado,html.alto-contraste .liberado{color:#00e676}
+html.alto-contraste .assinado{color:#00e676}
 html.alto-contraste .cabecalho .menu a:not(.br-button):hover{background:#222}
 html.alto-contraste .cabecalho .menu a.ativo:hover,
 html.alto-contraste .plano .acoes a.revisar:hover,html.alto-contraste .acoes a.revisar:hover{background:#ffe766}

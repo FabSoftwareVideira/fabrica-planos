@@ -1,7 +1,7 @@
 """Testes da camada de armazenamento (app/armazenamento e app/banco.py).
 
-Os arquivos JSON (liberações, ocultos) são testados como unidade, em pasta temporária. Usuários,
-vínculos com o gov.br e revisões são testes de integração com o PostgreSQL de TEST_DATABASE_URL (cada
+Os arquivos JSON (ocultos) são testados como unidade, em pasta temporária. Usuários, vínculos com o
+gov.br, revisões e versões dos planos são testes de integração com o PostgreSQL de TEST_DATABASE_URL (cada
 teste num esquema próprio; ver conftest.py)."""
 import json
 import os
@@ -10,9 +10,10 @@ import psycopg
 import pytest
 
 from app import banco as modulo_banco
-from app.armazenamento import liberacoes, ocultos
+from app.armazenamento import ocultos
 from app.armazenamento.revisoes import Revisoes
 from app.armazenamento.usuarios import Usuarios
+from app.armazenamento.versoes import Versoes
 from app.banco import Banco
 
 com_banco = pytest.mark.skipif(not os.environ.get('TEST_DATABASE_URL'), reason='precisa de TEST_DATABASE_URL')
@@ -20,7 +21,7 @@ com_banco = pytest.mark.skipif(not os.environ.get('TEST_DATABASE_URL'), reason='
 
 # Arquivos JSON ---------------------------------------------------------------------------------------
 
-@pytest.mark.parametrize('modulo, arquivo', [(liberacoes, 'liberacoes.json'), (ocultos, 'ocultos.json')])
+@pytest.mark.parametrize('modulo, arquivo', [(ocultos, 'ocultos.json')])
 def test_json_ausente_ou_corrompido_vale_vazio(tmp_path, modulo, arquivo):
     assert modulo.ler(str(tmp_path)) == {}
     (tmp_path / arquivo).write_text('{ isto não é json', encoding='utf-8')
@@ -28,21 +29,9 @@ def test_json_ausente_ou_corrompido_vale_vazio(tmp_path, modulo, arquivo):
 
 
 def test_remover_sem_nada_a_remover_nao_regrava(tmp_path, monkeypatch):
-    liberacoes.liberar(str(tmp_path), 'a.pdf', 'x@ifc.edu.br')
-    monkeypatch.setattr(liberacoes, '_gravar', lambda *a: pytest.fail('não devia regravar'))
-    liberacoes.remover(str(tmp_path), ['b.pdf'])
-
-
-def test_liberacoes(tmp_path):
-    pasta = str(tmp_path)
-    assert not liberacoes.liberado(pasta, 'a.pdf')
-    liberacoes.liberar(pasta, 'a.pdf', 'coord@ifc.edu.br')
-    liberacoes.liberar(pasta, 'b.pdf', 'coord@ifc.edu.br')
-    assert liberacoes.liberado(pasta, 'a.pdf') and liberacoes.ler(pasta)['a.pdf']['por'] == 'coord@ifc.edu.br'
-    liberacoes.cancelar(pasta, 'a.pdf')
-    assert not liberacoes.liberado(pasta, 'a.pdf') and liberacoes.liberado(pasta, 'b.pdf')
-    liberacoes.remover(pasta, ['b.pdf'])
-    assert liberacoes.ler(pasta) == {}
+    ocultos.ocultar(str(tmp_path), 'a.pdf', 'x@ifc.edu.br')
+    monkeypatch.setattr(ocultos, '_gravar', lambda *a: pytest.fail('não devia regravar'))
+    ocultos.mostrar(str(tmp_path), ['b.pdf'])
 
 
 def test_ocultos(tmp_path):
@@ -190,3 +179,30 @@ def test_revisoes_salvar_substituir_e_remover(banco):
     assert set(r.todas()) == {'a.pdf', 'b.pdf'}
     assert r.remover('a.pdf') and not r.remover('a.pdf')
     assert list(r.todas()) == ['b.pdf']
+
+
+# Versões dos planos ------------------------------------------------------------------------------------
+
+@com_banco
+def test_versoes_arquivadas_com_pdf_e_assinado(banco, tmp_path):
+    v = Versoes(banco, str(tmp_path / 'res'))
+    pdf, assinado = tmp_path / 'plano.pdf', tmp_path / 'assinado.pdf'
+    pdf.write_bytes(b'%PDF-v1')
+    assinado.write_bytes(b'%PDF-v1-assinado')
+    assert v.listar('a.pdf') == [] and v.de_varios([]) == {}
+    assert v.arquivar('a.pdf', str(pdf), str(assinado), enviado_em='2026-08-01T10:00:00', enviado_por='fulano@ifc.edu.br',
+                      revisao_status='OK', revisor='Nina', signatario='FULANO DE TAL', ignorado='x') == 1
+    pdf.write_bytes(b'%PDF-v2')
+    assert v.arquivar('a.pdf', str(pdf), None, status_ia='PENDENTE') == 2
+    assert v.arquivar('outro.pdf', str(pdf)) == 1
+    [v2, v1] = v.listar('a.pdf')
+    assert (v2['numero'], v2['status_ia'], v2['tem_assinado'], v2['bytes']) == (2, 'PENDENTE', False, 7)
+    assert (v1['enviado_por'], v1['revisao_status'], v1['signatario'], v1['tem_assinado']) == (
+        'fulano@ifc.edu.br', 'OK', 'FULANO DE TAL', True)
+    assert open(v.caminho('a.pdf', 1), 'rb').read() == b'%PDF-v1'
+    assert open(v.caminho('a.pdf', 1, assinado=True), 'rb').read() == b'%PDF-v1-assinado'
+    assert open(v.caminho('a.pdf', 2), 'rb').read() == b'%PDF-v2'
+    assert [x['numero'] for x in v.de_varios(['a.pdf', 'b.pdf'])['a.pdf']] == [2, 1]
+    assert v.de_varios(['b.pdf']) == {'b.pdf': []}
+    assert v.obter('a.pdf', 1)['signatario'] == 'FULANO DE TAL' and v.obter('a.pdf', 9) is None
+    assert v.caminho('../x/a b.pdf', 1).endswith('.._x_a_b.pdf' + os.sep + 'v1.pdf')  # sem sair da pasta

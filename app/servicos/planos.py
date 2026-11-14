@@ -2,7 +2,7 @@ import logging
 import os
 from datetime import datetime
 
-from ..armazenamento import assinaturas, csvsaida, detalhes, historico, liberacoes, ocultos
+from ..armazenamento import assinaturas, csvsaida, detalhes, historico, ocultos
 from ..avaliacao import identificacao, pipeline
 from ..avaliacao.extrator import PdfIlegivel, extrair_texto
 
@@ -32,18 +32,20 @@ class PastaDePlanos:
     para uma das disciplinas em que é docente, e ele fica na pasta com o nome da oferta (o nome do arquivo
     enviado não importa). Os docentes da disciplina substituem e excluem o plano dela; o administrador
     exclui só os PDFs sem disciplina (copiados direto para a pasta) e oculta os demais do painel. Excluir
-    tira o plano também da validação atual e apaga a revisão dele. Depois de assinado, o plano só é
-    substituído se a coordenação do curso liberar o reenvio (resultados/liberacoes.json).
+    tira o plano também da validação atual e apaga a revisão dele. O plano pode ser atualizado a qualquer
+    momento, mesmo depois de assinado: a versão anterior vai para o histórico (armazenamento/versoes.py), e a
+    nova volta a ser avaliada, revisada e assinada.
 
     Usa a trava do validador para não mexer nos PDFs enquanto um lote é validado.
     """
 
-    def __init__(self, cfg, validador, revisoes=None, assinaturas=None, disciplinas=None):
+    def __init__(self, cfg, validador, revisoes=None, assinaturas=None, disciplinas=None, versoes=None):
         self.cfg = cfg
         self.validador = validador
         self.revisoes = revisoes
         self.assinaturas = assinaturas
         self.disciplinas = disciplinas
+        self.versoes = versoes
 
     def caminho(self, nome):
         return os.path.join(self.cfg.planos_dir, nome)
@@ -69,13 +71,28 @@ class PastaDePlanos:
         """O plano está assinado pelo professor e a assinatura ainda vale (ver servicos/assinatura.py)."""
         return bool(self.assinaturas and self.assinaturas.vigente(nome))
 
-    def reenvio_liberado(self, nome):
-        """A coordenação liberou o envio de uma nova versão deste plano assinado."""
-        return self.assinado(nome) and liberacoes.liberado(self.cfg.resultados_dir, nome)
-
-    def pode_reenviar(self, nome):
-        """Plano assinado só é substituído depois de a coordenação do curso liberar o reenvio."""
-        return not self.assinado(nome) or liberacoes.liberado(self.cfg.resultados_dir, nome)
+    def _arquivar(self, nome, oferta):
+        """Guarda a versão atual do plano no histórico, com o envio, a avaliação da IA, o parecer da revisão e
+        a assinatura dela (o PDF assinado também), antes de a versão nova substituí-la."""
+        if not self.versoes or not self.existe(nome):
+            return None
+        revisao = self.assinaturas.revisao.vigente(nome) if self.assinaturas else None
+        assinatura = self.assinaturas.vigente(nome) if self.assinaturas else None
+        execucoes = historico.listar(self.cfg.historico_dir)
+        status_ia = ''
+        if execucoes:
+            linha = next((l for l in csvsaida.ler_csv(execucoes[0].csv_path) if l.get('Arquivo') == nome), None)
+            det = detalhes.ler(execucoes[0].detalhes_dir, nome) if linha else None
+            if det and det.get('validado_em', '') >= (oferta.get('enviado_em') or ''):  # avaliação desta versão
+                status_ia = linha.get('Status Geral', '')
+        return self.versoes.arquivar(
+            nome, self.caminho(nome),
+            assinaturas.caminho_pdf(self.cfg.resultados_dir, nome) if assinatura else None,
+            enviado_em=oferta.get('enviado_em'), enviado_por=oferta.get('enviado_por'), aviso=oferta.get('aviso') or '',
+            status_ia=status_ia, revisao_status=(revisao or {}).get('status', ''),
+            revisor=(revisao or {}).get('revisor_nome') or (revisao or {}).get('revisor_email', ''),
+            revisado_em=(revisao or {}).get('revisado_em'), signatario=(assinatura or {}).get('signatario', ''),
+            assinado_em=(assinatura or {}).get('assinado_em'))
 
     def nomes_ocultos(self):
         return set(ocultos.ler(self.cfg.resultados_dir))
@@ -126,7 +143,8 @@ class PastaDePlanos:
         oferta e o põe na fila de avaliação. Aceita mesmo durante a validação. Devolve {'nome', 'substituido',
         'aviso', 'posicao'}; levanta Recusado. O código da disciplina e o nome do docente escritos no PDF são
         só conferidos: se não baterem com a disciplina, o plano entra com um aviso, que o professor e a
-        coordenação veem (`nomes_docentes`: os nomes do cadastro dos docentes da disciplina)."""
+        coordenação veem (`nomes_docentes`: os nomes do cadastro dos docentes da disciplina). Se já havia
+        PDF, mesmo assinado, ele vai para o histórico de versões (`versao_anterior`: o número dela)."""
         oferta = self.disciplinas.oferta(oferta_id) if self.disciplinas else None
         if not oferta or not self.disciplinas.publicado(oferta):
             raise Recusado('Disciplina não encontrada.')
@@ -136,22 +154,21 @@ class PastaDePlanos:
         motivo = self._motivo_recusa(arquivo)
         with self.validador.trava:
             existe = self.existe(nome)
-            if not motivo and existe and not self.pode_reenviar(nome):
-                motivo = ('Este plano já está assinado; para enviar uma nova versão, peça à coordenação do '
-                          'curso que libere o reenvio')
+            anterior = []
             texto = None
             if not motivo:
-                motivo, texto = self._salvar(arquivo, nome)
+                # O PDF novo é conferido antes; só então a versão atual vai para o histórico e é substituída
+                motivo, texto = self._salvar(arquivo, nome, lambda t: anterior.append(self._arquivar(nome, oferta)))
             if motivo:
                 raise Recusado(motivo)
             aviso = _aviso(texto, oferta, nomes_docentes)
             self.disciplinas.ofertas.registrar_envio(nome, email, aviso)
             ocultos.mostrar(self.cfg.resultados_dir, [nome])  # versão nova volta a aparecer no painel
-            liberacoes.cancelar(self.cfg.resultados_dir, nome)  # a liberação vale para um envio
         posicao = self.validador.enfileirar(nome)  # a avaliação começa já, ou espera a vez na fila
         log.info('Meus planos (%s): plano de %s enviado (%s)%s', email, _descricao(self.disciplinas.identificacao(oferta)),
                  nome, ' com aviso' if aviso else '')
-        return {'nome': nome, 'substituido': existe, 'aviso': aviso, 'posicao': posicao}
+        return {'nome': nome, 'substituido': existe, 'aviso': aviso, 'posicao': posicao,
+                'versao_anterior': anterior[0] if anterior else None}
 
     def _motivo_recusa(self, arquivo):
         """Checagens que não precisam gravar o arquivo; devolve o motivo da recusa ou None."""
@@ -164,7 +181,8 @@ class PastaDePlanos:
 
     def _salvar(self, arquivo, nome, conferir=None):
         """Grava o PDF na pasta de planos; devolve (motivo da recusa ou None, texto extraído). `conferir(texto)`
-        pode recusá-lo antes de ele substituir o PDF anterior (devolve o motivo ou None)."""
+        roda depois de o PDF novo ser aceito e antes de ele substituir o anterior: pode recusá-lo (devolve o
+        motivo) ou guardar a versão anterior (devolve None)."""
         destino = self.caminho(nome)
         temporario = destino + '.enviando'
         arquivo.save(temporario)
@@ -195,7 +213,6 @@ class PastaDePlanos:
         if self.disciplinas:
             self.disciplinas.ofertas.limpar_envio(nome)
         ocultos.mostrar(self.cfg.resultados_dir, [nome])
-        liberacoes.remover(self.cfg.resultados_dir, [nome])
         pipeline.remover_da_validacao(self.cfg, [nome])
         if self.revisoes is not None:
             self.revisoes.remover(nome)
@@ -272,6 +289,7 @@ class PastaDePlanos:
             item = {'nome': nome, 'oferta_id': oferta['id'], 'disciplina': _titulo_disciplina(oferta),
                     'componente': _descricao(ident), 'docentes': self.disciplinas.nomes(oferta['docentes']),
                     'grupo': chave, 'grupo_titulo': titulo, 'ordem': ordem, 'fase': oferta['fase'],
+                    'periodo': oferta['periodo'], 'curso': ident['curso'],
                     'enviado_em': oferta['enviado_em'], 'aviso': oferta['aviso'], 'tem_plano': self.existe(nome)}
             if not item['tem_plano']:
                 item['situacao'] = 'sem_plano'

@@ -30,7 +30,7 @@ def _periodos(planos):
             for per, ident in sorted(vistos.items(), key=lambda par: identificacao.grupo_periodo(par[1])[2])]
 
 
-def _plano(linha, ident, docentes, revisao, revisavel, assinatura=None, liberado=False, pode_liberar=False):
+def _plano(linha, ident, docentes, revisao, revisavel, assinatura=None):
     arquivo = linha.get('Arquivo', '')
     relatorio = '/relatorio?arquivo=' + quote(arquivo)
     return {
@@ -46,10 +46,7 @@ def _plano(linha, ident, docentes, revisao, revisavel, assinatura=None, liberado
         'problemas': [rotulo for rotulo, _ in CAMPOS_COLUNA if linha.get(rotulo) != 'OK'],
         'url_relatorio': relatorio,
         'url_revisar': relatorio + '#revisao' if revisavel else '',
-        # Plano assinado pelo professor: a coordenação pode liberar o envio de uma nova versão.
         'assinatura': assinatura,
-        'liberado': liberado and bool(assinatura),
-        'pode_liberar': pode_liberar and bool(assinatura),
     }
 
 
@@ -70,10 +67,9 @@ def _docentes(planos):
 
 
 def contexto(execucao, linhas, idents, docentes, revisoes, cursos, curso, periodo, revisaveis=(),
-             exportar=True, assinaturas=None, liberados=(), liberaveis=()):
+             exportar=True, assinaturas=None):
     """`cursos`: {sigla: nome} que o usuário pode ver; `curso` e `periodo`: os pedidos (vazios: o primeiro
-    curso e o período mais recente dele). `assinaturas`: {arquivo: resumo}; `liberados`/`liberaveis`: nomes
-    dos planos com reenvio liberado e dos que quem está vendo pode liberar."""
+    curso e o período mais recente dele). `assinaturas`: {arquivo: resumo}."""
     assinaturas = assinaturas or {}
     ctx = {'execucao': execucao, 'cursos': list(cursos.items()), 'curso': '', 'nome_curso': '',
            'periodos': [], 'periodo': '', 'planos': [], 'meta': execucao.meta() if execucao else {}}
@@ -84,8 +80,7 @@ def contexto(execucao, linhas, idents, docentes, revisoes, cursos, curso, period
 
     do_curso = [_plano(l, idents[l.get('Arquivo')], docentes.get(l.get('Arquivo'), ()),
                        revisoes.get(l.get('Arquivo')), l.get('Arquivo') in revisaveis,
-                       assinaturas.get(l.get('Arquivo')), l.get('Arquivo') in liberados,
-                       l.get('Arquivo') in liberaveis)
+                       assinaturas.get(l.get('Arquivo')))
                 for l in linhas if (idents.get(l.get('Arquivo')) or {}).get('sigla_curso') == curso]
     periodos = _periodos(do_curso)
     validos = [p for p, _ in periodos]

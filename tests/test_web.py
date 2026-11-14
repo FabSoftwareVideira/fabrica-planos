@@ -444,7 +444,7 @@ def test_professor_entrega_e_acompanha_o_plano_da_sua_disciplina(com_login, monk
     assert plano['disciplina'] == 'Desenvolvimento Web I (Turma 01)' and plano['fase'] == 4
 
     r = enviar_plano(c, o, PDF, cab=SERVIDOR)
-    assert r.json == {'nome': nome, 'substituido': False, 'posicao': 0, 'aviso': ''}
+    assert r.json == {'nome': nome, 'substituido': False, 'posicao': 0, 'aviso': '', 'versao_anterior': None}
     assert chamadas == [nome] and (planos / nome).exists()
     [plano] = c.get('/meus-planos/lista', headers=SERVIDOR).json['planos']
     assert plano['situacao'] == 'aguardando' and plano['tem_plano']  # a avaliação falsa não gravou resultado
@@ -993,8 +993,7 @@ def test_professor_assina_o_plano_depois_de_aprovado(fabrica, tmp_path):
     assert c.get('/pdf-assinado?arquivo=web.pdf', headers=NDE).status_code == 404
 
 
-def test_plano_assinado_so_e_reenviado_com_liberacao_da_coordenacao(fabrica, tmp_path, monkeypatch):
-    from app.armazenamento import liberacoes
+def test_plano_assinado_e_atualizado_e_a_versao_fica_no_historico(fabrica, tmp_path, monkeypatch):
     from app.avaliacao import pipeline
     from conftest import assinar, gerar_ac, salvar_ac
     monkeypatch.setattr(pipeline, 'revalidar', lambda cfg, andamento, nome: andamento.finalizar())
@@ -1003,36 +1002,66 @@ def test_plano_assinado_so_e_reenviado_com_liberacao_da_coordenacao(fabrica, tmp
                         certificados_dir=salvar_ac(ac, tmp_path / 'certificados'))
     _plano_cc(c, planos, status='OK')
     o = dar_disciplina(c, 'fulano@ifc.edu.br', arquivo='web.pdf')
+    _servicos(c).disciplinas.ofertas.registrar_envio('web.pdf', 'fulano@ifc.edu.br')
     _dar_papel(c, 'nde@ifc.edu.br')
-    _dar_papel(c, 'coord@ifc.edu.br', papel='coordenador')
     COORD = {'X-Usuario-Email': 'coord@ifc.edu.br'}
-    res = _servicos(c).cfg.resultados_dir
+    _dar_papel(c, 'coord@ifc.edu.br', papel='coordenador')
 
     c.post('/revisao', headers=NDE, data={'arquivo': 'web.pdf', 'status': 'OK'})
     proprio = {**SERVIDOR, 'X-Usuario-Token': _token(email='fulano@ifc.edu.br', name='Fulano de Tal')}
+    assinado = assinar(PDF, ac)
     r = c.post('/meus-planos/assinatura', headers=proprio, content_type='multipart/form-data',
-               data={'arquivo': 'web.pdf', 'pdf': (io.BytesIO(assinar(PDF, ac)), 'assinado.pdf')})
+               data={'arquivo': 'web.pdf', 'pdf': (io.BytesIO(assinado), 'assinado.pdf')})
     assert r.status_code == 200
-
-    # Assinado: o docente não substitui o PDF
-    r = enviar_plano(c, o, PDF, cab=SERVIDOR)
-    assert r.status_code == 400 and 'já está assinado' in r.json['erro']
-    assert not liberacoes.liberado(res, 'web.pdf')
-
-    # Só a coordenação do curso (ou a administração) libera o reenvio
-    assert c.post('/coordenacao/liberar', headers=NDE, data={'arquivo': 'web.pdf'}).status_code == 403
-    html = c.get('/coordenacao', headers=COORD).get_data(as_text=True)
-    assert 'Liberar novo envio' in html and 'Assinado' in html
-    r = c.post('/coordenacao/liberar', headers=COORD, data={'arquivo': 'web.pdf', 'curso': 'CC'})
-    assert r.status_code == 303 and liberacoes.liberado(res, 'web.pdf')
-    assert 'Cancelar liberação' in c.get('/coordenacao', headers=COORD).get_data(as_text=True)
     [plano] = c.get('/meus-planos/lista', headers=SERVIDOR).json['planos']
-    assert plano['reenvio_liberado'] is True
+    assert plano['versao'] == 1 and plano['versoes'] == [] and plano['assinatura']
+    assert 'Liberar novo envio' not in c.get('/coordenacao', headers=COORD).get_data(as_text=True)
 
-    # Com a liberação, o envio passa e a liberação é consumida
+    # Assinado: o docente atualiza mesmo assim, e a versão assinada vai para o histórico
+    novo = gerar_pdf_plano('Versão nova do plano.')
+    r = enviar_plano(c, o, novo, cab=SERVIDOR)
+    assert r.status_code == 200 and r.json['substituido'] and r.json['versao_anterior'] == 1
+    assert (planos / 'web.pdf').read_bytes() == novo
+    [plano] = c.get('/meus-planos/lista', headers=SERVIDOR).json['planos']
+    assert plano['versao'] == 2 and plano['assinatura'] is None and plano['revisao'] is None  # recomeça
+    [v1] = plano['versoes']
+    assert (v1['numero'], v1['revisao_status'], v1['signatario'], v1['tem_assinado']) == (1, 'OK', 'FULANO DE TAL', True)
+    assert v1['enviado_por'] == 'fulano@ifc.edu.br'
+    assert c.get('/meus-planos/versao?arquivo=web.pdf&numero=1', headers=SERVIDOR).data == PDF
+    r = c.get('/meus-planos/versao?arquivo=web.pdf&numero=1&assinado=1', headers=SERVIDOR)
+    assert r.data == assinado and 'web-v1-assinado.pdf' in r.headers['Content-Disposition']
+
+    # Mais uma versão: a 2 (sem assinatura) também vai para o histórico
     r = enviar_plano(c, o, PDF, cab=SERVIDOR)
-    assert r.status_code == 200 and r.json['substituido']
-    assert not liberacoes.liberado(res, 'web.pdf')
+    assert r.json['versao_anterior'] == 2
+    [plano] = c.get('/meus-planos/lista', headers=SERVIDOR).json['planos']
+    assert [v['numero'] for v in plano['versoes']] == [2, 1] and plano['versao'] == 3
+    assert not plano['versoes'][0]['tem_assinado']
+    assert c.get('/meus-planos/versao?arquivo=web.pdf&numero=2&assinado=1', headers=SERVIDOR).status_code == 404
+
+    # PDF recusado não mexe no histórico
+    assert enviar_plano(c, o, b'nao e pdf', cab=SERVIDOR).status_code == 400
+    assert len(c.get('/meus-planos/lista', headers=SERVIDOR).json['planos'][0]['versoes']) == 2
+
+
+def gerar_pdf_plano(*linhas):
+    from conftest import gerar_pdf
+    return gerar_pdf(list(linhas) + ['Linha de texto do plano de ensino numero %d.' % i for i in range(8)])
+
+
+def test_meus_planos_por_periodo_com_o_atual_e_o_proximo_em_destaque(com_login):
+    from datetime import date
+    from app.paginas.meus_planos import periodos_em_destaque
+    assert periodos_em_destaque(date(2026, 11, 14)) == {'2026.2': 'Atual', '2026': 'Atual', '2027.1': 'Próximo',
+                                                        '2027': 'Próximo'}
+    assert periodos_em_destaque(date(2026, 3, 1)) == {'2026.1': 'Atual', '2026': 'Atual', '2026.2': 'Próximo',
+                                                      '2027': 'Próximo'}
+    c, _ = com_login
+    dar_disciplina(c, 'fulano@ifc.edu.br', periodo='2026.1')
+    planos = c.get('/meus-planos/lista', headers=SERVIDOR).json['planos']
+    assert planos[0]['periodo'] == '2026.1' and planos[0]['curso'] == 'Ciência da Computação'
+    html = c.get('/meus-planos', headers=SERVIDOR).get_data(as_text=True)
+    assert 'DESTAQUES = {' in html and 'id="periodos"' in html and '"Atual"' in html
 
 
 def test_excluir_o_plano_apaga_o_pdf_assinado(cliente):
@@ -1494,6 +1523,6 @@ def test_meus_planos_tem_a_barra_de_status(com_login):
     for cab in (SERVIDOR, ADMIN):
         html = c.get('/meus-planos', headers=cab).get_data(as_text=True)
         assert 'class="barra-status"' in html and 'id="validar"' not in html  # sem "Validar agora" aqui
-        assert html.index('js/status.js') < html.index('js/meus_planos.js') and 'ADMIN = false;' in html
+        assert html.index('js/status.js') < html.index('js/meus_planos.js') and 'ADMIN = false,' in html
     js = c.get('/static/js/meus_planos.js').get_data(as_text=True)
     assert 'function aoTerminar()' in js and 'const $ =' not in js  # $ e msg vêm de status.js
