@@ -1,9 +1,8 @@
 import logging
 import os
-import unicodedata
 from datetime import datetime
 
-from ..armazenamento import assinaturas, csvsaida, detalhes, donos, historico, liberacoes, ocultos
+from ..armazenamento import assinaturas, csvsaida, detalhes, historico, liberacoes, ocultos
 from ..avaliacao import identificacao, pipeline
 from ..avaliacao.extrator import PdfIlegivel, extrair_texto
 
@@ -22,24 +21,29 @@ class Proibido(Exception):
     pass
 
 
-class PastaDePlanos:
-    """Os PDFs da pasta de planos: envio (conferido), listagem e exclusão, pelo administrador ou pelo
-    próprio professor ("Meus planos"), com o registro de quem enviou cada um.
+class Recusado(Exception):
+    """O PDF enviado não foi aceito; a mensagem diz por quê."""
 
-    Cada um só exclui (e substitui) os planos que enviou; o administrador também os sem dono (copiados
-    direto para a pasta ou enviados antes do registro de dono). Excluir tira o plano também da validação
-    atual e apaga a revisão dele. Os planos de outras pessoas o administrador só pode ocultar do painel.
-    Depois de assinado, o plano só é substituído se a coordenação do curso liberar o reenvio
-    (resultados/liberacoes.json).
+
+class PastaDePlanos:
+    """Os PDFs da pasta de planos: envio (conferido), listagem e exclusão.
+
+    Cada plano é de uma disciplina ofertada no semestre (servicos/disciplinas.py): o professor envia o PDF
+    para uma das disciplinas em que é docente, e ele fica na pasta com o nome da oferta (o nome do arquivo
+    enviado não importa). Os docentes da disciplina substituem e excluem o plano dela; o administrador
+    exclui só os PDFs sem disciplina (copiados direto para a pasta) e oculta os demais do painel. Excluir
+    tira o plano também da validação atual e apaga a revisão dele. Depois de assinado, o plano só é
+    substituído se a coordenação do curso liberar o reenvio (resultados/liberacoes.json).
 
     Usa a trava do validador para não mexer nos PDFs enquanto um lote é validado.
     """
 
-    def __init__(self, cfg, validador, revisoes=None, assinaturas=None):
+    def __init__(self, cfg, validador, revisoes=None, assinaturas=None, disciplinas=None):
         self.cfg = cfg
         self.validador = validador
         self.revisoes = revisoes
         self.assinaturas = assinaturas
+        self.disciplinas = disciplinas
 
     def caminho(self, nome):
         return os.path.join(self.cfg.planos_dir, nome)
@@ -47,13 +51,19 @@ class PastaDePlanos:
     def existe(self, nome):
         return os.path.isfile(self.caminho(nome))
 
-    def dono(self, nome):
-        return donos.ler(self.cfg.resultados_dir).get(nome, {}).get('email', '')
+    def docentes(self, nome):
+        """E-mails dos docentes da disciplina do plano ([] se o PDF não é de nenhuma disciplina)."""
+        return self.disciplinas.docentes_do_arquivo(nome) if self.disciplinas else []
 
-    def pode_excluir(self, nome, email):
-        """O administrador exclui os planos que enviou e os sem dono."""
-        dono = self.dono(nome)
-        return not dono or dono == email
+    def eh_docente(self, nome, email):
+        """Docente da disciplina do plano. Sem login exigido (uso local), todos são."""
+        if not self.cfg.exigir_login:
+            return bool(self.disciplinas and self.disciplinas.do_arquivo(nome))
+        return bool(email) and email in self.docentes(nome)
+
+    def pode_excluir(self, nome, email=''):
+        """O administrador exclui só os PDFs sem disciplina; os das disciplinas ficam com os docentes."""
+        return not (self.disciplinas and self.disciplinas.do_arquivo(nome))
 
     def assinado(self, nome):
         """O plano está assinado pelo professor e a assinatura ainda vale (ver servicos/assinatura.py)."""
@@ -72,80 +82,79 @@ class PastaDePlanos:
 
     def listar(self):
         """PDFs da pasta e, depois deles, os planos que só restaram na validação atual (PDF já excluído),
-        para o administrador poder limpá-los ou ocultá-los."""
-        dono_de = donos.ler(self.cfg.resultados_dir)
+        para o administrador poder limpá-los ou ocultá-los. `dono`: os docentes da disciplina."""
+        ofertas = self.disciplinas.ofertas.por_arquivo() if self.disciplinas else {}
         oculto = self.nomes_ocultos()
+
+        def docentes(nome):
+            return ', '.join((ofertas.get(nome) or {}).get('docentes', []))
         planos = []
         na_pasta = pipeline.listar_pdfs(self.cfg.planos_dir)
         for nome in na_pasta:
             info = os.stat(self.caminho(nome))
             planos.append({
                 'nome': nome,
-                'dono': dono_de.get(nome, {}).get('email', ''),
+                'dono': docentes(nome),
+                'disciplina': _descricao(self.disciplinas.identificacao(ofertas.get(nome))) if ofertas.get(nome) else '',
                 'tamanho': info.st_size,
                 'modificado': datetime.fromtimestamp(info.st_mtime).isoformat(timespec='seconds'),
                 'na_pasta': True,
                 'oculto': nome in oculto,
             })
         for nome in sorted(set(pipeline.nomes_na_validacao(self.cfg)) - set(na_pasta)):
-            planos.append({'nome': nome, 'dono': dono_de.get(nome, {}).get('email', ''), 'tamanho': None,
+            planos.append({'nome': nome, 'dono': docentes(nome), 'disciplina': '', 'tamanho': None,
                            'modificado': None, 'na_pasta': False, 'oculto': nome in oculto})
         return planos
 
     def responsaveis(self, usuarios):
-        """{arquivo: [nome do professor]} dos planos com dono, pelo cadastro do usuário que os enviou (o
-        e-mail, se ele ainda não tem nome cadastrado)."""
-        nomes = {}
-        saida = {}
-        for arquivo, dono in donos.ler(self.cfg.resultados_dir).items():
-            email = dono.get('email')
-            if not email:
-                continue
-            if email not in nomes:
-                nomes[email] = (usuarios.obter(email) or {}).get('nome') or email
-            saida[arquivo] = [nomes[email]]
+        """{arquivo: [nome dos docentes]} dos planos das disciplinas, pelo cadastro (o e-mail de quem ainda
+        não entrou no sistema)."""
+        nomes, saida = {}, {}
+        ofertas = self.disciplinas.ofertas.por_arquivo() if self.disciplinas else {}
+        for arquivo, oferta in ofertas.items():
+            for email in oferta['docentes']:
+                if email not in nomes:
+                    nomes[email] = (usuarios.obter(email) or {}).get('nome') or email
+            if oferta['docentes']:
+                saida[arquivo] = [nomes[e] for e in oferta['docentes']]
         return saida
 
     # Envio --------------------------------------------------------------------------------------
 
-    def enviar_do_professor(self, arquivos, email, nome_professor=''):
-        """Entrega pelo professor, que fica sendo o responsável pelo plano (o nome que vale é o do cadastro
-        dele, `nome_professor`). Aceita mesmo durante a validação; só substitui os PDFs que ele mesmo enviou;
-        recusa o PDF cujo docente não tem o nome dele, nem parecido. Cada PDF salvo entra na fila de
-        avaliação (`posicao`, 0 se já começou)."""
-        salvos, recusados = [], []
+    def enviar_para_oferta(self, oferta_id, arquivo, email, nomes_docentes=()):
+        """Plano enviado pelo professor para uma disciplina em que é docente: grava o PDF com o nome da
+        oferta e o põe na fila de avaliação. Aceita mesmo durante a validação. Devolve {'nome', 'substituido',
+        'aviso', 'posicao'}; levanta Recusado. O código da disciplina e o nome do docente escritos no PDF são
+        só conferidos: se não baterem com a disciplina, o plano entra com um aviso, que o professor e a
+        coordenação veem (`nomes_docentes`: os nomes do cadastro dos docentes da disciplina)."""
+        oferta = self.disciplinas.oferta(oferta_id) if self.disciplinas else None
+        if not oferta:
+            raise Recusado('Disciplina não encontrada.')
+        if self.cfg.exigir_login and email not in oferta['docentes']:
+            raise Recusado('Você não é docente desta disciplina. Peça à coordenação do curso que vincule você a ela.')
+        nome = oferta['arquivo']
+        motivo = self._motivo_recusa(arquivo)
         with self.validador.trava:
-            dono_de = donos.ler(self.cfg.resultados_dir)
-            for arquivo in arquivos:
-                nome = nome_enviado(arquivo)
-                motivo = self._motivo_recusa(nome, arquivo)
-                existe = not motivo and self.existe(nome)
-                if existe and dono_de.get(nome, {}).get('email') != email:
-                    motivo = ('Já existe na pasta um plano com esse nome, enviado por outra pessoa; renomeie o '
-                              'arquivo (ex.: 2026-1 - Disciplina - Seu nome.pdf)')
-                if not motivo and existe and not self.pode_reenviar(nome):
-                    motivo = ('Este plano já está assinado; para enviar uma nova versão, peça à coordenação do '
-                              'curso que libere o reenvio')
-                texto = None
-                if not motivo:
-                    motivo, texto = self._salvar(arquivo, nome, lambda t: _motivo_docente(t, nome_professor))
-                if motivo:
-                    recusados.append({'nome': nome, 'motivo': motivo})
-                    continue
-                # Curso e período já no envio: o plano aparece no grupo certo antes de ser avaliado.
-                donos.definir(self.cfg.resultados_dir, nome, email, identificacao.extrair(texto))
-                ocultos.mostrar(self.cfg.resultados_dir, [nome])  # versão nova volta a aparecer no painel
-                liberacoes.cancelar(self.cfg.resultados_dir, nome)  # a liberação vale para um envio
-                salvos.append({'nome': nome, 'substituido': existe})
-        for salvo in salvos:  # a avaliação começa já, ou espera a vez na fila
-            salvo['posicao'] = self.validador.enfileirar(salvo['nome'])
-        log.info('Meus planos (%s): %d salvo(s), %d recusado(s)', email, len(salvos), len(recusados))
-        return salvos, recusados
+            existe = self.existe(nome)
+            if not motivo and existe and not self.pode_reenviar(nome):
+                motivo = ('Este plano já está assinado; para enviar uma nova versão, peça à coordenação do '
+                          'curso que libere o reenvio')
+            texto = None
+            if not motivo:
+                motivo, texto = self._salvar(arquivo, nome)
+            if motivo:
+                raise Recusado(motivo)
+            aviso = _aviso(texto, oferta, nomes_docentes)
+            self.disciplinas.ofertas.registrar_envio(nome, email, aviso)
+            ocultos.mostrar(self.cfg.resultados_dir, [nome])  # versão nova volta a aparecer no painel
+            liberacoes.cancelar(self.cfg.resultados_dir, nome)  # a liberação vale para um envio
+        posicao = self.validador.enfileirar(nome)  # a avaliação começa já, ou espera a vez na fila
+        log.info('Meus planos (%s): plano de %s enviado (%s)%s', email, _descricao(self.disciplinas.identificacao(oferta)),
+                 nome, ' com aviso' if aviso else '')
+        return {'nome': nome, 'substituido': existe, 'aviso': aviso, 'posicao': posicao}
 
-    def _motivo_recusa(self, nome, arquivo):
+    def _motivo_recusa(self, arquivo):
         """Checagens que não precisam gravar o arquivo; devolve o motivo da recusa ou None."""
-        if not pipeline.nome_valido(nome) or nome.startswith('.'):
-            return 'Apenas arquivos .pdf são aceitos'
         if _tamanho(arquivo) > self.cfg.pdf_max_mb * 1024 * 1024:
             return f'Arquivo maior que {self.cfg.pdf_max_mb} MB'
         if arquivo.stream.read(5) != b'%PDF-':
@@ -183,7 +192,8 @@ class PastaDePlanos:
         revisão e o PDF assinado pelo professor. Excluir é definitivo; para só tirar do painel existe ocultar."""
         if self.existe(nome):
             os.remove(self.caminho(nome))
-        donos.remover(self.cfg.resultados_dir, [nome])
+        if self.disciplinas:
+            self.disciplinas.ofertas.limpar_envio(nome)
         ocultos.mostrar(self.cfg.resultados_dir, [nome])
         liberacoes.remover(self.cfg.resultados_dir, [nome])
         pipeline.remover_da_validacao(self.cfg, [nome])
@@ -192,7 +202,7 @@ class PastaDePlanos:
         assinaturas.remover(self.cfg.resultados_dir, [nome])
 
     def excluir(self, nome, email=''):
-        """Exclusão pelo administrador: só os planos que ele enviou ou sem dono (Proibido nos demais)."""
+        """Exclusão pelo administrador: só os PDFs sem disciplina (Proibido nos demais)."""
         with self.validador.trava:
             if self.validador.andamento.rodando:
                 raise Ocupado
@@ -205,7 +215,7 @@ class PastaDePlanos:
 
     def excluir_do_professor(self, nome, email):
         with self.validador.trava:
-            if self.dono(nome) != email:
+            if not self.eh_docente(nome, email) or not self.existe(nome):
                 raise Proibido
             if self.validador.em_avaliacao(nome):
                 raise Ocupado
@@ -227,10 +237,12 @@ class PastaDePlanos:
         log.info('Plano de volta ao painel (%s): %s', email, nome)
 
     def cursos(self):
-        """{sigla: nome} dos cursos conhecidos: os de identificacao.CURSOS e os dos planos na pasta e na
-        validação atual (para escolher o curso de um papel na administração)."""
+        """{sigla: nome} dos cursos conhecidos: os com disciplinas e os dos planos da validação atual (para
+        escolher o curso de um papel na administração)."""
         cursos = dict(identificacao.CURSOS)
-        idents = [d.get('identificacao') for d in donos.ler(self.cfg.resultados_dir).values()]
+        if self.disciplinas:
+            cursos.update(self.disciplinas.cursos())
+        idents = []
         execucoes = historico.listar(self.cfg.historico_dir)
         if execucoes:
             for linha in csvsaida.ler_csv(execucoes[0].csv_path):
@@ -243,41 +255,48 @@ class PastaDePlanos:
     # Situação dos planos do professor -----------------------------------------------------------
 
     def do_professor(self, email):
-        """Planos que o professor enviou, com a situação de cada um (na fila, com a posição; sendo avaliado;
-        avaliado, com o resultado; ou aguardando a próxima validação geral) e o grupo de curso e período,
-        na ordem dos grupos (o período mais recente primeiro)."""
-        meus = {n: d for n, d in donos.ler(self.cfg.resultados_dir).items()
-                if d.get('email') == email and self.existe(n)}
+        """As disciplinas em que o professor é docente, cada uma com o seu plano e a situação dele (sem plano;
+        na fila, com a posição; sendo avaliado; avaliado, com o resultado; ou aguardando a próxima validação
+        geral), no grupo de curso e período, na ordem dos grupos (o período mais recente primeiro)."""
+        ofertas = self.disciplinas.do_professor(email) if self.disciplinas else []
         execucoes = historico.listar(self.cfg.historico_dir)
         ultima = execucoes[0] if execucoes else None
         linhas = {l.get('Arquivo'): l for l in csvsaida.ler_csv(ultima.csv_path)} if ultima else {}
         estado = self.validador.andamento.resumo()
         fila = self.validador.fila()
         planos = []
-        for nome, dono in meus.items():
-            det = detalhes.ler(ultima.detalhes_dir, nome) if ultima and nome in linhas else None
-            atual = det and det.get('validado_em', '') >= dono['enviado_em']  # avaliação do PDF enviado agora
-            # Curso e período: do texto avaliado, se for do PDF atual; senão, os lidos no envio.
-            ident = ((identificacao.de_detalhes(det) if atual else None) or dono.get('identificacao')
-                     or identificacao.de_detalhes(det))
+        for oferta in ofertas:
+            nome = oferta['arquivo']
+            ident = self.disciplinas.identificacao(oferta)
             chave, titulo, ordem = identificacao.grupo_curso_periodo(ident)
-            item = {'nome': nome, 'enviado_em': dono['enviado_em'], 'grupo': chave, 'grupo_titulo': titulo,
-                    'ordem': ordem, 'componente': _descricao(ident)}
-            if nome in fila:
+            item = {'nome': nome, 'oferta_id': oferta['id'], 'disciplina': _titulo_disciplina(oferta),
+                    'componente': _descricao(ident), 'docentes': self.disciplinas.nomes(oferta['docentes']),
+                    'grupo': chave, 'grupo_titulo': titulo, 'ordem': ordem, 'fase': oferta['fase'],
+                    'enviado_em': oferta['enviado_em'], 'aviso': oferta['aviso'], 'tem_plano': self.existe(nome)}
+            if not item['tem_plano']:
+                item['situacao'] = 'sem_plano'
+            elif nome in fila:
                 item.update(situacao='na_fila', posicao=fila.index(nome) + 1)
             elif estado['rodando'] and nome in (estado['atual'], estado['unico']):
                 item['situacao'] = 'validando'
             else:
+                det = detalhes.ler(ultima.detalhes_dir, nome) if ultima and nome in linhas else None
+                # o resultado só vale se for do PDF atual, validado depois do envio
+                atual = det and det.get('validado_em', '') >= (oferta['enviado_em'] or '')
                 linha = linhas.get(nome)
-                if atual:  # o resultado só vale se for do PDF atual, validado depois do envio
+                if atual:
                     item.update(situacao='avaliado', status=linha.get('Status Geral', ''),
                                 obs=linha.get('Observação Geral', ''),
                                 problemas=[r for r, _ in csvsaida.CAMPOS_COLUNA if linha.get(r) != 'OK'])
                 else:
                     item['situacao'] = 'aguardando'
             planos.append(item)
-        planos.sort(key=lambda p: (p['ordem'], p['grupo_titulo'], p['nome']))
+        planos.sort(key=lambda p: (p['ordem'], p['grupo_titulo'], p['fase'] or 99, p['disciplina'], p['nome']))
         return planos
+
+
+def _titulo_disciplina(oferta):
+    return oferta['nome'] + (f" (Turma {oferta['turma']})" if oferta['turma'] else '')
 
 
 def _descricao(ident):
@@ -287,23 +306,36 @@ def _descricao(ident):
     return ' · '.join([ident['codigo'], ident['disciplina']] + (['Turma ' + ident['turma']] if ident['turma'] else []))
 
 
-def _motivo_docente(texto, nome_professor):
-    """O plano enviado precisa ser do professor: o docente do PDF tem o nome do cadastro dele, ou parecido
-    (identificacao.nomes_parecidos). Sem o bloco de docentes no PDF, ou sem o nome no cadastro, não há o
-    que conferir."""
+def _aviso(texto, oferta, nomes_docentes):
+    """Avisos sobre o PDF enviado para a disciplina: código ou período diferentes dos da disciplina, ou
+    docente do PDF que não é nenhum dos docentes dela. O plano é aceito mesmo assim ('' sem aviso)."""
+    avisos = []
+    ident = identificacao.extrair(texto)
+    if ident:
+        codigo_pdf = ident['codigo'].split('-')[0]
+        if oferta['codigo'] and codigo_pdf != oferta['codigo']:
+            avisos.append(f"o PDF é de {codigo_pdf} ({ident['disciplina']}), e a disciplina é {oferta['codigo']}")
+        if ident['periodo'] and ident['periodo'] != oferta['periodo']:
+            avisos.append(f"o PDF é do período {ident['periodo']}, e a disciplina é de {oferta['periodo']}")
+    motivo = _motivo_docente(texto, nomes_docentes)
+    if motivo:
+        avisos.append(motivo)
+    return ('Confira o plano: ' + '; '.join(avisos) + '.') if avisos else ''
+
+
+def _motivo_docente(texto, nomes_docentes):
+    """Docentes do PDF que não são nenhum dos docentes da disciplina (pelo nome do cadastro, ou parecido:
+    identificacao.nomes_parecidos), ou None. Sem o bloco de docentes no PDF, ou sem nomes no cadastro, não
+    há o que conferir."""
+    if isinstance(nomes_docentes, str):
+        nomes_docentes = [nomes_docentes]
+    nomes_docentes = [n for n in nomes_docentes if n]
     docentes = identificacao.docentes(texto)
-    if not docentes or not nome_professor:
+    if not docentes or not nomes_docentes:
         return None
-    if any(identificacao.nomes_parecidos(nome_professor, d) for d in docentes):
+    if any(identificacao.nomes_parecidos(n, d) for n in nomes_docentes for d in docentes):
         return None
-    return (f'O plano é de {", ".join(docentes)}, e não de {nome_professor} (o nome do seu cadastro). '
-            'Envie só os planos em que você é o docente.')
-
-
-def nome_enviado(arquivo):
-    # Navegadores antigos mandam o caminho completo; o macOS manda acentos decompostos (NFD).
-    nome = (arquivo.filename or '').replace('\\', '/').rsplit('/', 1)[-1].strip()
-    return unicodedata.normalize('NFC', nome)
+    return f'o docente do PDF é {", ".join(docentes)}, e não {" ou ".join(nomes_docentes)}'
 
 
 def _tamanho(arquivo):

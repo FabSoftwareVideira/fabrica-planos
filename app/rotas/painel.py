@@ -22,15 +22,18 @@ def resultado_atual():
 
 def dados_da_validacao():
     """Validação atual, linhas do CSV e, por arquivo, identificação (curso e período), docentes e resumo
-    da revisão vigente. Usados pelo dashboard e pela visão da coordenação. O docente de um plano é o
-    professor que o enviou, pelo nome do cadastro; o escrito no PDF só vale para planos sem dono."""
+    da revisão vigente. Usados pelo dashboard e pela visão da coordenação. Curso, período, disciplina e
+    docentes vêm da disciplina do plano (a oferta do semestre); o texto do PDF só vale para PDFs sem
+    disciplina."""
     execucao = resultado_atual()
     linhas = csvsaida.ler_csv(execucao.csv_path) if execucao else []
     ocultos = servicos().planos.nomes_ocultos()  # tirados do painel pelo administrador (PDF e avaliação ficam)
     linhas = [l for l in linhas if l.get('Arquivo') not in ocultos]
     # Curso, período e docentes de cada plano, lidos do texto guardado nos detalhes.
     dets = {l.get('Arquivo'): detalhes.ler(execucao.detalhes_dir, l.get('Arquivo')) for l in linhas}
-    idents = {nome: identificacao.de_detalhes(det) for nome, det in dets.items()}
+    ofertas = servicos().disciplinas.ofertas.por_arquivo()
+    idents = {nome: servicos().disciplinas.identificacao(ofertas[nome]) if nome in ofertas
+              else identificacao.de_detalhes(det) for nome, det in dets.items()}
     responsaveis = servicos().planos.responsaveis(servicos().usuarios)
     docentes = {nome: responsaveis.get(nome) or identificacao.docentes((det or {}).get('texto', ''))
                 for nome, det in dets.items()}
@@ -38,6 +41,12 @@ def dados_da_validacao():
     for nome, r in revisoes.items():  # aprovado na revisão e assinado pelo professor (gov.br)
         r['assinatura'] = assinatura.resumo(servicos().assinaturas.vigente(nome))
     return execucao, linhas, idents, docentes, revisoes
+
+
+def _identificacao(nome, det):
+    """Curso e período do plano: da disciplina (oferta) dele ou, sem disciplina, do texto do PDF."""
+    s = servicos()
+    return s.disciplinas.identificacao(s.disciplinas.do_arquivo(nome)) or identificacao.de_detalhes(det)
 
 
 def revisaveis(idents):
@@ -70,7 +79,7 @@ def pagina_relatorio():
         return texto('Plano não encontrado na validação atual.', 404)
     det = detalhes.ler(execucao.detalhes_dir, nome)
     pode_revalidar = eh_admin() and s.planos.existe(nome)
-    ident = identificacao.de_detalhes(det)
+    ident = _identificacao(nome, det)
     ctx = relatorio.contexto(linhas, indice, det, execucao, pode_revalidar, email())
     proprio = s.revisao.eh_autor(email(), nome) and not s.revisao.eh_coordenador(email(), ident)
     ctx.update(relatorio.contexto_revisao(revisao.resumo(s.revisao.vigente(nome)), s.revisao.papel(email(), ident, nome),
@@ -91,10 +100,10 @@ def revisar():
     linha = next((l for l in linhas if l.get('Arquivo') == nome), None)
     if not pipeline.nome_valido(nome) or linha is None:
         return texto('Plano não encontrado na validação atual.', 404)
-    ident = identificacao.de_detalhes(detalhes.ler(execucao.detalhes_dir, nome))
+    ident = _identificacao(nome, detalhes.ler(execucao.detalhes_dir, nome))
     usuario = email() or 'local'
     if s.revisao.eh_autor(usuario, nome) and not s.revisao.eh_coordenador(usuario, ident):
-        return texto('Você enviou este plano e não pode revisá-lo; o parecer fica com outro membro da '
+        return texto('Você é docente deste plano e não pode revisá-lo; o parecer fica com outro membro da '
                      'coordenação, do NDE ou do NDB.', 403)
     try:
         if request.form.get('acao') == 'desfazer':

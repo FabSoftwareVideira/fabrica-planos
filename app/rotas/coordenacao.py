@@ -2,7 +2,7 @@ from urllib.parse import urlencode
 
 from flask import Blueprint, redirect, render_template, request
 
-from ..armazenamento import donos, liberacoes
+from ..armazenamento import liberacoes
 from ..avaliacao import pipeline
 from ..paginas import coordenacao
 from .comum import cursos_coordenados, eh_admin, email, mesma_origem, servicos, texto
@@ -52,7 +52,7 @@ def liberar_reenvio():
     if not pipeline.nome_valido(nome):
         return texto('Arquivo inválido', 400)
     _, _, idents, _, _ = dados_da_validacao()
-    ident = idents.get(nome) or (donos.ler(s.cfg.resultados_dir).get(nome) or {}).get('identificacao')
+    ident = idents.get(nome) or s.disciplinas.identificacao(s.disciplinas.do_arquivo(nome))
     if not ident:
         return texto('Plano não encontrado na validação atual.', 404)
     if not (eh_admin() or s.revisao.eh_coordenador(email(), ident)):

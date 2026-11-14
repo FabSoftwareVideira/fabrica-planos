@@ -5,11 +5,12 @@ from flask import Blueprint, render_template, request
 from ..avaliacao import pipeline
 from ..paginas import meus_planos
 from ..servicos import assinatura, revisao
-from ..servicos.planos import Ocupado, Proibido
+from ..servicos.planos import Ocupado, Proibido, Recusado
 from .comum import email, json_, nome as nome_usuario, ocupado, servicos
 
-# "Meus planos": cada servidor entrega os próprios planos (a entrega oficial, que vai para a mesma pasta
-# do NDE), acompanha a avaliação e pode substituí-los ou excluí-los. Não mexe nos planos dos outros.
+# "Meus planos": cada professor vê as disciplinas em que a coordenação o vinculou como docente e entrega
+# o plano de cada uma (a entrega oficial, que vai para a mesma pasta do NDE), acompanha a avaliação e pode
+# substituí-lo ou excluí-lo. Sem disciplina vinculada, não há onde enviar plano.
 log = logging.getLogger(__name__)
 bp = Blueprint('meus_planos', __name__, url_prefix='/meus-planos')
 
@@ -41,14 +42,26 @@ def listar():
 
 @bp.post('')
 def enviar():
-    arquivos = request.files.getlist('arquivos')
-    if not arquivos:
+    """PDF do plano de uma disciplina (campo `oferta`) em que quem envia é docente."""
+    arquivo = request.files.get('arquivo')
+    if arquivo is None:
         return json_({'erro': 'Nenhum arquivo enviado'}, 400)
+    try:
+        oferta_id = int(request.form.get('oferta', ''))
+    except ValueError:
+        return json_({'erro': 'Escolha a disciplina do plano'}, 400)
     s = servicos()
-    # O professor que envia fica responsável pelo plano; o nome que vale é o do cadastro dele
-    nome_professor = nome_usuario() or (s.usuarios.obter(_dono()) or {}).get('nome', '')
-    salvos, recusados = s.planos.enviar_do_professor(arquivos, _dono(), nome_professor)
-    return json_({'salvos': salvos, 'recusados': recusados}, 200 if salvos else 400)
+    oferta = s.disciplinas.oferta(oferta_id)
+    # Nomes dos docentes da disciplina, para conferir com o docente escrito no PDF (só gera aviso)
+    nomes = [d['nome'] for d in s.disciplinas.nomes(oferta['docentes'])] if oferta else []
+    if nome_usuario() and _dono() in (oferta or {}).get('docentes', []):
+        nomes.append(nome_usuario())  # o nome da conta, mesmo antes de o cadastro guardá-lo
+    nomes = list(dict.fromkeys(n for n in nomes if n))
+    try:
+        salvo = s.planos.enviar_para_oferta(oferta_id, arquivo, _dono(), nomes)
+    except Recusado as erro:
+        return json_({'erro': str(erro)}, 400)
+    return json_(salvo)
 
 
 @bp.delete('')

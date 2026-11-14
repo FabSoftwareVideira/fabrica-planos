@@ -1,6 +1,6 @@
 """Testes da camada de armazenamento (app/armazenamento e app/banco.py).
 
-Os arquivos JSON (donos, liberações, ocultos) são testados como unidade, em pasta temporária. Usuários,
+Os arquivos JSON (liberações, ocultos) são testados como unidade, em pasta temporária. Usuários,
 vínculos com o gov.br e revisões são testes de integração com o PostgreSQL de TEST_DATABASE_URL (cada
 teste num esquema próprio; ver conftest.py)."""
 import json
@@ -10,7 +10,7 @@ import psycopg
 import pytest
 
 from app import banco as modulo_banco
-from app.armazenamento import donos, liberacoes, ocultos
+from app.armazenamento import liberacoes, ocultos
 from app.armazenamento.revisoes import Revisoes
 from app.armazenamento.usuarios import Usuarios
 from app.banco import Banco
@@ -20,30 +20,17 @@ com_banco = pytest.mark.skipif(not os.environ.get('TEST_DATABASE_URL'), reason='
 
 # Arquivos JSON ---------------------------------------------------------------------------------------
 
-@pytest.mark.parametrize('modulo, arquivo', [(donos, 'donos.json'), (liberacoes, 'liberacoes.json'),
-                                             (ocultos, 'ocultos.json')])
+@pytest.mark.parametrize('modulo, arquivo', [(liberacoes, 'liberacoes.json'), (ocultos, 'ocultos.json')])
 def test_json_ausente_ou_corrompido_vale_vazio(tmp_path, modulo, arquivo):
     assert modulo.ler(str(tmp_path)) == {}
     (tmp_path / arquivo).write_text('{ isto não é json', encoding='utf-8')
     assert modulo.ler(str(tmp_path)) == {}
 
 
-def test_donos_definir_e_remover(tmp_path):
-    pasta = str(tmp_path / 'res')  # a pasta é criada na primeira gravação
-    donos.definir(pasta, 'a.pdf', 'fulano@ifc.edu.br', {'sigla_curso': 'CC'})
-    donos.definir(pasta, 'b.pdf', 'beltrano@ifc.edu.br')
-    lidos = donos.ler(pasta)
-    assert lidos['a.pdf']['email'] == 'fulano@ifc.edu.br' and lidos['a.pdf']['identificacao'] == {'sigla_curso': 'CC'}
-    assert lidos['b.pdf']['identificacao'] is None and lidos['b.pdf']['enviado_em']
-    donos.remover(pasta, ['a.pdf', 'nao-existe.pdf'])
-    assert list(donos.ler(pasta)) == ['b.pdf']
-    assert not os.path.exists(os.path.join(pasta, 'donos.json.tmp'))  # gravação atômica, sem sobra
-
-
 def test_remover_sem_nada_a_remover_nao_regrava(tmp_path, monkeypatch):
-    donos.definir(str(tmp_path), 'a.pdf', 'x@ifc.edu.br')
-    monkeypatch.setattr(donos, '_gravar', lambda *a: pytest.fail('não devia regravar'))
-    donos.remover(str(tmp_path), ['b.pdf'])
+    liberacoes.liberar(str(tmp_path), 'a.pdf', 'x@ifc.edu.br')
+    monkeypatch.setattr(liberacoes, '_gravar', lambda *a: pytest.fail('não devia regravar'))
+    liberacoes.remover(str(tmp_path), ['b.pdf'])
 
 
 def test_liberacoes(tmp_path):

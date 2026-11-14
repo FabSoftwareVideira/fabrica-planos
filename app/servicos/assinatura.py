@@ -15,7 +15,7 @@ from pyhanko.sign.validation.settings import KeyUsageConstraints
 from pyhanko.sign.validation.status import SignatureCoverageLevel
 from pyhanko_certvalidator import ValidationContext
 
-from ..armazenamento import assinaturas, donos
+from ..armazenamento import assinaturas
 from ..avaliacao import identificacao
 from ..avaliacao.extrator import PdfIlegivel, extrair_texto
 
@@ -174,9 +174,10 @@ class Assinaturas:
     depois de aprovado na revisão da coordenação/NDE/NDB. A assinatura vale enquanto aquela aprovação
     valer: um PDF novo do plano, ou a aprovação desfeita ou trocada por outro parecer, pede outra assinatura."""
 
-    def __init__(self, cfg, revisao):
+    def __init__(self, cfg, revisao, disciplinas=None):
         self.cfg = cfg
         self.revisao = revisao
+        self.disciplinas = disciplinas
         self._raizes = None
 
     @property
@@ -192,8 +193,9 @@ class Assinaturas:
         return r if r and r['status'] == 'OK' else None
 
     def liberado(self, nome, email):
-        dono = donos.ler(self.cfg.resultados_dir).get(nome, {}).get('email')
-        return bool(dono) and dono == email and self.aprovacao(nome) is not None
+        """Um docente da disciplina do plano assina, depois de o plano ser aprovado na revisão."""
+        docentes = self.disciplinas.docentes_do_arquivo(nome) if self.disciplinas else []
+        return bool(email) and email in docentes and self.aprovacao(nome) is not None
 
     def vigente(self, nome):
         """Registro da assinatura do plano, se ainda vale (mesmo PDF e aprovação de quando foi assinado)."""

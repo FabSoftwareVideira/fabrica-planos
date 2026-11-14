@@ -293,16 +293,20 @@ def test_ocultar_com_nome_invalido(admin, metodo):
 def test_meus_planos_pedidos_invalidos(admin):
     c, _ = admin
     assert c.post('/meus-planos', headers=FULANO, data={}, content_type='multipart/form-data').status_code == 400
+    r = c.post('/meus-planos', headers=FULANO, data={'oferta': 'x', 'arquivo': (io.BytesIO(PDF), 'a.pdf')},
+               content_type='multipart/form-data')
+    assert r.status_code == 400 and 'disciplina' in r.json['erro']
     assert c.delete('/meus-planos?arquivo=../a.pdf', headers=FULANO).status_code == 400
 
 
 def test_nao_exclui_o_plano_em_avaliacao(admin, sem_ia):
+    from conftest import dar_disciplina, enviar_plano
     c, planos = admin
-    c.post('/meus-planos', headers=FULANO, data={'arquivos': [(io.BytesIO(PDF), 'a.pdf')]},
-           content_type='multipart/form-data')
-    servicos_de(c).validador.andamento.iniciar(1, unico='a.pdf')
-    r = c.delete('/meus-planos?arquivo=a.pdf', headers=FULANO)
-    assert r.status_code == 409 and (planos / 'a.pdf').exists()
+    o = dar_disciplina(c, 'fulano@ifc.edu.br')
+    enviar_plano(c, o, PDF, cab=FULANO)
+    servicos_de(c).validador.andamento.iniciar(1, unico=o['arquivo'])
+    r = c.delete('/meus-planos?arquivo=' + o['arquivo'], headers=FULANO)
+    assert r.status_code == 409 and (planos / o['arquivo']).exists()
 
 
 @pytest.mark.parametrize('dados, nome, mensagem', [
@@ -341,11 +345,12 @@ def test_liberar_reenvio_pedidos_invalidos(admin):
 
 
 def test_liberar_e_cancelar_reenvio(admin, sem_ia):
-    from app.armazenamento import donos, liberacoes
+    from app.armazenamento import liberacoes
+    from conftest import dar_disciplina
     c, planos = admin
     s = servicos_de(c)
     (planos / 'a.pdf').write_bytes(PDF)
-    donos.definir(s.cfg.resultados_dir, 'a.pdf', 'fulano@ifc.edu.br', {'sigla_curso': 'CC', 'codigo': 'CCC0723'})
+    dar_disciplina(c, 'fulano@ifc.edu.br', arquivo='a.pdf')
     r = c.post('/coordenacao/liberar', headers=ADMIN, data={'arquivo': 'a.pdf'})
     assert r.status_code == 400 and 'não está assinado' in r.get_data(as_text=True)
     liberacoes.liberar(s.cfg.resultados_dir, 'a.pdf', 'admin@ifc.edu.br')

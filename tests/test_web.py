@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from conftest import PDF_COM_TEXTO, PDF_SEM_TEXTO
+from conftest import PDF_COM_TEXTO, PDF_SEM_TEXTO, dar_disciplina, enviar_plano
 
 PDF = PDF_COM_TEXTO
 
@@ -29,24 +29,20 @@ def sem_ia(monkeypatch):
     monkeypatch.setattr(pipeline, 'revalidar', lambda cfg, andamento, nome: andamento.finalizar())
 
 
-def _enviar_meus(c, *arquivos, cab=None):
-    return c.post('/meus-planos', headers=cab or {}, data=_envio(*arquivos), content_type='multipart/form-data')
-
-
 def test_upload_lista_e_exclui(cliente, sem_ia):
     c, planos = cliente
-    r = _enviar_meus(c, ('Plano Á.pdf', PDF), ('b.pdf', PDF))
-    assert r.status_code == 200
-    assert [s['nome'] for s in r.json['salvos']] == ['Plano Á.pdf', 'b.pdf']
-    assert (planos / 'Plano Á.pdf').read_bytes() == PDF
+    o = dar_disciplina(c)
+    r = enviar_plano(c, o, PDF, nome='Plano Á qualquer nome.pdf')
+    assert r.status_code == 200 and r.json['nome'] == o['arquivo'] and not r.json['substituido']
+    assert o['arquivo'] == '2026.2-CCC0723-T01-%d.pdf' % o['id']  # o nome vem da disciplina, não do arquivo
+    assert (planos / o['arquivo']).read_bytes() == PDF
+    assert [p['nome'] for p in c.get('/planos').json['planos']] == [o['arquivo']]
 
-    assert [p['nome'] for p in c.get('/planos').json['planos']] == ['Plano Á.pdf', 'b.pdf']
+    r = enviar_plano(c, o, PDF)
+    assert r.json['substituido'] and sorted(os.listdir(planos)) == [o['arquivo']]
 
-    r = _enviar_meus(c, ('b.pdf', PDF))
-    assert [(s['nome'], s['substituido']) for s in r.json['salvos']] == [('b.pdf', True)]
-
-    assert c.delete('/meus-planos?arquivo=b.pdf').status_code == 200
-    assert not (planos / 'b.pdf').exists()
+    assert c.delete('/meus-planos?arquivo=' + o['arquivo']).status_code == 200
+    assert not (planos / o['arquivo']).exists()
 
 
 def test_administrador_nao_envia_planos(cliente):
@@ -57,26 +53,29 @@ def test_administrador_nao_envia_planos(cliente):
     assert not (planos / 'b.pdf').exists()
 
 
-def test_upload_recusa_nome_e_conteudo_invalidos(cliente, sem_ia):
+def test_upload_pede_a_disciplina_e_um_pdf(cliente, sem_ia):
     c, planos = cliente
-    r = _enviar_meus(c, ('x.txt', PDF), ('falso.pdf', b'nao e pdf'), ('../fora.pdf', PDF))
-    assert r.status_code == 200  # '../fora.pdf' vira 'fora.pdf', dentro da pasta
-    assert [s['nome'] for s in r.json['salvos']] == ['fora.pdf']
-    assert {x['nome'] for x in r.json['recusados']} == {'x.txt', 'falso.pdf'}
-    assert sorted(os.listdir(planos)) == ['fora.pdf']
+    o = dar_disciplina(c)
+    sem_disciplina = c.post('/meus-planos', data={'arquivo': (io.BytesIO(PDF), 'a.pdf')}, content_type='multipart/form-data')
+    assert sem_disciplina.status_code == 400 and 'disciplina' in sem_disciplina.json['erro']
+    assert enviar_plano(c, 999999, PDF).json['erro'] == 'Disciplina não encontrada.'
+    assert c.post('/meus-planos', data={'oferta': str(o['id'])}).status_code == 400
+    r = enviar_plano(c, o, b'nao e pdf', nome='falso.pdf')
+    assert r.status_code == 400 and 'não é um PDF' in r.json['erro']
+    assert enviar_plano(c, o, PDF, nome='x.txt').status_code == 200  # o nome do arquivo não importa
+    assert sorted(os.listdir(planos)) == [o['arquivo']]
 
 
 def test_upload_recusa_pdf_grande_digitalizado_ou_corrompido(cliente, sem_ia):
     c, planos = cliente
+    o = dar_disciplina(c)
     grande = PDF + b'%' + b'0' * (1024 * 1024)
-    r = _enviar_meus(c, ('grande.pdf', grande), ('scan.pdf', PDF_SEM_TEXTO), ('quebrado.pdf', b'%PDF-1.4 lixo'),
-                     ('bom.pdf', PDF))
-    motivos = {x['nome']: x['motivo'] for x in r.json['recusados']}
-    assert 'maior que 1 MB' in motivos['grande.pdf']
-    assert 'OCR' in motivos['scan.pdf']
-    assert 'não pôde ser aberto' in motivos['quebrado.pdf']
-    assert [s['nome'] for s in r.json['salvos']] == ['bom.pdf']
-    assert sorted(os.listdir(planos)) == ['bom.pdf']  # nenhum temporário sobra
+    assert 'maior que 1 MB' in enviar_plano(c, o, grande).json['erro']
+    assert 'OCR' in enviar_plano(c, o, PDF_SEM_TEXTO).json['erro']
+    assert 'não pôde ser aberto' in enviar_plano(c, o, b'%PDF-1.4 lixo').json['erro']
+    assert os.listdir(planos) == []  # nenhum temporário sobra
+    assert enviar_plano(c, o, PDF).status_code == 200
+    assert sorted(os.listdir(planos)) == [o['arquivo']]
 
 
 def test_exclusao_recusa_caminho(cliente):
@@ -275,38 +274,31 @@ def test_lista_traz_avaliacoes_sem_pdf_para_limpar(cliente):
     assert c.delete('/planos?arquivo=velho.pdf').status_code == 404
 
 
-def test_admin_so_exclui_os_proprios_e_oculta_os_dos_outros(com_login):
-    from app.armazenamento import csvsaida, donos
+def test_admin_so_exclui_pdf_sem_disciplina_e_oculta_os_das_disciplinas(com_login):
+    from app.armazenamento import csvsaida
     c, planos = com_login
-    s = _servicos(c)
     (planos / 'prof.pdf').write_bytes(PDF)
-    donos.definir(s.cfg.resultados_dir, 'prof.pdf', 'fulano@ifc.edu.br')
-    (planos / 'solto.pdf').write_bytes(PDF)  # copiado direto para a pasta: sem dono
-    (planos / 'meu.pdf').write_bytes(PDF)  # entregue pelo administrador como professor, em "Meus planos"
-    donos.definir(s.cfg.resultados_dir, 'meu.pdf', 'admin@ifc.edu.br')
-    execucao = _execucao(c, ['meu.pdf', 'prof.pdf', 'solto.pdf'], 10)
+    dar_disciplina(c, 'fulano@ifc.edu.br', arquivo='prof.pdf')
+    (planos / 'solto.pdf').write_bytes(PDF)  # copiado direto para a pasta: sem disciplina
+    execucao = _execucao(c, ['prof.pdf', 'solto.pdf'], 10)
 
     lista = {p['nome']: p for p in c.get('/planos', headers=ADMIN).json['planos']}
-    assert lista['meu.pdf']['pode_excluir'] and lista['solto.pdf']['pode_excluir']
-    assert not lista['prof.pdf']['pode_excluir']
+    assert lista['solto.pdf']['pode_excluir'] and lista['solto.pdf']['dono'] == ''
+    assert not lista['prof.pdf']['pode_excluir'] and lista['prof.pdf']['dono'] == 'fulano@ifc.edu.br'
+    assert lista['prof.pdf']['disciplina'] == 'CCC0723 · Desenvolvimento Web I · Turma 01'
 
-    # O plano de outra pessoa: não exclui nem substitui, mas oculta do painel
+    # O plano de uma disciplina: não exclui, mas oculta do painel
     r = c.delete('/planos?arquivo=prof.pdf', headers=ADMIN)
     assert r.status_code == 403 and 'ocultados' in r.json['erro']
-    r = _enviar_meus(c, ('prof.pdf', PDF), cab=ADMIN)
-    assert r.status_code == 400 and 'outra pessoa' in r.json['recusados'][0]['motivo']
-    assert (planos / 'prof.pdf').exists() and s.planos.dono('prof.pdf') == 'fulano@ifc.edu.br'
-
     assert c.post('/planos/ocultar?arquivo=prof.pdf', headers=ADMIN).status_code == 200
     html = c.get('/dashboard', headers=SERVIDOR).get_data(as_text=True)
-    assert 'href="/relatorio?arquivo=prof.pdf"' not in html and 'href="/relatorio?arquivo=meu.pdf"' in html
+    assert 'href="/relatorio?arquivo=prof.pdf"' not in html and 'href="/relatorio?arquivo=solto.pdf"' in html
     assert 'prof.pdf' in [l['Arquivo'] for l in csvsaida.ler_csv(execucao.csv_path)]  # a avaliação continua
-    assert c.get('/planos', headers=ADMIN).json['planos'][1]['oculto']
+    assert c.get('/planos', headers=ADMIN).json['planos'][0]['oculto']
     assert c.delete('/planos/ocultar?arquivo=prof.pdf', headers=ADMIN).status_code == 200
     assert 'href="/relatorio?arquivo=prof.pdf"' in c.get('/dashboard', headers=SERVIDOR).get_data(as_text=True)
 
-    # Os próprios e os sem dono: exclui
-    assert c.delete('/planos?arquivo=meu.pdf', headers=ADMIN).status_code == 200
+    # Sem disciplina: exclui
     assert c.delete('/planos?arquivo=solto.pdf', headers=ADMIN).status_code == 200
     assert [l['Arquivo'] for l in csvsaida.ler_csv(execucao.csv_path)] == ['prof.pdf']
     assert c.post('/planos/ocultar?arquivo=sumiu.pdf', headers=ADMIN).status_code == 404
@@ -314,22 +306,26 @@ def test_admin_so_exclui_os_proprios_e_oculta_os_dos_outros(com_login):
 
 def test_versao_nova_do_pdf_volta_ao_painel(cliente, sem_ia):
     c, planos = cliente
-    _enviar_meus(c, ('a.pdf', PDF))
-    _execucao(c, ['a.pdf'], 10)
-    c.post('/planos/ocultar?arquivo=a.pdf')
-    assert 'href="/relatorio?arquivo=a.pdf"' not in c.get('/dashboard').get_data(as_text=True)
-    _enviar_meus(c, ('a.pdf', PDF))
-    assert 'href="/relatorio?arquivo=a.pdf"' in c.get('/dashboard').get_data(as_text=True)
+    o = dar_disciplina(c)
+    enviar_plano(c, o, PDF)
+    _execucao(c, [o['arquivo']], 10)
+    c.post('/planos/ocultar?arquivo=' + o['arquivo'])
+    assert 'href="/relatorio?arquivo=%s"' % o['arquivo'] not in c.get('/dashboard').get_data(as_text=True)
+    enviar_plano(c, o, PDF)
+    assert 'href="/relatorio?arquivo=%s"' % o['arquivo'] in c.get('/dashboard').get_data(as_text=True)
 
 
-def test_professor_exclui_o_proprio_plano_com_a_avaliacao(com_login):
-    from app.armazenamento import csvsaida, donos
+def test_professor_exclui_o_plano_da_sua_disciplina_com_a_avaliacao(com_login):
+    from app.armazenamento import csvsaida
     c, planos = com_login
     (planos / 'meu.pdf').write_bytes(PDF)
-    donos.definir(_servicos(c).cfg.resultados_dir, 'meu.pdf', 'fulano@ifc.edu.br')
+    dar_disciplina(c, 'fulano@ifc.edu.br', 'beltrano@ifc.edu.br', arquivo='meu.pdf')
     execucao = _execucao(c, ['meu.pdf'], 10)
-    assert c.delete('/meus-planos?arquivo=meu.pdf', headers=SERVIDOR).status_code == 200
-    assert csvsaida.ler_csv(execucao.csv_path) == []
+    assert c.delete('/meus-planos?arquivo=meu.pdf', headers={'X-Usuario-Email': 'outro@ifc.edu.br'}).status_code == 403
+    assert c.delete('/meus-planos?arquivo=meu.pdf', headers={'X-Usuario-Email': 'beltrano@ifc.edu.br'}).status_code == 200
+    assert csvsaida.ler_csv(execucao.csv_path) == [] and not (planos / 'meu.pdf').exists()
+    oferta = _servicos(c).disciplinas.do_arquivo('meu.pdf')
+    assert oferta['enviado_em'] is None and oferta['docentes'] == ['beltrano@ifc.edu.br', 'fulano@ifc.edu.br']
 
 
 def test_revalidar_pela_rota(cliente, monkeypatch):
@@ -435,46 +431,58 @@ def test_revalidacoes_esperam_na_fila(cliente, monkeypatch):
     assert chamadas == ['b.pdf'] and c.get('/status').json['fila'] == []
 
 
-def test_professor_entrega_e_acompanha_o_proprio_plano(com_login, monkeypatch):
+def test_professor_entrega_e_acompanha_o_plano_da_sua_disciplina(com_login, monkeypatch):
     from app.armazenamento import detalhes
     from app.avaliacao import pipeline
     c, planos = com_login
     chamadas = []
     monkeypatch.setattr(pipeline, 'revalidar', lambda cfg, andamento, nome: (chamadas.append(nome), andamento.finalizar()))
-    assert 'id="soltar"' in c.get('/meus-planos', headers=SERVIDOR).get_data(as_text=True)
-
-    r = c.post('/meus-planos', headers=SERVIDOR, data=_envio(('meu.pdf', PDF)), content_type='multipart/form-data')
-    assert r.json['salvos'] == [{'nome': 'meu.pdf', 'substituido': False, 'posicao': 0}]
-    assert chamadas == ['meu.pdf'] and (planos / 'meu.pdf').exists()
+    o = dar_disciplina(c, 'fulano@ifc.edu.br')
+    nome = o['arquivo']
     [plano] = c.get('/meus-planos/lista', headers=SERVIDOR).json['planos']
-    assert plano['situacao'] == 'aguardando'  # a avaliação falsa não gravou resultado
+    assert plano['situacao'] == 'sem_plano' and plano['oferta_id'] == o['id'] and not plano['tem_plano']
+    assert plano['disciplina'] == 'Desenvolvimento Web I (Turma 01)' and plano['fase'] == 4
 
-    execucao = _execucao(c, ['meu.pdf'], 23, {'status_geral': 'PENDENTE'})
-    detalhes.salvar(execucao.detalhes_dir, 'meu.pdf', {'validado_em': '2099-01-01T00:00:00'})
+    r = enviar_plano(c, o, PDF, cab=SERVIDOR)
+    assert r.json == {'nome': nome, 'substituido': False, 'posicao': 0, 'aviso': ''}
+    assert chamadas == [nome] and (planos / nome).exists()
+    [plano] = c.get('/meus-planos/lista', headers=SERVIDOR).json['planos']
+    assert plano['situacao'] == 'aguardando' and plano['tem_plano']  # a avaliação falsa não gravou resultado
+
+    execucao = _execucao(c, [nome], 23, {'status_geral': 'PENDENTE'})
+    detalhes.salvar(execucao.detalhes_dir, nome, {'validado_em': '2099-01-01T00:00:00'})
     [plano] = c.get('/meus-planos/lista', headers=SERVIDOR).json['planos']
     assert plano['situacao'] == 'avaliado' and plano['status'] == 'PENDENTE' and 'Ementa' in plano['problemas']
 
-    # Outra pessoa não vê o plano na lista dela, nem o substitui ou exclui
+    # Quem não é docente da disciplina não a vê, nem envia, substitui ou exclui o plano dela
     assert c.get('/meus-planos/lista', headers=ADMIN).json['planos'] == []
-    r = c.post('/meus-planos', headers=ADMIN, data=_envio(('meu.pdf', PDF)), content_type='multipart/form-data')
-    assert r.status_code == 400 and 'outra pessoa' in r.json['recusados'][0]['motivo']
-    assert c.delete('/meus-planos?arquivo=meu.pdf', headers=ADMIN).status_code == 403
+    r = enviar_plano(c, o, PDF, cab=ADMIN)
+    assert r.status_code == 400 and 'não é docente' in r.json['erro']
+    assert c.delete(f'/meus-planos?arquivo={nome}', headers=ADMIN).status_code == 403
     assert c.get('/planos', headers=ADMIN).json['planos'][0]['dono'] == 'fulano@ifc.edu.br'
 
-    # O dono substitui e exclui
-    r = c.post('/meus-planos', headers=SERVIDOR, data=_envio(('meu.pdf', PDF)), content_type='multipart/form-data')
-    assert r.json['salvos'][0]['substituido'] and chamadas == ['meu.pdf', 'meu.pdf']
-    assert c.delete('/meus-planos?arquivo=meu.pdf', headers=SERVIDOR).status_code == 200
-    assert not (planos / 'meu.pdf').exists()
-    assert c.get('/meus-planos/lista', headers=SERVIDOR).json['planos'] == []
+    # O docente substitui e exclui
+    r = enviar_plano(c, o, PDF, cab=SERVIDOR)
+    assert r.json['substituido'] and chamadas == [nome, nome]
+    assert c.delete(f'/meus-planos?arquivo={nome}', headers=SERVIDOR).status_code == 200
+    assert not (planos / nome).exists()
+    assert c.get('/meus-planos/lista', headers=SERVIDOR).json['planos'][0]['situacao'] == 'sem_plano'
 
 
-def test_professor_nao_assume_plano_sem_dono(com_login):
+def test_sem_disciplina_vinculada_nao_ha_onde_enviar(com_login):
     c, planos = com_login
-    (planos / 'antigo.pdf').write_bytes(PDF)  # veio do Drive ou do administrador
-    r = c.post('/meus-planos', headers=SERVIDOR, data=_envio(('antigo.pdf', PDF)), content_type='multipart/form-data')
-    assert r.status_code == 400
+    (planos / 'antigo.pdf').write_bytes(PDF)  # copiado direto para a pasta: sem disciplina
+    assert c.get('/meus-planos/lista', headers=SERVIDOR).json['planos'] == []
+    assert 'Nenhuma disciplina vinculada' in c.get('/static/js/meus_planos.js').get_data(as_text=True)
     assert c.delete('/meus-planos?arquivo=antigo.pdf', headers=SERVIDOR).status_code == 403
+
+
+def test_docente_cadastrado_depois_ve_a_disciplina_no_primeiro_acesso(com_login):
+    c, _ = com_login
+    dar_disciplina(c, 'novo.docente@ifc.edu.br')
+    novo = {'X-Usuario-Email': 'novo.docente@ifc.edu.br'}
+    [plano] = c.get('/meus-planos/lista', headers=novo).json['planos']
+    assert plano['docentes'] == [{'email': 'novo.docente@ifc.edu.br', 'nome': '', 'cadastrado': True}]
 
 
 def test_dashboard_traz_dados_para_agrupar(cliente):
@@ -515,24 +523,21 @@ def test_zip_de_um_grupo(cliente):
     assert c.get(f'/validacoes/{execucao.id}/pdfs.zip?arquivo=fora.pdf').status_code == 404
 
 
-def test_meus_planos_agrupados_por_curso_e_periodo(com_login, monkeypatch):
-    from app.avaliacao import pipeline
-    from conftest import gerar_pdf
+def test_meus_planos_agrupados_por_periodo_e_fase(com_login):
     c, _ = com_login
-    monkeypatch.setattr(pipeline, 'revalidar', lambda cfg, andamento, nome: andamento.finalizar())
-    def plano(cabecalho):
-        return gerar_pdf([cabecalho] + ['Linha de texto do plano de ensino numero %d.' % i for i in range(6)])
-    envio = _envio(('web.pdf', plano('CCC0723 - DESENVOLVIMENTO WEB I (60h) - Turma: 01 (2026.2)')),
-                   ('algebra.pdf', plano('CCC0707 - ALGEBRA LINEAR (60h) - Turma: 01 (2026.1)')),
-                   ('outro.pdf', PDF))
-    assert c.post('/meus-planos', headers=SERVIDOR, data=envio, content_type='multipart/form-data').status_code == 200
+    dar_disciplina(c, 'fulano@ifc.edu.br')  # 2026.2, 4ª fase
+    dar_disciplina(c, 'fulano@ifc.edu.br', periodo='2026.1', codigo='CCC0707', nome='Álgebra Linear', fase=2)
+    dar_disciplina(c, 'fulano@ifc.edu.br', codigo='CCC0715', nome='Banco de Dados I', fase=3)
+    dar_disciplina(c, 'fulano@ifc.edu.br', 'outra@ifc.edu.br', codigo='', nome='Tópicos em Visão Computacional', fase=6)
     planos = c.get('/meus-planos/lista', headers=SERVIDOR).json['planos']
-    assert [(p['nome'], p['grupo_titulo']) for p in planos] == [
-        ('web.pdf', 'Ciência da Computação · 2º semestre de 2026'),
-        ('algebra.pdf', 'Ciência da Computação · 1º semestre de 2026'),
-        ('outro.pdf', 'Sem identificação de curso e período'),
+    assert [(p['disciplina'], p['grupo_titulo']) for p in planos] == [
+        ('Banco de Dados I (Turma 01)', 'Ciência da Computação · 2º semestre de 2026'),
+        ('Desenvolvimento Web I (Turma 01)', 'Ciência da Computação · 2º semestre de 2026'),
+        ('Tópicos em Visão Computacional (Turma 01)', 'Ciência da Computação · 2º semestre de 2026'),
+        ('Álgebra Linear (Turma 01)', 'Ciência da Computação · 1º semestre de 2026'),
     ]
-    assert planos[0]['componente'] == 'CCC0723 · Desenvolvimento Web I · Turma 01'
+    assert planos[1]['componente'] == 'CCC0723 · Desenvolvimento Web I · Turma 01'
+    assert [d['email'] for d in planos[2]['docentes']] == ['fulano@ifc.edu.br', 'outra@ifc.edu.br']
 
 
 def test_paginas_usam_css_e_js_de_static_com_versao(cliente):
@@ -740,7 +745,8 @@ def test_professor_ve_o_parecer(com_login, monkeypatch):
     c, planos = com_login
     monkeypatch.setattr(pipeline, 'revalidar', lambda cfg, andamento, nome: andamento.finalizar())
     pdf = gerar_pdf([CABECALHO_CC.strip()] + ['Linha de texto do plano de ensino numero %d.' % i for i in range(6)])
-    c.post('/meus-planos', headers=SERVIDOR, data=_envio(('web.pdf', pdf)), content_type='multipart/form-data')
+    o = dar_disciplina(c, 'fulano@ifc.edu.br', arquivo='web.pdf')
+    enviar_plano(c, o, pdf, cab=SERVIDOR)
     from app.armazenamento import detalhes
     execucao = _execucao(c, ['web.pdf'], 10, {'status_geral': 'OK'})
     detalhes.salvar(execucao.detalhes_dir, 'web.pdf', {'texto': CABECALHO_CC, 'validado_em': '2099-01-01T00:00:00'})
@@ -824,20 +830,19 @@ def test_so_coordenacao_e_administracao_baixam_csv_e_zip(com_login):
         assert 'EXPORTAR = true' in c.get('/dashboard', headers=cab).get_data(as_text=True)
 
 
-def test_quem_enviou_o_plano_nao_o_revisa(com_login):
-    from app.armazenamento import donos
+def test_docente_do_plano_nao_o_revisa(com_login):
     c, planos = com_login
     _plano_cc(c, planos, status='PENDENTE')
-    donos.definir(_servicos(c).cfg.resultados_dir, 'web.pdf', 'nde@ifc.edu.br')  # o próprio NDE enviou
+    dar_disciplina(c, 'nde@ifc.edu.br', arquivo='web.pdf')  # o próprio NDE enviou
     _dar_papel(c, 'nde@ifc.edu.br')
     _dar_papel(c, 'outro@ifc.edu.br')
     OUTRO = {'X-Usuario-Email': 'outro@ifc.edu.br'}
 
     html = c.get('/relatorio?arquivo=web.pdf', headers=NDE).get_data(as_text=True)
-    assert 'action="/revisao"' not in html and 'Você enviou este plano' in html
+    assert 'action="/revisao"' not in html and 'Você é docente deste plano' in html
     assert 'class="revisar"' not in c.get('/dashboard', headers=NDE).get_data(as_text=True)
     r = c.post('/revisao', headers=NDE, data={'arquivo': 'web.pdf', 'status': 'OK', 'comentario': 'ok'})
-    assert r.status_code == 403 and 'Você enviou este plano' in r.get_data(as_text=True)
+    assert r.status_code == 403 and 'Você é docente deste plano' in r.get_data(as_text=True)
     assert _servicos(c).revisao.vigente('web.pdf') is None
 
     # Outro membro revisa; o autor também não desfaz a revisão dele
@@ -848,16 +853,15 @@ def test_quem_enviou_o_plano_nao_o_revisa(com_login):
     assert _servicos(c).revisao.vigente('web.pdf')['status'] == 'OK'
 
 
-def test_coordenador_revisa_o_proprio_plano(com_login):
-    from app.armazenamento import donos
+def test_coordenador_revisa_o_plano_da_propria_disciplina(com_login):
     c, planos = com_login
     _plano_cc(c, planos, status='OK')
-    donos.definir(_servicos(c).cfg.resultados_dir, 'web.pdf', 'coord@ifc.edu.br')  # o próprio coordenador enviou
+    dar_disciplina(c, 'coord@ifc.edu.br', arquivo='web.pdf')  # o próprio coordenador enviou
     _dar_papel(c, 'coord@ifc.edu.br', papel='coordenador')
     COORD = {'X-Usuario-Email': 'coord@ifc.edu.br'}
 
     html = c.get('/relatorio?arquivo=web.pdf', headers=COORD).get_data(as_text=True)
-    assert 'action="/revisao"' in html and 'Você enviou este plano' not in html
+    assert 'action="/revisao"' in html and 'Você é docente deste plano' not in html
     assert 'class="revisar"' in c.get('/dashboard', headers=COORD).get_data(as_text=True)
     r = c.post('/revisao', headers=COORD, data={'arquivo': 'web.pdf', 'status': 'OK'})
     assert r.status_code == 303 and 'aviso=salva' in r.headers['Location']
@@ -929,13 +933,12 @@ def test_acoes_vindas_de_outro_site_sao_recusadas(cliente):
 # Assinatura do plano aprovado pelo professor (gov.br) --------------------------------------------------
 
 def test_professor_assina_o_plano_depois_de_aprovado(fabrica, tmp_path):
-    from app.armazenamento import donos
     from conftest import assinar, gerar_ac, salvar_ac
     ac = gerar_ac()
     c, planos = fabrica(exigir_login=True, admins=frozenset({'admin@ifc.edu.br'}),
                         certificados_dir=salvar_ac(ac, tmp_path / 'certificados'))
     _plano_cc(c, planos, status='OK')
-    donos.definir(_servicos(c).cfg.resultados_dir, 'web.pdf', 'fulano@ifc.edu.br')
+    dar_disciplina(c, 'fulano@ifc.edu.br', arquivo='web.pdf')
     _dar_papel(c, 'nde@ifc.edu.br')
     assinado = assinar(PDF, ac)
 
@@ -953,7 +956,7 @@ def test_professor_assina_o_plano_depois_de_aprovado(fabrica, tmp_path):
     assert plano['pode_assinar'] is True
     assert 'Aguardando a assinatura do docente' in c.get('/relatorio?arquivo=web.pdf', headers=NDE).get_data(as_text=True)
 
-    # Só quem enviou assina; o PDF precisa estar assinado, pela AC aceita, por quem é do plano
+    # Só docente da disciplina assina; o PDF precisa estar assinado, pela AC aceita, por quem é do plano
     assert enviar(assinado, NDE).status_code == 403
     r = enviar(PDF)
     assert r.status_code == 422 and 'não tem assinatura' in r.json['erro']
@@ -978,7 +981,7 @@ def test_professor_assina_o_plano_depois_de_aprovado(fabrica, tmp_path):
 
 
 def test_plano_assinado_so_e_reenviado_com_liberacao_da_coordenacao(fabrica, tmp_path, monkeypatch):
-    from app.armazenamento import donos, liberacoes
+    from app.armazenamento import liberacoes
     from app.avaliacao import pipeline
     from conftest import assinar, gerar_ac, salvar_ac
     monkeypatch.setattr(pipeline, 'revalidar', lambda cfg, andamento, nome: andamento.finalizar())
@@ -986,7 +989,7 @@ def test_plano_assinado_so_e_reenviado_com_liberacao_da_coordenacao(fabrica, tmp
     c, planos = fabrica(exigir_login=True, admins=frozenset({'admin@ifc.edu.br'}),
                         certificados_dir=salvar_ac(ac, tmp_path / 'certificados'))
     _plano_cc(c, planos, status='OK')
-    donos.definir(_servicos(c).cfg.resultados_dir, 'web.pdf', 'fulano@ifc.edu.br')
+    o = dar_disciplina(c, 'fulano@ifc.edu.br', arquivo='web.pdf')
     _dar_papel(c, 'nde@ifc.edu.br')
     _dar_papel(c, 'coord@ifc.edu.br', papel='coordenador')
     COORD = {'X-Usuario-Email': 'coord@ifc.edu.br'}
@@ -998,9 +1001,9 @@ def test_plano_assinado_so_e_reenviado_com_liberacao_da_coordenacao(fabrica, tmp
                data={'arquivo': 'web.pdf', 'pdf': (io.BytesIO(assinar(PDF, ac)), 'assinado.pdf')})
     assert r.status_code == 200
 
-    # Assinado: o professor não substitui o PDF (nem o dono do plano)
-    r = c.post('/meus-planos', headers=SERVIDOR, data=_envio(('web.pdf', PDF)), content_type='multipart/form-data')
-    assert r.status_code == 400 and 'já está assinado' in r.json['recusados'][0]['motivo']
+    # Assinado: o docente não substitui o PDF
+    r = enviar_plano(c, o, PDF, cab=SERVIDOR)
+    assert r.status_code == 400 and 'já está assinado' in r.json['erro']
     assert not liberacoes.liberado(res, 'web.pdf')
 
     # Só a coordenação do curso (ou a administração) libera o reenvio
@@ -1014,8 +1017,8 @@ def test_plano_assinado_so_e_reenviado_com_liberacao_da_coordenacao(fabrica, tmp
     assert plano['reenvio_liberado'] is True
 
     # Com a liberação, o envio passa e a liberação é consumida
-    r = c.post('/meus-planos', headers=SERVIDOR, data=_envio(('web.pdf', PDF)), content_type='multipart/form-data')
-    assert r.status_code == 200 and r.json['salvos'][0]['substituido']
+    r = enviar_plano(c, o, PDF, cab=SERVIDOR)
+    assert r.status_code == 200 and r.json['substituido']
     assert not liberacoes.liberado(res, 'web.pdf')
 
 
@@ -1256,12 +1259,11 @@ def test_login_govbr_desligado_sem_credenciais(fabrica):
 
 def _aprovado_para_assinar(fabrica, tmp_path, **opcoes):
     """Plano web.pdf de fulano@ifc.edu.br, aprovado pelo NDE de CC; devolve (cliente, cabeçalhos do dono)."""
-    from app.armazenamento import donos
     from conftest import gerar_ac, salvar_ac
     c, planos = fabrica(exigir_login=True, admins=frozenset({'admin@ifc.edu.br'}), cookie_seguro=False,
                         certificados_dir=salvar_ac(gerar_ac(), tmp_path / 'certificados'), **opcoes)
     _plano_cc(c, planos, status='OK')
-    donos.definir(_servicos(c).cfg.resultados_dir, 'web.pdf', 'fulano@ifc.edu.br')
+    dar_disciplina(c, 'fulano@ifc.edu.br', arquivo='web.pdf')
     _dar_papel(c, 'nde@ifc.edu.br')
     c.post('/revisao', headers=NDE, data={'arquivo': 'web.pdf', 'status': 'OK', 'comentario': ''})
     return c, {**SERVIDOR, 'X-Usuario-Token': _token(email='fulano@ifc.edu.br', name='Fulano de Tal')}
@@ -1383,50 +1385,74 @@ def test_assinatura_simulada_so_com_login_simulado(fabrica, tmp_path):
                       agendar=False, assinatura_ambiente='simulada').assinatura_api_ativa
 
 
-# O plano é do professor que o enviou --------------------------------------------------------------------
+# O plano é da disciplina; o PDF é só conferido (aviso) ------------------------------------------------
 
-def _plano_de(docente):
+def _plano_de(docente, cabecalho='CCC0723 - DESENVOLVIMENTO WEB I (60h) - Turma: 01 (2026.2)'):
     from conftest import gerar_pdf
-    return gerar_pdf(['CCC0723 - DESENVOLVIMENTO WEB I (60h) - Turma: 01 (2026.2)', 'Ementa: algo do plano.',
+    return gerar_pdf([cabecalho, 'Ementa: algo do plano.',
                       'Matricula Docente(s)', '1234567 ' + docente + ' - 60h', 'Objetivos: mais texto do plano.']
                      + ['Linha de texto numero %d do plano de ensino de teste.' % i for i in range(8)])
 
 
-def test_envio_confere_o_docente_do_pdf_com_o_cadastro(com_login, sem_ia):
+FULANO = {**SERVIDOR, 'X-Usuario-Token': _token(email='fulano@ifc.edu.br', name='Fulano de Tal')}
+
+
+def test_envio_confere_o_pdf_com_a_disciplina_e_so_avisa(com_login, sem_ia):
     c, planos = com_login
-    fulano = {**SERVIDOR, 'X-Usuario-Token': _token(email='fulano@ifc.edu.br', name='Fulano de Tal')}
-    # Mesmo nome, ou parecido (sobrenome a mais no PDF, acento, uma letra diferente)
-    r = _enviar_meus(c, ('meu.pdf', _plano_de('FULANO DE TAL SILVA')), ('grafia.pdf', _plano_de('FULANU DE TAL')),
-                     cab=fulano)
-    assert [s['nome'] for s in r.json['salvos']] == ['meu.pdf', 'grafia.pdf'], r.json
-    # Plano de outra pessoa: recusado, e a versão anterior fica
-    r = _enviar_meus(c, ('meu.pdf', _plano_de('BELTRANO PEREIRA')), cab=fulano)
-    assert r.status_code == 400 and 'Beltrano Pereira' in r.json['recusados'][0]['motivo']
-    assert 'Fulano de Tal' in r.json['recusados'][0]['motivo']
-    assert b'FULANO DE TAL SILVA' in (planos / 'meu.pdf').read_bytes()
-    assert sorted(os.listdir(planos)) == ['grafia.pdf', 'meu.pdf']  # nenhum temporário sobra
-    # Sem o bloco de docentes no PDF, não há o que conferir
-    assert _enviar_meus(c, ('sem-docente.pdf', PDF), cab=fulano).status_code == 200
+    o = dar_disciplina(c, 'fulano@ifc.edu.br', 'beltrano@ifc.edu.br')
+    c.get('/dashboard', headers={'X-Usuario-Email': 'beltrano@ifc.edu.br',
+                                 'X-Usuario-Token': _token(email='beltrano@ifc.edu.br', name='Beltrano Pereira')})
+    # Mesmo nome, ou parecido (sobrenome a mais no PDF, acento, uma letra diferente): sem aviso
+    for docente in ('FULANO DE TAL SILVA', 'FULANU DE TAL'):
+        r = enviar_plano(c, o, _plano_de(docente), cab=FULANO)
+        assert r.status_code == 200 and r.json['aviso'] == '', r.json
+    # O outro docente da disciplina também vale
+    assert enviar_plano(c, o, _plano_de('BELTRANO PEREIRA'), cab=FULANO).json['aviso'] == ''
+    # Docente que não é da disciplina: aceito, com aviso para o professor e a coordenação
+    r = enviar_plano(c, o, _plano_de('CICLANO SOUZA'), cab=FULANO)
+    assert r.status_code == 200 and 'Ciclano Souza' in r.json['aviso']
+    assert r.json['aviso'].count('Fulano de Tal') == 1 and 'Beltrano Pereira' in r.json['aviso']
+    assert b'CICLANO SOUZA' in (planos / o['arquivo']).read_bytes()
+    [plano] = c.get('/meus-planos/lista', headers=FULANO).json['planos']
+    assert plano['aviso'] == r.json['aviso']
+    # Outra disciplina ou outro período no PDF: aviso também
+    r = enviar_plano(c, o, _plano_de('FULANO DE TAL', 'CCC0721 - BANCO DE DADOS II (60h) - Turma: 01 (2026.1)'), cab=FULANO)
+    assert 'CCC0721' in r.json['aviso'] and 'CCC0723' in r.json['aviso'] and '2026.1' in r.json['aviso']
+    # Sem o bloco de docentes nem o cabeçalho no PDF, não há o que conferir
+    r = enviar_plano(c, o, PDF, cab=FULANO)
+    assert r.json['aviso'] == '' and _servicos(c).disciplinas.do_arquivo(o['arquivo'])['aviso'] == ''
 
 
-def test_sem_nome_no_cadastro_o_envio_nao_e_conferido(com_login, sem_ia):
+def test_aviso_aparece_para_a_coordenacao(com_login, sem_ia):
     c, _ = com_login
-    r = _enviar_meus(c, ('outro.pdf', _plano_de('BELTRANO PEREIRA')), cab={'X-Usuario-Email': 'novo@ifc.edu.br'})
-    assert r.status_code == 200
+    o = dar_disciplina(c, 'fulano@ifc.edu.br')
+    enviar_plano(c, o, _plano_de('CICLANO SOUZA'), cab=FULANO)
+    _dar_papel(c, 'coord@ifc.edu.br', papel='coordenador')
+    html = c.get('/disciplinas', headers={'X-Usuario-Email': 'coord@ifc.edu.br'}).get_data(as_text=True)
+    assert 'Plano enviado' in html and 'Ciclano Souza' in html
 
 
-def test_docente_exibido_e_o_do_cadastro(com_login, sem_ia):
+def test_sem_nome_no_cadastro_o_docente_nao_e_conferido(com_login, sem_ia):
+    c, _ = com_login
+    o = dar_disciplina(c, 'novo@ifc.edu.br')
+    r = enviar_plano(c, o, _plano_de('BELTRANO PEREIRA'), cab={'X-Usuario-Email': 'novo@ifc.edu.br'})
+    assert r.status_code == 200 and r.json['aviso'] == ''
+
+
+def test_docente_exibido_e_o_da_disciplina(com_login, sem_ia):
     from app.armazenamento import detalhes
     c, planos = com_login
-    fulano = {**SERVIDOR, 'X-Usuario-Token': _token(email='fulano@ifc.edu.br', name='Fulano de Tal')}
-    _enviar_meus(c, ('meu.pdf', _plano_de('FULANO DE TAL SILVA')), cab=fulano)
-    (planos / 'antigo.pdf').write_bytes(PDF)  # sem dono: vale o docente escrito no PDF
-    execucao = _execucao(c, ['meu.pdf', 'antigo.pdf'], 10)
-    detalhes.salvar(execucao.detalhes_dir, 'meu.pdf', {'texto': 'Matrícula Docente(s)\n1234567 FULANO DE TAL SILVA - 60h\n'})
+    o = dar_disciplina(c, 'fulano@ifc.edu.br')
+    enviar_plano(c, o, _plano_de('FULANO DE TAL SILVA'), cab=FULANO)
+    (planos / 'antigo.pdf').write_bytes(PDF)  # sem disciplina: vale o docente escrito no PDF
+    execucao = _execucao(c, [o['arquivo'], 'antigo.pdf'], 10)
+    detalhes.salvar(execucao.detalhes_dir, o['arquivo'], {'texto': 'Matrícula Docente(s)\n1234567 FULANO DE TAL SILVA - 60h\n'})
     detalhes.salvar(execucao.detalhes_dir, 'antigo.pdf', {'texto': 'Matrícula Docente(s)\n7654321 CICLANO SOUZA - 30h\n'})
     html = c.get('/dashboard', headers=ADMIN).get_data(as_text=True)
     assert 'data-docente="Fulano de Tal"' in html  # o nome do cadastro, não o do PDF
     assert 'data-docente="Ciclano Souza"' in html
+    # Curso e período vêm da disciplina, mesmo sem o cabeçalho no texto do PDF
+    assert 'data-cp="CC|2026.2"' in html
 
 
 def test_aviso_de_privacidade_publico(fabrica):

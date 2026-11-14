@@ -6,12 +6,14 @@ from flask import Flask
 
 from . import rotas
 from .paginas import comum as paginas
+from .armazenamento.ofertas import Ofertas
 from .armazenamento.revisoes import Revisoes
 from .armazenamento.usuarios import Usuarios
 from .banco import Banco
 from .config import Config, carregar
 from .servicos.assinatura import Assinaturas
 from .servicos.backup import Backup
+from .servicos.disciplinas import Disciplinas
 from .servicos.planos import PastaDePlanos
 from .servicos.revisao import Revisao
 from .servicos.validador import Validador
@@ -27,6 +29,7 @@ class Servicos:
     revisao: Revisao
     assinaturas: Assinaturas
     backup: Backup
+    disciplinas: Disciplinas
 
 
 def criar_app(cfg=None, executar=None):
@@ -39,12 +42,14 @@ def criar_app(cfg=None, executar=None):
     banco = Banco(cfg.database_url)
     os.makedirs(cfg.resultados_dir, exist_ok=True)
     usuarios = Usuarios(banco)
+    # Disciplinas de cada semestre: cada plano é de uma oferta, que diz o curso, o período e os docentes
+    disciplinas = Disciplinas(cfg, Ofertas(banco), usuarios)
     revisoes = Revisoes(banco)  # excluir um plano também apaga a revisão dele
-    revisao = Revisao(cfg, revisoes, usuarios)
-    assinaturas = Assinaturas(cfg, revisao)
+    revisao = Revisao(cfg, revisoes, usuarios, disciplinas)
+    assinaturas = Assinaturas(cfg, revisao, disciplinas)
     backup = Backup(cfg, validador, banco)
-    app.extensions['servicos'] = Servicos(cfg, validador, PastaDePlanos(cfg, validador, revisoes, assinaturas),
-                                           usuarios, revisao, assinaturas, backup)
+    planos = PastaDePlanos(cfg, validador, revisoes, assinaturas, disciplinas)
+    app.extensions['servicos'] = Servicos(cfg, validador, planos, usuarios, revisao, assinaturas, backup, disciplinas)
     paginas.registrar(app)
     rotas.registrar(app)
     if cfg.login_simulado:  # só em desenvolvimento (docker-compose.dev.yml)

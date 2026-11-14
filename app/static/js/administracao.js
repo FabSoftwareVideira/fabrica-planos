@@ -1,7 +1,7 @@
 // Administração: lista, exclusão e ocultação dos PDFs da pasta de planos (quem envia são os professores);
 // $, msg, hora, corpo e rodando vêm de status.js (carregado antes).
-// Excluir aparece só nos planos que quem vê enviou (ou sem dono) e apaga também a avaliação; nos de
-// outras pessoas, Ocultar tira o plano do painel sem apagar nada (Mostrar desfaz).
+// Excluir aparece só nos PDFs sem disciplina (copiados direto para a pasta) e apaga também a avaliação; nos
+// das disciplinas, Ocultar tira o plano do painel sem apagar nada (Mostrar desfaz).
 function kb(n) { return n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB'; }
 
 function botao(classe, icone, rotulo, acao) {
@@ -27,7 +27,8 @@ async function carregarPlanos() {
     titulo.innerHTML = '<i class="fas fa-file-pdf" aria-hidden="true"></i> '; titulo.append(p.nome);
     const info = document.createElement('span');
     const partes = p.na_pasta ? [kb(p.tamanho), hora(p.modificado)] : ['só a avaliação (PDF excluído)'];
-    if (p.dono) partes.push(p.dono);
+    if (p.disciplina) partes.push(p.disciplina);
+    partes.push(p.dono ? 'Docentes: ' + p.dono : 'sem disciplina');
     if (p.oculto) partes.push('oculto do painel');
     info.textContent = partes.join(' · ');
     const acoes = [];

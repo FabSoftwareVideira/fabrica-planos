@@ -1,0 +1,66 @@
+"""Matrizes curriculares dos PPCs, usadas para preencher a matriz de cada curso no banco na primeira vez
+(armazenamento/ofertas.py). Depois disso, a coordenação monta cada semestre a partir dela, podendo renomear
+disciplinas (as optativas, principalmente) e incluir disciplinas avulsas só naquele semestre.
+
+Cada disciplina: (fase, código, nome, carga horária). As optativas não têm código fixo no PPC."""
+
+CURSOS = {
+    'CC': 'Ciência da Computação',
+}
+
+MATRIZES = {
+    'CC': [
+        (1, 'CCC0701', 'Algoritmos', 90),
+        (1, 'CCC0702', 'Fundamentos da Computação', 60),
+        (1, 'CCC0703', 'Fundamentos Matemáticos da Computação', 60),
+        (1, 'CCC0704', 'Inglês Instrumental', 30),
+        (1, 'CCC0705', 'Metodologia Científica', 30),
+        (1, 'CCC0706', 'Pré-Cálculo', 60),
+        (2, 'CCC0707', 'Álgebra Linear', 60),
+        (2, 'CCC0708', 'Cálculo Diferencial e Integral I', 60),
+        (2, 'CCC0709', 'Circuitos Digitais', 30),
+        (2, 'CCC0710', 'Estrutura de Dados I', 60),
+        (2, 'CCC0711', 'Ética e Legislação', 30),
+        (2, 'CCC0712', 'Matemática Discreta', 60),
+        (2, 'CCC0713', 'Programação Orientada a Objetos I', 60),
+        (3, 'CCC0714', 'Arquitetura de Computadores', 60),
+        (3, 'CCC0715', 'Banco de Dados I', 60),
+        (3, 'CCC0716', 'Cálculo Diferencial e Integral II', 60),
+        (3, 'CCC0717', 'Epistemologia e Filosofia', 30),
+        (3, 'CCC0718', 'Estrutura de Dados II', 60),
+        (3, 'CCC0719', 'Paradigmas de Programação', 30),
+        (3, 'CCC0720', 'Programação Orientada a Objetos II', 60),
+        (4, 'CCC0721', 'Banco de Dados II', 60),
+        (4, 'CCC0722', 'Ciência, Tecnologia e Sociedade', 30),
+        (4, 'CCC0723', 'Desenvolvimento Web I', 60),
+        (4, 'CCC0724', 'Extensão e Pesquisa em Computação', 60),
+        (4, 'CCC0725', 'Física', 30),
+        (4, 'CCC0726', 'Métodos Numéricos', 60),
+        (4, 'CCC0727', 'Sistemas Operacionais', 60),
+        (5, 'CCC0728', 'Desenvolvimento Web II', 60),
+        (5, 'CCC0729', 'Engenharia de Software I', 60),
+        (5, 'CCC0730', 'Interação Humana com Dispositivos', 30),
+        (5, 'CCC0731', 'Probabilidade e Estatística', 60),
+        (5, 'CCC0732', 'Programação Lógica e Funcional', 30),
+        (5, 'CCC0733', 'Projeto Aplicado I', 60),
+        (5, 'CCC0734', 'Redes de Computadores I', 60),
+        (6, 'CCC0735', 'Engenharia de Software II', 60),
+        (6, 'CCC0736', 'Inteligência Artificial', 60),
+        (6, 'CCC0737', 'Linguagens Formais e Autômatos', 60),
+        (6, 'CCC0738', 'Projeto Aplicado II', 60),
+        (6, 'CCC0739', 'Redes de Computadores II', 60),
+        (6, '', 'Optativa I', 60),
+        (7, 'CCC0740', 'Aprendizado de Máquina', 60),
+        (7, 'CCC0741', 'Compiladores', 60),
+        (7, 'CCC0742', 'Computação Gráfica', 60),
+        (7, 'CCC0743', 'Projeto de Trabalho de Conclusão de Curso', 60),
+        (7, 'CCC0744', 'Sistemas Embarcados', 60),
+        (7, '', 'Optativa II', 60),
+        (8, 'CCC0745', 'Ciência de Dados', 60),
+        (8, 'CCC0746', 'Empreendedorismo', 60),
+        (8, 'CCC0747', 'Segurança em Sistemas', 60),
+        (8, 'CCC0748', 'Teoria da Computação', 60),
+        (8, 'CCC0749', 'Trabalho de Conclusão de Curso', 60),
+        (8, '', 'Optativa III', 60),
+    ],
+}

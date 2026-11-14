@@ -1,0 +1,177 @@
+{% extends 'base.html' %}
+{#- Disciplinas do semestre (coordenação do curso e administração): a grade de cada semestre, montada a partir
+    da matriz do PPC, e os docentes de cada disciplina. O professor só envia plano para as disciplinas em que
+    foi vinculado. Formulários simples, sem JavaScript (rotas/disciplinas.py). -#}
+
+{% block titulo %}Disciplinas · Validação de Planos de Ensino{% endblock %}
+
+{% block estilos %}
+{% include '_ds.html' %}
+  <link rel="stylesheet" href="{{ estatico('css/disciplinas.css') }}">
+{% endblock %}
+
+{% macro ordinal(fase) %}{{ fase }}ª fase{% endmacro %}
+
+{% block corpo %}
+{% set titulo_pagina = 'Disciplinas do semestre' %}{% set pagina_atual = 'disciplinas' %}
+{% include '_cabecalho.html' %}
+
+<main id="main">
+  <div class="container-lg py-4">
+    {% include '_titulo_pagina.html' %}
+    {% if aviso %}{% set tipo, icone, texto_aviso = aviso %}
+    <div class="br-message {{ tipo }}" role="status">
+      <div class="icon"><i class="fas fa-{{ icone }} fa-lg" aria-hidden="true"></i></div>
+      <div class="content"><span class="message-body">{{ texto_aviso }}</span></div>
+    </div>
+    {% endif %}
+    {% if erro %}
+    <div class="br-message danger" role="alert">
+      <div class="icon"><i class="fas fa-times-circle fa-lg" aria-hidden="true"></i></div>
+      <div class="content"><span class="message-body">{{ erro }}</span></div>
+    </div>
+    {% endif %}
+
+    <section class="br-card">
+      <div class="card-header"><h2>Semestre</h2></div>
+      <div class="card-content">
+        <p class="ajuda">Monte a grade do semestre a partir da matriz do PPC: escolha as fases (geralmente as ímpares no 1º semestre e as pares no 2º), tire ou acrescente disciplinas, renomeie as optativas e vincule os docentes de cada uma pelo e-mail institucional. O professor só envia plano para as disciplinas em que foi vinculado; quem ainda não entrou no sistema vê as disciplinas no primeiro acesso.</p>
+        <form class="linha" method="get" action="/disciplinas">
+          {% if cursos|length > 1 %}
+          <div class="campo">
+            <label for="curso">Curso</label>
+            <select id="curso" name="curso">
+              {% for sigla, nome in cursos.items() %}<option value="{{ sigla }}"{% if sigla == curso %} selected{% endif %}>{{ nome }}</option>{% endfor %}
+            </select>
+          </div>
+          {% else %}<input type="hidden" name="curso" value="{{ curso }}"><p class="curso-unico"><strong>{{ cursos[curso] }}</strong></p>{% endif %}
+          {% if periodos %}
+          <div class="campo">
+            <label for="periodo">Período</label>
+            <select id="periodo" name="periodo">
+              {% for p in periodos %}<option value="{{ p }}"{% if p == periodo %} selected{% endif %}>{{ p }}</option>{% endfor %}
+            </select>
+          </div>
+          <button class="br-button secondary small" type="submit"><i class="fas fa-eye" aria-hidden="true"></i> Ver</button>
+          {% endif %}
+        </form>
+
+        <form class="fases" method="post" action="/disciplinas/semestre">
+          <input type="hidden" name="curso" value="{{ curso }}">
+          <h3>{{ 'Incluir fases no semestre' if periodo else 'Novo semestre' }}</h3>
+          <div class="linha">
+            <div class="campo periodo">
+              <label for="novo-periodo">Período</label>
+              <input id="novo-periodo" name="periodo" value="{{ periodo or periodo_sugerido }}" placeholder="2026.2" pattern="\d{4}(\.[12])?" required>
+            </div>
+            <fieldset class="caixas">
+              <legend>Fases</legend>
+              {% for fase, _ in matriz %}
+              <label><input type="checkbox" name="fase" value="{{ fase }}"{% if not periodo and fase in fases_sugeridas %} checked{% endif %}> {{ fase }}ª</label>
+              {% endfor %}
+            </fieldset>
+            <button class="br-button primary small" type="submit"><i class="fas fa-plus" aria-hidden="true"></i> Incluir disciplinas das fases</button>
+          </div>
+          <p class="dica">Entram as disciplinas da matriz dessas fases que ainda não estão no semestre, com a turma 01. Para outro período, digite-o (ex.: {{ periodo_sugerido }}).</p>
+        </form>
+      </div>
+    </section>
+
+    {% if periodo %}
+    <section class="br-card">
+      <div class="card-header"><h2>{{ cursos[curso] }} · {{ periodo }} <span class="contagem">({{ total }} disciplina{{ 's' if total != 1 }})</span></h2></div>
+      <div class="card-content">
+        {% for fase, ofertas in grade %}
+        <h3 class="fase">{{ ordinal(fase) if fase else 'Sem fase' }}</h3>
+        <ul class="ofertas">
+          {% for o in ofertas %}
+          <li class="oferta" id="oferta-{{ o.id }}">
+            <div class="topo">
+              <div class="titulo">
+                <strong>{{ o.nome }}</strong>
+                <span class="sub">{{ o.codigo or 'sem código' }} · {{ o.carga_horaria }}h · Turma {{ o.turma }}{% if not o.componente_id %} · <span class="tag avulsa">avulsa</span>{% endif %}</span>
+              </div>
+              <div class="plano">
+                {% if o.tem_plano %}<span class="tag enviado" title="Enviado por {{ o.enviado_por }}"><i class="fas fa-check" aria-hidden="true"></i> Plano enviado</span>
+                {% else %}<span class="tag pendente">Sem plano</span>{% endif %}
+                {% if o.tem_plano and o.aviso %}<span class="tag aviso" title="{{ o.aviso }}"><i class="fas fa-exclamation-triangle" aria-hidden="true"></i> Aviso</span>{% endif %}
+              </div>
+            </div>
+            {% if o.tem_plano and o.aviso %}<p class="aviso-plano">{{ o.aviso }}</p>{% endif %}
+
+            <form class="docentes" method="post" action="/disciplinas/{{ o.id }}/docentes">
+              <label for="docentes-{{ o.id }}">Docentes</label>
+              <div class="linha">
+                <input id="docentes-{{ o.id }}" name="docentes" list="usuarios" value="{{ o.docentes|join(', ') }}" placeholder="professor@{{ dominio }}" autocomplete="off">
+                <button class="br-button secondary small" type="submit">Salvar</button>
+              </div>
+              {% if o.docentes_info %}
+              <p class="quem">{% for d in o.docentes_info %}<span class="pessoa{{ '' if d.cadastrado else ' novo' }}">{{ d.nome or d.email }}{% if not d.cadastrado %} <small>(ainda não entrou)</small>{% endif %}</span>{% endfor %}</p>
+              {% else %}<p class="quem sem">Nenhum docente: ninguém pode enviar o plano desta disciplina.</p>{% endif %}
+            </form>
+
+            <details class="editar">
+              <summary>Editar, nova turma ou remover</summary>
+              <form class="linha" method="post" action="/disciplinas/{{ o.id }}/alterar">
+                <div class="campo codigo"><label for="codigo-{{ o.id }}">Código</label><input id="codigo-{{ o.id }}" name="codigo" value="{{ o.codigo }}"></div>
+                <div class="campo nome"><label for="nome-{{ o.id }}">Nome neste semestre</label><input id="nome-{{ o.id }}" name="nome" value="{{ o.nome }}" required></div>
+                <div class="campo carga"><label for="carga-{{ o.id }}">Carga (h)</label><input id="carga-{{ o.id }}" name="carga_horaria" type="number" min="0" value="{{ o.carga_horaria }}"></div>
+                <div class="campo turma"><label for="turma-{{ o.id }}">Turma</label><input id="turma-{{ o.id }}" name="turma" value="{{ o.turma }}" required></div>
+                <button class="br-button secondary small" type="submit">Salvar</button>
+              </form>
+              <p class="dica">Renomear vale só neste semestre: a matriz do PPC continua como está.</p>
+              <div class="linha">
+                <form method="post" action="/disciplinas/{{ o.id }}/turma"><button class="br-button secondary small" type="submit"><i class="fas fa-clone" aria-hidden="true"></i> Abrir outra turma</button></form>
+                <form method="post" action="/disciplinas/{{ o.id }}/remover" onsubmit='return confirm({{ ("Remover " ~ o.nome ~ " (turma " ~ o.turma ~ ") deste semestre?")|tojson }})'><button class="br-button small remover" type="submit"{% if o.tem_plano %} disabled title="Já tem plano enviado"{% endif %}><i class="fas fa-trash-alt" aria-hidden="true"></i> Remover do semestre</button></form>
+              </div>
+            </details>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p class="vazio">Nenhuma disciplina neste semestre ainda. Inclua as fases acima.</p>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="br-card">
+      <div class="card-header"><h2>Incluir outra disciplina em {{ periodo }}</h2></div>
+      <div class="card-content">
+        <form class="linha" method="post" action="/disciplinas/incluir">
+          <input type="hidden" name="curso" value="{{ curso }}"><input type="hidden" name="periodo" value="{{ periodo }}">
+          <div class="campo largo">
+            <label for="componente">Da matriz do curso</label>
+            <select id="componente" name="componente" required>
+              <option value="">Escolha a disciplina</option>
+              {% for fase, componentes in fora_do_semestre if componentes %}
+              <optgroup label="{{ ordinal(fase) }}">
+                {% for c in componentes %}<option value="{{ c.id }}">{{ c.codigo ~ ' · ' if c.codigo }}{{ c.nome }} ({{ c.carga_horaria }}h)</option>{% endfor %}
+              </optgroup>
+              {% endfor %}
+            </select>
+          </div>
+          <button class="br-button secondary small" type="submit"><i class="fas fa-plus" aria-hidden="true"></i> Incluir</button>
+        </form>
+        <p class="dica">Para outra turma de uma disciplina que já está no semestre, use "Abrir outra turma" nela.</p>
+
+        <form class="linha avulsa" method="post" action="/disciplinas/incluir">
+          <input type="hidden" name="curso" value="{{ curso }}"><input type="hidden" name="periodo" value="{{ periodo }}">
+          <div class="campo codigo"><label for="av-codigo">Código</label><input id="av-codigo" name="codigo" placeholder="opcional"></div>
+          <div class="campo nome"><label for="av-nome">Disciplina fora da matriz</label><input id="av-nome" name="nome" required placeholder="Nome da disciplina"></div>
+          <div class="campo carga"><label for="av-carga">Carga (h)</label><input id="av-carga" name="carga_horaria" type="number" min="0" value="60"></div>
+          <div class="campo turma"><label for="av-fase">Fase</label><input id="av-fase" name="fase" type="number" min="1" max="20"></div>
+          <button class="br-button secondary small" type="submit"><i class="fas fa-plus" aria-hidden="true"></i> Incluir avulsa</button>
+        </form>
+        <p class="dica">A disciplina avulsa vale só neste semestre; ela não entra na matriz do curso.</p>
+      </div>
+    </section>
+    {% endif %}
+  </div>
+</main>
+
+<datalist id="usuarios">
+  {% for u in usuarios %}<option value="{{ u.email }}">{{ u.nome }}</option>{% endfor %}
+</datalist>
+
+{% include '_rodape.html' %}
+{% endblock %}

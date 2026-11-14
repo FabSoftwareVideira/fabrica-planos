@@ -1,4 +1,5 @@
-// "Meus planos": envio, lista com a situação de cada plano e exclusão. MAX_MB vem da página.
+// "Meus planos": as disciplinas do professor, com o envio do plano de cada uma, a situação da avaliação e a
+// exclusão. MAX_MB vem da página.
 const $ = id => document.getElementById(id);
 const CORES = { OK: '#22c55e', PENDENTE: '#eab308', INCOMPLETO: '#eab308' };
 let timer;
@@ -9,6 +10,7 @@ async function corpo(resp) { try { return await resp.json(); } catch { return {}
 function selo(texto, cor) { const s = document.createElement('span'); s.className = 'br-tag status-plano'; s.style.background = cor; s.textContent = texto; return s; }
 
 function situacao(p) {
+  if (p.situacao === 'sem_plano') return [selo('Sem plano', '#9ca3af'), 'Envie o PDF do plano desta disciplina.'];
   // Revisado pela coordenação/NDE/NDB: o parecer vale sobre a avaliação da IA
   if (p.revisao && p.situacao === 'avaliado') {
     const r = p.revisao;
@@ -27,11 +29,13 @@ function situacao(p) {
 
 function item(p) {
     const li = document.createElement('li');
-    const nome = document.createElement('span'); nome.className = 'nome'; nome.textContent = p.nome;
-    if (p.componente) {
-      const sub = document.createElement('span'); sub.className = 'sub'; sub.textContent = p.componente;
-      nome.append(sub);
-    }
+    const nome = document.createElement('span'); nome.className = 'nome'; nome.textContent = p.disciplina;
+    const partes = [p.componente.split(' · ')[0]].filter(Boolean);
+    if (p.fase) partes.push(`${p.fase}ª fase`);
+    const outros = (p.docentes || []).map(d => d.nome || d.email);
+    if (outros.length > 1) partes.push('Docentes: ' + outros.join(', '));
+    const sub = document.createElement('span'); sub.className = 'sub'; sub.textContent = partes.join(' · ');
+    nome.append(sub);
     const [marca, detalhe] = situacao(p);
     const acoes = document.createElement('span'); acoes.className = 'acoes';
     acoes.append(marca);
@@ -39,23 +43,47 @@ function item(p) {
       const a = document.createElement('a'); a.href = '/relatorio?arquivo=' + encodeURIComponent(p.nome);
       a.innerHTML = '<i class="fas fa-file-alt" aria-hidden="true"></i> Relatório'; acoes.append(a);
     }
-    const pdf = document.createElement('a'); pdf.href = '/pdf?arquivo=' + encodeURIComponent(p.nome);
-    pdf.target = '_blank'; pdf.rel = 'noopener'; pdf.innerHTML = '<i class="fas fa-file-pdf" aria-hidden="true"></i> PDF';
-    const del = document.createElement('button'); del.type = 'button'; del.className = 'br-button small excluir';
-    del.innerHTML = '<i class="fas fa-trash-alt" aria-hidden="true"></i> Excluir';
-    del.onclick = () => excluir(p.nome);
-    acoes.append(pdf);
+    if (p.tem_plano) {
+      const pdf = document.createElement('a'); pdf.href = '/pdf?arquivo=' + encodeURIComponent(p.nome);
+      pdf.target = '_blank'; pdf.rel = 'noopener'; pdf.innerHTML = '<i class="fas fa-file-pdf" aria-hidden="true"></i> PDF';
+      acoes.append(pdf);
+    }
     if (p.assinatura) {
       const ass = document.createElement('a'); ass.href = '/pdf-assinado?arquivo=' + encodeURIComponent(p.nome);
       ass.target = '_blank'; ass.rel = 'noopener'; ass.innerHTML = '<i class="fas fa-file-signature" aria-hidden="true"></i> PDF assinado';
       acoes.append(ass);
     }
-    acoes.append(del);
+    // Enviar (ou substituir) o plano: não depois de assinado, a menos que a coordenação libere o reenvio
+    if (!p.assinatura || p.reenvio_liberado) acoes.append(botaoEnviar(p));
+    if (p.tem_plano) {
+      const del = document.createElement('button'); del.type = 'button'; del.className = 'br-button small excluir';
+      del.innerHTML = '<i class="fas fa-trash-alt" aria-hidden="true"></i> Excluir';
+      del.onclick = () => excluir(p);
+      acoes.append(del);
+    }
     const info = document.createElement('span'); info.className = 'info';
-    info.textContent = `Enviado em ${hora(p.enviado_em)} · ${detalhe}`;
+    info.textContent = p.tem_plano ? `Enviado em ${hora(p.enviado_em)} · ${detalhe}` : detalhe;
     li.append(nome, acoes, info);
+    if (p.tem_plano && p.aviso) {
+      const aviso = document.createElement('span'); aviso.className = 'info aviso';
+      aviso.innerHTML = '<i class="fas fa-exclamation-triangle" aria-hidden="true"></i> ';
+      aviso.append(p.aviso);
+      li.append(aviso);
+    }
     if (p.assinatura || p.pode_assinar) li.append(blocoAssinatura(p));
     return li;
+}
+
+function botaoEnviar(p) {
+  const entrada = document.createElement('input'); entrada.type = 'file'; entrada.accept = 'application/pdf,.pdf'; entrada.hidden = true;
+  const botao = document.createElement('button'); botao.type = 'button';
+  botao.className = 'br-button small ' + (p.tem_plano ? 'secondary' : 'primary');
+  botao.innerHTML = p.tem_plano ? '<i class="fas fa-sync-alt" aria-hidden="true"></i> Substituir'
+    : '<i class="fas fa-upload" aria-hidden="true"></i> Enviar plano';
+  botao.onclick = () => entrada.click();
+  entrada.onchange = () => { if (entrada.files[0]) enviar(p, entrada.files[0]); entrada.value = ''; };
+  const span = document.createElement('span'); span.append(botao, entrada);
+  return span;
 }
 
 // Aprovado na revisão: o professor assina pelo gov.br. Com a API de assinatura configurada (ASSINATURA_API),
@@ -138,53 +166,45 @@ async function carregar() {
     }
     itens.push(item(p));
   }
-  if (!itens.length) { const li = document.createElement('li'); li.innerHTML = '<span class="msg">Você ainda não enviou planos.</span>'; itens.push(li); }
+  if (!itens.length) {
+    const li = document.createElement('li');
+    li.innerHTML = '<span class="msg">Nenhuma disciplina vinculada a você ainda. A coordenação do curso vincula os docentes de cada disciplina do semestre; depois disso, envie aqui o plano de cada uma.</span>';
+    itens.push(li);
+  }
   $('lista').replaceChildren(...itens);
   const andamento = planos.some(p => p.situacao === 'na_fila' || p.situacao === 'validando');
   timer = setTimeout(carregar, andamento ? 3000 : 30000);
 }
 
-async function excluir(nome) {
-  if (!confirm(`Excluir "${nome}"? O plano deixa de constar como entregue.`)) return;
-  const r = await fetch('/meus-planos?arquivo=' + encodeURIComponent(nome), { method: 'DELETE' });
+async function excluir(p) {
+  if (!confirm(`Excluir o plano de "${p.disciplina}"? Ele deixa de constar como entregue.`)) return;
+  const r = await fetch('/meus-planos?arquivo=' + encodeURIComponent(p.nome), { method: 'DELETE' });
   const d = await corpo(r);
-  msg($('envio-msg'), r.ok ? `"${nome}" excluído.` : (d.erro || d.mensagem || 'Falha ao excluir'), r.ok ? 'ok' : 'erro');
+  msg($('envio-msg'), r.ok ? `Plano de "${p.disciplina}" excluído.` : (d.erro || d.mensagem || 'Falha ao excluir'), r.ok ? 'ok' : 'erro');
   carregar();
 }
 
 function motivoLocal(a) {
-  if (!/\.pdf$/i.test(a.name) || (a.type && a.type !== 'application/pdf')) return 'Apenas arquivos .pdf são aceitos';
+  if (!/\.pdf$/i.test(a.name) && a.type !== 'application/pdf') return 'Apenas arquivos .pdf são aceitos';
   if (a.size > MAX_MB * 1048576) return `Arquivo maior que ${MAX_MB} MB`;
   return '';
 }
 
-async function enviar(arquivos) {
-  if (!arquivos.length) return;
-  const locais = arquivos.filter(motivoLocal).map(a => ({ nome: a.name, motivo: motivoLocal(a) }));
-  const validos = arquivos.filter(a => !motivoLocal(a));
-  let d = {};
-  if (validos.length) {
-    const form = new FormData();
-    for (const a of validos) form.append('arquivos', a);
-    msg($('envio-msg'), `Enviando e conferindo ${validos.length} arquivo(s)…`);
-    try { d = await corpo(await fetch('/meus-planos', { method: 'POST', body: form })); }
-    catch { msg($('envio-msg'), 'Falha de conexão no envio', 'erro'); return; }
-  }
-  const salvos = d.salvos || [], recusados = locais.concat(d.recusados || []);
-  const partes = [];
-  if (salvos.length) partes.push(`${salvos.length} enviado(s); a avaliação começou`);
-  if (recusados.length) partes.push(`${recusados.length} recusado(s): ` + recusados.map(x => `${x.nome} (${x.motivo})`).join('; '));
-  if (!partes.length) partes.push(d.erro || d.mensagem || 'Falha no envio');
-  msg($('envio-msg'), partes.join(' · '), recusados.length || !salvos.length ? 'erro' : 'ok');
+async function enviar(p, arquivo) {
+  const local = motivoLocal(arquivo);
+  if (local) { msg($('envio-msg'), `${arquivo.name}: ${local}`, 'erro'); return; }
+  const form = new FormData(); form.append('oferta', p.oferta_id); form.append('arquivo', arquivo);
+  msg($('envio-msg'), `Enviando e conferindo o plano de "${p.disciplina}"…`);
+  let r;
+  try { r = await fetch('/meus-planos', { method: 'POST', body: form }); }
+  catch { msg($('envio-msg'), 'Falha de conexão no envio', 'erro'); return; }
+  if (r.status === 401) { location.reload(); return; }  // sessão expirou: recarregar leva ao login
+  const d = await corpo(r);
+  if (!r.ok) msg($('envio-msg'), d.erro || d.mensagem || `Falha no envio (erro ${r.status})`, 'erro');
+  else msg($('envio-msg'), `Plano de "${p.disciplina}" enviado; a avaliação começou.` + (d.aviso ? ' ' + d.aviso : ''), d.aviso ? 'aviso' : 'ok');
   carregar();
 }
 
-$('escolher').onclick = () => $('arquivo').click();
-$('arquivo').onchange = e => { enviar([...e.target.files]); e.target.value = ''; };
-const zona = $('soltar');
-['dragenter', 'dragover'].forEach(t => zona.addEventListener(t, e => { e.preventDefault(); zona.classList.add('ativo'); }));
-['dragleave', 'drop'].forEach(t => zona.addEventListener(t, e => { e.preventDefault(); zona.classList.remove('ativo'); }));
-zona.addEventListener('drop', e => enviar([...e.dataTransfer.files]));
 // Volta da assinatura pela API (rotas/assinatura_govbr.py): mostra o resultado e limpa o endereço.
 (function resultadoDaAssinatura() {
   const q = new URLSearchParams(location.search);

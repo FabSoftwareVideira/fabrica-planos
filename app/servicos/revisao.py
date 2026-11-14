@@ -1,7 +1,7 @@
 import logging
 import os
 
-from ..armazenamento import donos, historico
+from ..armazenamento import historico
 from ..armazenamento.usuarios import PAPEIS_CURSO
 
 log = logging.getLogger(__name__)
@@ -26,10 +26,11 @@ class Revisao:
     enviado pelo professor, pelo administrador ou copiado direto para a pasta, reabre a revisão.
     """
 
-    def __init__(self, cfg, revisoes, usuarios):
+    def __init__(self, cfg, revisoes, usuarios, disciplinas=None):
         self.cfg = cfg
         self.revisoes = revisoes
         self.usuarios = usuarios
+        self.disciplinas = disciplinas
 
     def assinatura(self, nome):
         """Tamanho e data do PDF atual do plano: o da pasta de planos ou, sem ele, a cópia da validação."""
@@ -54,12 +55,12 @@ class Revisao:
         return r if r and r['assinatura'] == self.assinatura(nome) else None
 
     def eh_autor(self, email, nome):
-        """Quem enviou o plano (em "Meus planos" ou pela administração) não pode revisá-lo nem desfazer a
-        revisão dele: o parecer fica com outro membro da coordenação, do NDE ou do NDB. O coordenador do
-        curso é a exceção (ver eh_coordenador). Só com login exigido."""
-        if not self.cfg.exigir_login or not email:
+        """Docente da disciplina do plano não pode revisá-lo nem desfazer a revisão dele: o parecer fica com
+        outro membro da coordenação, do NDE ou do NDB. O coordenador do curso é a exceção (ver
+        eh_coordenador). Só com login exigido."""
+        if not self.cfg.exigir_login or not email or not self.disciplinas:
             return False
-        return donos.ler(self.cfg.resultados_dir).get(nome, {}).get('email') == email
+        return email in self.disciplinas.docentes_do_arquivo(nome)
 
     def eh_coordenador(self, email, ident):
         """Tem o papel de coordenador no curso do plano: revisa qualquer plano dele, inclusive o próprio."""

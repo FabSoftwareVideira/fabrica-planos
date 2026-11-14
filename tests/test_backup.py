@@ -48,6 +48,8 @@ def _dados(c, planos):
     (res / 'assinados').mkdir()
     (res / 'assinados' / 'a.pdf').write_bytes(PDF)
     s.usuarios.registrar_acesso('fulano@ifc.edu.br', 'Fulano de Tal')
+    oferta = s.disciplinas.ofertas.criar('CC', '2026.2', 'Desenvolvimento Web I', 'CCC0723', 60, 4)
+    s.disciplinas.ofertas.definir_docentes(oferta['id'], ['fulano@ifc.edu.br'])
     s.revisao.revisoes.salvar('a.pdf', 'assinatura', 'aprovado', 'OK', 'ok', 'CC',
                               'coord@ifc.edu.br', 'Coord', 'coordenador')
     return s, res
@@ -81,6 +83,8 @@ def test_backup_guarda_e_restaura_todos_os_dados(tmp_path):
     (res / 'historico' / '20260101-000000' / 'meta.json').unlink()
     s.usuarios.definir_ativo('fulano@ifc.edu.br', False)
     s.revisao.revisoes.remover('a.pdf')
+    [oferta] = s.disciplinas.ofertas.listar()
+    s.disciplinas.ofertas.remover(oferta['id'])
 
     resumo = s.backup.restaurar(nome)
     assert resumo == {'planos': 2, 'resultados': 7, 'banco': True}
@@ -91,6 +95,9 @@ def test_backup_guarda_e_restaura_todos_os_dados(tmp_path):
     assert (res / 'historico' / '20260101-000000' / 'meta.json').exists()
     assert s.usuarios.obter('fulano@ifc.edu.br')['ativo'] == 1
     assert s.revisao.revisoes.obter('a.pdf')['status'] == 'aprovado'
+    [oferta] = s.disciplinas.ofertas.listar()  # as disciplinas do semestre e os docentes também
+    assert oferta['nome'] == 'Desenvolvimento Web I' and oferta['docentes'] == ['fulano@ifc.edu.br']
+    assert len(s.disciplinas.ofertas.matriz('CC')) == 52
     assert c.get('/dashboard').status_code == 200
 
     # A restauração deixa um backup do estado anterior, para desfazer.

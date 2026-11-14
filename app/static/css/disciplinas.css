@@ -1,0 +1,52 @@
+/* Disciplinas do semestre (sobre o Design System gov.br e ds.css): seleção do semestre, fases e lista de ofertas. */
+h2{font-size:var(--font-size-scale-up-02);margin:0}
+h3{font-size:var(--font-size-scale-up-01);margin:var(--spacing-scale-2x) 0 var(--spacing-scale-base)}
+.br-message{margin-bottom:var(--spacing-scale-2x)}
+.br-card{margin-bottom:var(--spacing-scale-3x)}
+.ajuda,.dica{color:var(--gray-60);font-size:var(--font-size-scale-down-01)}
+.ajuda{margin:0 0 var(--spacing-scale-2x)}
+.dica{margin:var(--spacing-scale-half) 0 var(--spacing-scale-2x)}
+.contagem{font-size:var(--font-size-scale-base);font-weight:var(--font-weight-regular);color:var(--gray-60)}
+.vazio{color:var(--gray-60)}
+
+/* Formulários em linha */
+.linha{display:flex;flex-wrap:wrap;align-items:flex-end;gap:var(--spacing-scale-base) var(--spacing-scale-2x)}
+.linha form{margin:0}
+.campo{display:flex;flex-direction:column;flex:0 1 170px;min-width:0}
+.campo.nome,.campo.largo{flex:1 1 280px}
+.campo.codigo{flex:0 1 120px}.campo.carga,.campo.turma{flex:0 1 90px}.campo.periodo{flex:0 1 120px}
+label,legend{font-weight:var(--font-weight-semi-bold);font-size:var(--font-size-scale-down-01);margin-bottom:var(--spacing-scale-half)}
+input:not([type=checkbox]),select{height:40px;border:1px solid var(--gray-40);border-radius:var(--surface-rounder-sm);
+  padding:0 var(--spacing-scale-base);background:var(--background);font:inherit;color:var(--color);width:100%;min-width:0}
+input:focus,select:focus{outline:2px solid var(--focus-color);outline-offset:2px}
+.curso-unico{margin:0 0 var(--spacing-scale-base)}
+.fases{border-top:1px solid var(--gray-10);margin-top:var(--spacing-scale-2x);padding-top:var(--spacing-scale-base)}
+.caixas{border:0;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:var(--spacing-scale-half) var(--spacing-scale-2x);align-items:center}
+.caixas legend{width:100%}
+.caixas label{font-weight:normal;font-size:var(--font-size-scale-base);display:inline-flex;align-items:center;gap:4px;margin:0}
+.caixas input{width:18px;height:18px}
+
+/* Ofertas */
+h3.fase{border-bottom:1px solid var(--gray-10);padding-bottom:var(--spacing-scale-half)}
+.ofertas{list-style:none;margin:0 0 var(--spacing-scale-2x);padding:0;display:grid;gap:var(--spacing-scale-2x)}
+.oferta{border:1px solid var(--gray-10);border-radius:var(--surface-rounder-md);padding:var(--spacing-scale-2x);scroll-margin-top:120px}
+.oferta:target{box-shadow:0 0 0 3px var(--interactive-light)}
+.topo{display:flex;justify-content:space-between;gap:var(--spacing-scale-2x);flex-wrap:wrap}
+.titulo{display:flex;flex-direction:column}
+.sub{color:var(--gray-60);font-size:var(--font-size-scale-down-01)}
+.tag{display:inline-flex;align-items:center;gap:4px;border-radius:var(--surface-rounder-pill);padding:2px 10px;
+  font-size:var(--font-size-scale-down-02);font-weight:var(--font-weight-semi-bold);background:var(--gray-10);color:var(--gray-70)}
+.tag.enviado{background:#e3f5e1;color:#168821}.tag.aviso{background:#fff5c2;color:#8a6d00}.tag.avulsa{background:#e8f0fe;color:#1351b4}
+.plano{display:flex;gap:var(--spacing-scale-half);align-items:flex-start;flex-wrap:wrap}
+.aviso-plano{margin:var(--spacing-scale-base) 0 0;font-size:var(--font-size-scale-down-01);color:#8a6d00}
+.docentes{margin-top:var(--spacing-scale-2x)}
+.docentes .linha input{flex:1 1 320px}
+.quem{margin:var(--spacing-scale-half) 0 0;display:flex;flex-wrap:wrap;gap:var(--spacing-scale-half)}
+.quem.sem{color:var(--danger);font-size:var(--font-size-scale-down-01)}
+.pessoa{background:var(--gray-2);border-radius:var(--surface-rounder-pill);padding:2px 10px;font-size:var(--font-size-scale-down-01)}
+.pessoa.novo{background:#fff5c2}
+.editar{margin-top:var(--spacing-scale-base)}
+.editar summary{cursor:pointer;color:var(--interactive);font-size:var(--font-size-scale-down-01)}
+.editar[open] summary{margin-bottom:var(--spacing-scale-base)}
+.remover{color:var(--danger) !important}
+.avulsa{border-top:1px solid var(--gray-10);padding-top:var(--spacing-scale-2x)}

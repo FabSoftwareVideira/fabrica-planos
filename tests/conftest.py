@@ -45,6 +45,27 @@ def servicos_de(cliente):
     return cliente.application.extensions['servicos']
 
 
+def dar_disciplina(cliente, *docentes, arquivo=None, curso='CC', periodo='2026.2', codigo='CCC0723',
+                   nome='Desenvolvimento Web I', fase=4, carga=60, turma='01'):
+    """Abre uma disciplina no semestre (como a coordenação, em /disciplinas) com esses docentes e devolve a
+    oferta. `arquivo` troca o nome do PDF do plano (para os testes que já têm o PDF na pasta com outro nome)."""
+    ofertas = servicos_de(cliente).disciplinas.ofertas
+    oferta = ofertas.criar(curso, periodo, nome, codigo, carga, fase, turma)
+    if arquivo:
+        with ofertas._conexao() as con:
+            con.execute('UPDATE ofertas SET arquivo = %s WHERE id = %s', (arquivo, oferta['id']))
+    ofertas.definir_docentes(oferta['id'], docentes)
+    return ofertas.obter(oferta['id'])
+
+
+def enviar_plano(cliente, oferta, pdf, cab=None, nome='plano.pdf'):
+    """POST do PDF do plano para a disciplina (oferta ou id), como o botão de "Meus planos"."""
+    import io
+    oferta_id = oferta['id'] if isinstance(oferta, dict) else oferta
+    return cliente.post('/meus-planos', headers=cab or {}, content_type='multipart/form-data',
+                        data={'oferta': str(oferta_id), 'arquivo': (io.BytesIO(pdf), nome)})
+
+
 def gerar_pdf(linhas=()):
     """PDF mínimo válido de uma página; sem linhas, a página não tem texto (como um digitalizado)."""
     conteudo = 'BT /F1 10 Tf 40 800 Td 12 TL\n' + ''.join(

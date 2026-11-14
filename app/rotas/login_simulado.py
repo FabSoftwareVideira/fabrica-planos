@@ -20,13 +20,13 @@ COOKIE = 'dev_usuario'
 # (e-mail, nome, descrição, papéis nos cursos dados ao entrar). A administradora só é administradora se o
 # e-mail estiver em ADMIN_EMAILS (o docker-compose.dev.yml põe admin@ifc.edu.br por padrão).
 PERSONAS = [
-    ('admin@ifc.edu.br', 'Ana Administradora', 'Administração: valida, envia e exclui PDFs, gerencia usuários', []),
-    ('coordenacao.cc@ifc.edu.br', 'Carlos Coordenador', 'Coordenação de Ciência da Computação (revisa planos de CC)',
+    ('admin@ifc.edu.br', 'Ana Administradora', 'Administração: valida, gerencia usuários e as disciplinas de todos os cursos', []),
+    ('coordenacao.cc@ifc.edu.br', 'Carlos Coordenador', 'Coordenação de Ciência da Computação: monta as disciplinas do semestre e revisa planos de CC',
      [('CC', 'coordenador')]),
     ('nde.cc@ifc.edu.br', 'Nina do NDE', 'NDE de Ciência da Computação (revisa planos de CC)', [('CC', 'nde')]),
     ('ndb.in@ifc.edu.br', 'Bruno do NDB', 'NDB do Técnico em Informática (revisa planos de IN)', [('IN', 'ndb')]),
-    ('professor@ifc.edu.br', 'Paulo Professor', 'Servidor sem papel: consulta e entrega os próprios planos', []),
-    ('professora@ifc.edu.br', 'Patrícia Professora', 'Outra servidora sem papel (para testar donos diferentes)', []),
+    ('professor@ifc.edu.br', 'Paulo Professor', 'Docente: envia os planos das disciplinas em que foi vinculado', []),
+    ('professora@ifc.edu.br', 'Patrícia Professora', 'Outra docente (para testar disciplinas de professores diferentes)', []),
     ('aluno@estudantes.ifc.edu.br', 'Alice Aluna', 'Estudante: recusada, como no login com Google', []),
 ]
 
