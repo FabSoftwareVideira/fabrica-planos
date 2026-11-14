@@ -206,3 +206,18 @@ def test_versoes_arquivadas_com_pdf_e_assinado(banco, tmp_path):
     assert v.de_varios(['b.pdf']) == {'b.pdf': []}
     assert v.obter('a.pdf', 1)['signatario'] == 'FULANO DE TAL' and v.obter('a.pdf', 9) is None
     assert v.caminho('../x/a b.pdf', 1).endswith('.._x_a_b.pdf' + os.sep + 'v1.pdf')  # sem sair da pasta
+
+
+@com_banco
+def test_versao_excluida_perde_os_pdfs_e_o_numero_nao_volta(banco, tmp_path):
+    v = Versoes(banco, str(tmp_path / 'res'))
+    pdf = tmp_path / 'plano.pdf'
+    pdf.write_bytes(b'%PDF-x')
+    v.arquivar('a.pdf', str(pdf), str(pdf))
+    v.arquivar('a.pdf', str(pdf))
+    assert v.remover('a.pdf', 2) and not v.remover('a.pdf', 2) and v.remover('a.pdf', 1)
+    assert v.listar('a.pdf') == [] and v.obter('a.pdf', 1) is None and v.de_varios(['a.pdf']) == {'a.pdf': []}
+    assert not os.path.exists(v.caminho('a.pdf', 1)) and not os.path.exists(v.caminho('a.pdf', 1, assinado=True))
+    assert v.ultimos_numeros(['a.pdf', 'b.pdf']) == {'a.pdf': 2, 'b.pdf': 0} and v.ultimos_numeros([]) == {}
+    assert v.arquivar('a.pdf', str(pdf)) == 3
+    Versoes(banco, str(tmp_path / 'res'))  # o app subindo de novo (a migração da coluna não falha)

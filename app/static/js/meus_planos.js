@@ -1,6 +1,6 @@
 // "Meus planos": as disciplinas do professor, separadas por período letivo (o atual e o próximo primeiro), com
-// a situação do plano, a ação principal (enviar, atualizar, assinar) e, em "Detalhes", os PDFs, o aviso, a
-// exclusão e as versões anteriores. MAX_MB, ASSINATURA_API e DESTAQUES ({período: 'Atual' | 'Próximo'}) vêm da
+// a situação do plano, a ação principal (enviar, atualizar, assinar), os botões da versão atual (PDF,
+// relatório, excluir) e, recolhidas, as versões anteriores. MAX_MB, ASSINATURA_API e DESTAQUES ({período: 'Atual' | 'Próximo'}) vêm da
 // página; $, msg, hora e corpo, de status.js (a barra de status, carregada antes).
 const CORES = { OK: '#22c55e', PENDENTE: '#eab308', INCOMPLETO: '#eab308' };
 const ROTULOS_REVISAO = { OK: 'Aprovado', PENDENTE: 'Ajustes necessários', REPROVADO: 'Reprovado' };
@@ -47,11 +47,12 @@ function item(p) {
   acoes.append(marca, botaoEnviar(p));
   topo.append(nome, acoes);
   li.append(topo, el('p', 'frase', frase));
+  if (p.tem_plano) li.append(versaoAtual(p));
   if (p.tem_plano && p.aviso) {
     const aviso = el('p', 'aviso'); aviso.append(icone('exclamation-triangle'), ' ' + p.aviso); li.append(aviso);
   }
   if (p.pode_assinar && !p.assinatura) li.append(blocoAssinatura(p));
-  if (p.tem_plano || p.versoes.length) li.append(detalhes(p));
+  if (p.versoes.length) li.append(detalhes(p));
   return li;
 }
 
@@ -70,24 +71,26 @@ function botaoEnviar(p) {
   return span;
 }
 
-// PDFs, relatório, exclusão e versões anteriores, recolhidos
-function detalhes(p) {
-  const d = el('details', 'detalhes');
-  const n = p.versoes.length;
-  d.append(el('summary', '', n ? `Detalhes e versões (${n} anterior${n > 1 ? 'es' : ''})` : 'Detalhes'));
-  if (p.tem_plano) {
+// Versão atual, no card: quando foi enviada e os botões (PDF, relatório, PDF assinado, excluir)
+function versaoAtual(p) {
     const atual = el('div', 'versao atual');
-    atual.append(el('strong', '', `Versão ${p.versao} (atual)`), el('span', 'quando', `enviada em ${hora(p.enviado_em)}`));
+    atual.append(el('strong', '', `Versão ${p.versao}`), el('span', 'quando', `enviada em ${hora(p.enviado_em)}`));
     const links = el('span', 'links');
     links.append(link('/pdf?arquivo=' + encodeURIComponent(p.nome), 'file-pdf', 'PDF', true));
     if (p.situacao === 'avaliado') links.append(link('/relatorio?arquivo=' + encodeURIComponent(p.nome), 'file-alt', 'Relatório'));
     if (p.assinatura) links.append(link('/pdf-assinado?arquivo=' + encodeURIComponent(p.nome), 'file-signature', 'PDF assinado', true));
-    const del = el('button', 'br-button small excluir-plano'); del.type = 'button';
-    del.append(icone('trash-alt'), ' Excluir'); del.onclick = () => excluir(p);
-    links.append(del);
+    // Assinada, a versão atual não é excluída: para corrigir, Atualizar (ela fica no histórico)
+    if (p.assinatura) links.append(protegida('Assinada: não pode ser excluída; para corrigir, use Atualizar'));
+    else links.append(botaoExcluir(' Excluir', () => excluir(p)));
     atual.append(links);
-    d.append(atual);
-  }
+    return atual;
+}
+
+// Versões anteriores, recolhidas
+function detalhes(p) {
+  const d = el('details', 'detalhes');
+  const n = p.versoes.length;
+  d.append(el('summary', '', `Versões anteriores (${n})`));
   for (const v of p.versoes) d.append(versao(p, v));
   return d;
 }
@@ -104,8 +107,29 @@ function versao(p, v) {
   const links = el('span', 'links');
   links.append(link(base, 'file-pdf', 'PDF', true));
   if (v.tem_assinado) links.append(link(base + '&assinado=1', 'file-signature', 'PDF assinado', true));
+  links.append(v.protegida ? protegida('Aprovada e assinada: fica guardada')
+    : botaoExcluir(' Excluir', () => excluirVersao(p, v)));
   div.append(links);
   return div;
+}
+
+function botaoExcluir(texto, acao) {
+  const b = el('button', 'br-button small excluir-plano'); b.type = 'button';
+  b.append(icone('trash-alt'), texto); b.onclick = acao;
+  return b;
+}
+
+function protegida(dica) {
+  const s = el('span', 'protegida'); s.title = dica; s.append(icone('lock'), ' Protegida');
+  return s;
+}
+
+async function excluirVersao(p, v) {
+  if (!confirm(`Excluir a versão ${v.numero} do plano de "${p.disciplina}"? O PDF dela é apagado do histórico.`)) return;
+  const r = await fetch(`/meus-planos/versao?arquivo=${encodeURIComponent(p.nome)}&numero=${v.numero}`, { method: 'DELETE' });
+  const d = await corpo(r);
+  msg($('envio-msg'), r.ok ? `Versão ${v.numero} do plano de "${p.disciplina}" excluída.` : (d.erro || 'Falha ao excluir a versão'), r.ok ? 'ok' : 'erro');
+  carregar();
 }
 
 // Aprovado na revisão: o professor assina pelo gov.br. Com a API de assinatura configurada (ASSINATURA_API),

@@ -25,6 +25,15 @@ class Recusado(Exception):
     """O PDF enviado não foi aceito; a mensagem diz por quê."""
 
 
+class Protegido(Exception):
+    """Versão aprovada na revisão e assinada: fica guardada e não pode ser excluída."""
+
+
+def versao_protegida(versao):
+    """Versão do histórico aprovada na revisão e assinada: não pode ser excluída."""
+    return versao.get('revisao_status') == 'OK' and bool(versao.get('signatario'))
+
+
 class PastaDePlanos:
     """Os PDFs da pasta de planos: envio (conferido), listagem e exclusão.
 
@@ -231,14 +240,30 @@ class PastaDePlanos:
         log.info('Plano excluído (%s): %s', email, nome)
 
     def excluir_do_professor(self, nome, email):
+        """Exclui a versão atual do plano. A assinada não sai (Protegido): para corrigir, o professor
+        atualiza o plano, e ela fica no histórico."""
         with self.validador.trava:
             if not self.eh_docente(nome, email) or not self.existe(nome):
                 raise Proibido
+            if self.assinado(nome):
+                raise Protegido
             if self.validador.em_avaliacao(nome):
                 raise Ocupado
             self._apagar(nome)
             self.validador.remover_da_fila(nome)
         log.info('Meus planos (%s): excluído %s', email, nome)
+
+    def excluir_versao(self, nome, numero, email):
+        """Exclui uma versão anterior do plano (docentes da disciplina), menos a aprovada e assinada."""
+        if not self.eh_docente(nome, email):
+            raise Proibido
+        versao = self.versoes.obter(nome, numero) if self.versoes else None
+        if not versao:
+            raise NaoEncontrado
+        if versao_protegida(versao):
+            raise Protegido
+        self.versoes.remover(nome, numero)
+        log.info('Meus planos (%s): excluída a versão %d de %s', email, numero, nome)
 
     # Ocultar do painel -----------------------------------------------------------------------------
 

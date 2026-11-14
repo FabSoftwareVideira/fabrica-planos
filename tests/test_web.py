@@ -1044,6 +1044,49 @@ def test_plano_assinado_e_atualizado_e_a_versao_fica_no_historico(fabrica, tmp_p
     assert len(c.get('/meus-planos/lista', headers=SERVIDOR).json['planos'][0]['versoes']) == 2
 
 
+def test_excluir_versoes_menos_a_aprovada_e_assinada(fabrica, tmp_path, monkeypatch):
+    from app.avaliacao import pipeline
+    from conftest import assinar, gerar_ac, salvar_ac
+    monkeypatch.setattr(pipeline, 'revalidar', lambda cfg, andamento, nome: andamento.finalizar())
+    ac = gerar_ac()
+    c, planos = fabrica(exigir_login=True, admins=frozenset({'admin@ifc.edu.br'}),
+                        certificados_dir=salvar_ac(ac, tmp_path / 'certificados'))
+    _plano_cc(c, planos, status='OK')
+    o = dar_disciplina(c, 'fulano@ifc.edu.br', arquivo='web.pdf')
+    _dar_papel(c, 'nde@ifc.edu.br')
+    c.post('/revisao', headers=NDE, data={'arquivo': 'web.pdf', 'status': 'OK'})
+    proprio = {**SERVIDOR, 'X-Usuario-Token': _token(email='fulano@ifc.edu.br', name='Fulano de Tal')}
+    c.post('/meus-planos/assinatura', headers=proprio, content_type='multipart/form-data',
+           data={'arquivo': 'web.pdf', 'pdf': (io.BytesIO(assinar(PDF, ac)), 'assinado.pdf')})
+
+    # A versão atual, assinada, não é excluída: o professor atualiza
+    r = c.delete('/meus-planos?arquivo=web.pdf', headers=SERVIDOR)
+    assert r.status_code == 403 and 'Atualizar' in r.json['erro'] and (planos / 'web.pdf').exists()
+    enviar_plano(c, o, gerar_pdf_plano('Versão 2.'), cab=SERVIDOR)  # v1 (assinada) vai para o histórico
+    enviar_plano(c, o, gerar_pdf_plano('Versão 3.'), cab=SERVIDOR)  # v2 (sem revisão) também
+    [plano] = c.get('/meus-planos/lista', headers=SERVIDOR).json['planos']
+    assert plano['versao'] == 3 and [(v['numero'], v['protegida']) for v in plano['versoes']] == [(2, False), (1, True)]
+
+    url = '/meus-planos/versao?arquivo=web.pdf&numero='
+    assert c.delete(url + '2', headers={'X-Usuario-Email': 'outro@ifc.edu.br'}).status_code == 403
+    r = c.delete(url + '1', headers=SERVIDOR)
+    assert r.status_code == 403 and 'aprovada e assinada' in r.json['erro']
+    assert c.delete(url + '2', headers=SERVIDOR).json == {'excluida': 2}
+    assert c.delete(url + '2', headers=SERVIDOR).status_code == 404  # já excluída
+    assert c.get(url + '2', headers=SERVIDOR).status_code == 404 and c.get(url + '1', headers=SERVIDOR).status_code == 200
+    assert c.delete(url + 'x', headers=SERVIDOR).status_code == 400
+    assert c.delete('/meus-planos/versao?arquivo=../x.pdf&numero=1', headers=SERVIDOR).status_code == 400
+
+    # O número da versão excluída não volta: a próxima arquivada é a 3, e a atual passa a ser a 4
+    assert enviar_plano(c, o, PDF, cab=SERVIDOR).json['versao_anterior'] == 3
+    [plano] = c.get('/meus-planos/lista', headers=SERVIDOR).json['planos']
+    assert plano['versao'] == 4 and [v['numero'] for v in plano['versoes']] == [3, 1]
+    # Sem assinatura, a versão atual é excluída normalmente (as do histórico ficam)
+    assert c.delete('/meus-planos?arquivo=web.pdf', headers=SERVIDOR).status_code == 200
+    [plano] = c.get('/meus-planos/lista', headers=SERVIDOR).json['planos']
+    assert plano['tem_plano'] is False and [v['numero'] for v in plano['versoes']] == [3, 1]
+
+
 def gerar_pdf_plano(*linhas):
     from conftest import gerar_pdf
     return gerar_pdf(list(linhas) + ['Linha de texto do plano de ensino numero %d.' % i for i in range(8)])
