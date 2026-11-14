@@ -309,6 +309,7 @@ networks:
 
 volumes:
   pgdata:
+  # Modelos do Ollama. Sem "external": se já existir um volume com esse nome (ex.: o do Ollama que rodava
+  # separado), ele é usado com os modelos baixados; senão, é criado vazio no primeiro deploy.
   ollama-data:
-    external: true
-    name: ${OLLAMA_VOLUME_NAME:-open-webui_ollama-data}
+    name: ${OLLAMA_VOLUME_NAME:-ollama-modelos}
