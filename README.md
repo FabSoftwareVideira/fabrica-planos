@@ -24,7 +24,7 @@ docker compose -f docker-compose.dev.yml up --build
 
 Abra http://localhost:8000 e, em **Entrar**, escolha um perfil de teste (administração, coordenação, NDE, professor…).
 
-- Os PDFs vêm da pasta `planos/` e os resultados ficam em `dev-resultados/`. As duas pastas ficam fora do git.
+- Os dados de desenvolvimento ficam todos em `dev-dados/`, fora do git: os PDFs em `dev-dados/planos/`, os resultados em `dev-dados/resultados/` e os backups em `dev-dados/backups/`. Para usar outra pasta de PDFs, defina `DEV_PLANOS_DIR` no `.env`.
 - **Assinar com gov.br** funciona sem o gov.br: no dev a assinatura é simulada (`GOVBR_ASSINATURA_AMBIENTE=simulada`), com uma autoridade de teste criada na hora. Só vale junto do login simulado; para desligar, `DEV_ASSINATURA_AMBIENTE=` (vazio).
 - Sem a IA, a interface funciona, mas as validações terminam em ERRO. Para validar de verdade, suba também o Ollama, na GPU NVIDIA (`--profile ia`) ou na CPU (`--profile ia-cpu`, bem mais lento):
 

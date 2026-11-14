@@ -1,11 +1,9 @@
 .env
-resultados/
-planos/
+# Dados de desenvolvimento (PDFs, resultados e backups): ver docker-compose.dev.yml
+dev-dados/
 __pycache__/
 .pytest_cache/
 .venv*/
-dev-resultados/
-dev-backups/
 
 # Graphify - arquivos gerados
 graphify-out/

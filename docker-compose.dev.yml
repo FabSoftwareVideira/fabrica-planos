@@ -45,12 +45,11 @@ services:
     volumes:
       # Código do host: o Flask recarrega a cada arquivo salvo
       - .:/app
-      # PDFs: por padrão os da pasta planos/ do repositório (fora do git)
-      - "${DEV_PLANOS_DIR:-./planos}:/data/planos"
-      # Resultados, usuários e revisões de desenvolvimento, separados dos de produção
-      - ./dev-resultados:/data/resultados
-      # Backups de desenvolvimento, fora do git
-      - ./dev-backups:/data/backups
+      # Dados de desenvolvimento, todos em dev-dados/ (fora do git), separados dos de produção:
+      # os PDFs (ou outra pasta, com DEV_PLANOS_DIR), os resultados e os backups
+      - "${DEV_PLANOS_DIR:-./dev-dados/planos}:/data/planos"
+      - ./dev-dados/resultados:/data/resultados
+      - ./dev-dados/backups:/data/backups
     extra_hosts:
       # host.docker.internal também no Linux (no Windows e no macOS ele já existe)
       - "host.docker.internal:host-gateway"
