@@ -140,12 +140,13 @@ def _assinatura():
 
 def _url(valor, padrao):
     """Endereço da variável, ou o padrão se vazia. Aceita só o host ("cas.staging.iti.br"): sem esquema, vale
-    https; sem caminho, o do padrão (/oauth2.0, /externo/v2)."""
+    https; sem caminho num host do ITI, o caminho dele (/oauth2.0, /externo/v2)."""
     valor = (valor or '').strip().rstrip('/')
     if not valor:
         return padrao
     if '://' not in valor:
         valor = 'https://' + valor
     if not urlsplit(valor).path:
-        valor += urlsplit(padrao).path
+        caminhos = {urlsplit(u).netloc: urlsplit(u).path for par in ASSINATURA_URLS.values() for u in par}
+        valor += caminhos.get(urlsplit(valor).netloc, '')
     return valor
