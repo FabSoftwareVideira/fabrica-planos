@@ -77,13 +77,31 @@ def _base64(conteudo):
         return b''
 
 
-def acs_do_cms(cms_der):
-    """Certificados de AC que vieram dentro do CMS (a cadeia do certificado do professor)."""
+def certificados_do_cms(cms_der):
+    """Certificados que vieram dentro do CMS (o do professor e, às vezes, a cadeia dele)."""
     try:
         certificados = cms.ContentInfo.load(cms_der)['content']['certificates'] or []
     except (ValueError, KeyError, TypeError):  # TypeError: estrutura ASN.1 válida, mas sem conteúdo de CMS
         return []
-    return [c.chosen for c in certificados if c.name == 'certificate' and c.chosen.ca]
+    return [c.chosen for c in certificados if c.name == 'certificate']
+
+
+def acs_do_cms(cms_der):
+    """Certificados de AC que vieram dentro do CMS (a cadeia do certificado do professor)."""
+    return [c for c in certificados_do_cms(cms_der) if c.ca]
+
+
+def _motivo_403(texto):
+    """A recusa do gov.br (403) para o professor: conta bronze ou CPF irregular, conforme o manual."""
+    texto = (texto or '').lower()
+    if 'cpf' in texto:
+        return ('O gov.br não liberou a assinatura: o CPF da conta está com situação cancelada, nula ou de '
+                'titular falecido na Receita Federal.')
+    if 'prata' in texto or 'identidade' in texto:
+        return ('O gov.br não liberou a assinatura: a sua conta gov.br é nível bronze, e assinar exige nível prata '
+                'ou ouro. Eleve o nível em confiabilidades.acesso.gov.br e assine de novo.')
+    return ('O gov.br não liberou a assinatura: ela exige conta gov.br nível prata ou ouro (eleve o nível em '
+            'confiabilidades.acesso.gov.br) e CPF regular.')
 
 
 class ApiGovbr:
@@ -117,9 +135,8 @@ class ApiGovbr:
             log.warning('Assinatura gov.br: API indisponível: %s', erro)
             raise FalhaApi('A API de assinatura do gov.br não respondeu. Tente de novo em instantes.') from erro
         if r.status_code == 403:
-            log.info('Assinatura gov.br recusada (403): %s', r.text[:200])
-            raise FalhaApi('O gov.br não liberou a assinatura: ela exige conta gov.br nível prata ou ouro '
-                           '(eleve o nível em confiabilidades.acesso.gov.br) e CPF regular.')
+            log.warning('Assinatura gov.br recusada (403): %s', r.text[:300])
+            raise FalhaApi(_motivo_403(r.text))
         if not r.ok:
             log.warning('Assinatura gov.br: API respondeu %s: %s', r.status_code, r.text[:200])
             raise FalhaApi('A API de assinatura do gov.br recusou o pedido. Tente assinar de novo.')
@@ -127,8 +144,14 @@ class ApiGovbr:
 
     def acs_confiaveis(self, cms_der):
         """Em homologação, as ACs de teste do ITI não estão em app/certificados: confia nas que vieram no
-        CMS, que chegou direto da API do ITI por HTTPS. Em produção, só valem as de app/certificados."""
-        return acs_do_cms(cms_der) if self.cfg.assinatura_ambiente == 'homologacao' else []
+        CMS, que chegou direto da API do ITI por HTTPS, ou, se a API mandou só o certificado do professor
+        (sem a cadeia), nele mesmo. Em produção, só valem as de app/certificados."""
+        if self.cfg.assinatura_ambiente != 'homologacao':
+            return []
+        certificados = certificados_do_cms(cms_der)
+        log.info('Assinatura gov.br (homologação): certificados no CMS: %s',
+                 '; '.join(f'{c.subject.human_friendly} (emissor {c.issuer.human_friendly})' for c in certificados))
+        return [c for c in certificados if c.ca] or certificados
 
 
 class ApiSimulada:

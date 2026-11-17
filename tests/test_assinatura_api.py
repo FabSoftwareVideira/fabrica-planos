@@ -66,7 +66,9 @@ def test_token_com_gov_br_fora_do_ar(monkeypatch):
 
 
 @pytest.mark.parametrize('resposta, mensagem', [
-    (_resposta(403, texto='Cidadão não possui a identidade'), 'prata ou ouro'),
+    (_resposta(403, texto='Cidadão não possui a identidade (Prata ou Ouro) necessária'), 'nível bronze'),
+    (_resposta(403, texto='CPF com situação cancelada, nula ou falecido na Receita Federal'), 'Receita Federal'),
+    (_resposta(403, texto=''), 'CPF regular'),
     (_resposta(500, texto='erro interno'), 'recusou o pedido'),
 ])
 def test_api_recusa_a_assinatura(monkeypatch, resposta, mensagem):
@@ -146,3 +148,30 @@ def test_signatario_com_nome_comum_repetido():
     certificado = mock.Mock()
     certificado.subject.native = {'common_name': ['FULANO DE TAL:12345678900', 'outro']}
     assert assinatura.signatario(certificado)[0] == 'FULANO DE TAL'
+
+
+def test_homologacao_sem_a_cadeia_no_cms_confia_no_certificado_do_professor(caplog):
+    """A API de homologação pode devolver só o certificado do professor, sem a AC de teste do ITI."""
+    import asyncio
+    import logging
+    from asn1crypto import keys, x509 as asn1_x509
+    from cryptography.hazmat.primitives.serialization import Encoding, NoEncryption, PrivateFormat
+    from pyhanko.sign import signers
+    from pyhanko_certvalidator.registry import SimpleCertificateStore
+    cert, chave = assinatura_api._certificado('FULANO DE TAL:12345678901', emissor=ApiSimulada.ac())
+    folha = asn1_x509.Certificate.load(cert.public_bytes(Encoding.DER))
+    signer = signers.SimpleSigner(signing_cert=folha, cert_registry=SimpleCertificateStore.from_certs([]),
+                                  signing_key=keys.PrivateKeyInfo.load(
+                                      chave.private_bytes(Encoding.DER, PrivateFormat.PKCS8, NoEncryption())))
+    cmss = []
+
+    def assinar_hash(digest):
+        cmss.append(asyncio.run(signer.async_sign(digest, 'sha256')).dump())
+        return cmss[-1]
+    pdf = assinatura_api.assinar_pdf(PDF_COM_TEXTO, assinar_hash)
+    assert assinatura_api.acs_do_cms(cmss[0]) == []
+    with caplog.at_level(logging.INFO):
+        acs = ApiGovbr(_cfg(assinatura_ambiente='homologacao')).acs_confiaveis(cmss[0])
+    assert [c.subject for c in acs] == [folha.subject] and 'FULANO DE TAL' in caplog.text
+    assert assinatura.verificar(pdf, PDF_COM_TEXTO, acs)['cpf'] == '12345678901'
+    assert ApiGovbr(_cfg(assinatura_ambiente='producao')).acs_confiaveis(cmss[0]) == []
