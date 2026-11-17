@@ -55,7 +55,9 @@
           <a class="br-button secondary small sair" href="/auth/sair"><i class="fas fa-sign-out-alt" aria-hidden="true"></i> Sair</a>
         </div>
       </nav>
-      {#- Na página inicial não aparece: os botões de login estão nela #}
+      {#- Na página inicial, Entrar não aparece (os botões de login estão nela); quem já entrou vê Acessar #}
+      {% elif ja_logado %}
+      <a class="br-button primary small entrar" href="/dashboard"><i class="fas fa-arrow-right" aria-hidden="true"></i> Acessar</a>
       {% elif request.path != '/' %}
       <a class="br-button primary small entrar" href="/entrar?rd=/dashboard"><i class="fas fa-sign-in-alt" aria-hidden="true"></i> Entrar</a>
       {% endif %}

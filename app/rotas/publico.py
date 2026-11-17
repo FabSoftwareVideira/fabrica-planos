@@ -112,7 +112,11 @@ def raiz():
     rd = govbr.destino(request.args.get('rd', ''))
     # Depois do Sair de uma sessão gov.br: encerra também a do gov.br, num iframe oculto (rotas/govbr.py: sair)
     sair_govbr = cfg.govbr_url + '/logout' if cfg.govbr_ativo and request.args.get('saiu') == 'govbr' else ''
-    return render_template('inicio.html', sair_govbr=sair_govbr,
+    # A página inicial é pública (o Caddy não confere o login nela): quem tem a sessão gov.br do app ou o
+    # cookie do Google vê "Acessar" no cabeçalho. Se o cookie do Google tiver expirado, o painel pede login.
+    ja_logado = not sair_govbr and bool(email() or govbr.sessao() or any(
+        n.startswith(govbr.COOKIE_GOOGLE) for n in request.cookies))
+    return render_template('inicio.html', sair_govbr=sair_govbr, ja_logado=ja_logado,
                            **inicio.contexto(rd, cfg.govbr_ativo, cfg.login_google or cfg.login_simulado))
 
 

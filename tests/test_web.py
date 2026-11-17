@@ -1622,3 +1622,16 @@ def test_conta_bronze_nao_chega_a_autorizacao_da_assinatura(fabrica, tmp_path, m
     assert 'ASSINATURA_NIVEL = "ok"' in c.get('/meus-planos', headers=dono).get_data(as_text=True)
     r = ir()
     assert r.status_code == 302 and r.headers['Location'].startswith('https://cas.staging.iti.br/oauth2.0/authorize?')
+
+
+def test_pagina_inicial_mostra_acessar_para_quem_ja_entrou(fabrica, monkeypatch):
+    c, _ = fabrica(**GOVBR)
+    html = c.get('/').get_data(as_text=True)
+    assert '> Acessar</a>' not in html
+    c.set_cookie('_planos_login', 'qualquer')  # cookie do Google (oauth2-proxy)
+    html = c.get('/').get_data(as_text=True)
+    assert 'href="/dashboard"><i class="fas fa-arrow-right" aria-hidden="true"></i> Acessar</a>' in html
+    assert '> Acessar</a>' not in c.get('/?saiu=govbr').get_data(as_text=True)  # acabou de sair
+    c.delete_cookie('_planos_login')
+    _login_govbr(c, monkeypatch)  # sessão gov.br do app
+    assert '> Acessar</a>' in c.get('/').get_data(as_text=True)

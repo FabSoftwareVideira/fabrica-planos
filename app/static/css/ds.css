@@ -18,7 +18,8 @@ main{flex:1}
 
 /* Cabeçalho: logotipo e nome do sistema à esquerda; menu (texto e ícone) e conta à direita.
    Abaixo de 1200px o menu vira hambúrguer (com Coordenação e Administração ele não cabe em 1024px): um painel que abre sob a barra. */
-.cabecalho{display:block;position:relative;z-index:30;padding:0}  /* o br-header do DS é flex */
+.cabecalho{display:block;position:sticky;top:0;z-index:30;padding:0}  /* o br-header do DS é flex; sempre visível ao rolar */
+html{scroll-padding-top:88px}  /* âncoras (#entrar...) não ficam escondidas sob o cabeçalho fixo */
 .cabecalho::after{content:"";display:block;height:4px;  /* linha verde e azul do logotipo, como no portal do IFC */
   background:linear-gradient(90deg,#7eba00 0 22%,#1351b4 22% 100%)}
 .cabecalho .topo{display:flex;align-items:center;gap:var(--spacing-scale-2x);min-height:64px;padding:var(--spacing-scale-base) 0}
