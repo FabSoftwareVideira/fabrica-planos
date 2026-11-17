@@ -84,7 +84,7 @@ As credenciais de homologação da API de Assinatura Eletrônica chegam num arqu
 2. Em **Environment** no Dokploy, preencha `GOVBR_ASSINATURA_CLIENT_ID` (o Client ID de homologação), `GOVBR_ASSINATURA_CLIENT_SECRET` (o segredo do arquivo), `GOVBR_ASSINATURA_AMBIENTE=homologacao` (obrigatório se o login estiver em produção) e `GOVBR_ASSINATURA_REDIRECT_URI` igual, letra por letra, ao endereço de retorno cadastrado no pedido. Faça o deploy.
 3. Rode o diagnóstico acima. Os três endereços (`sso`, `cas.staging.iti.br` e `assinatura-api.staging.iti.br`) precisam responder.
 4. Crie uma conta de teste em [sso.staging.acesso.gov.br](https://sso.staging.acesso.gov.br). Se o nome do certificado não for o do professor nem o de um docente do plano, a assinatura é aceita com um alerta. Em **Meus planos**, num plano aprovado, use **Assinar com gov.br**. O código do SMS pode ser `12345`.
-5. Confira o PDF assinado em [verificador.staging.iti.br](https://verificador.staging.iti.br). Ele e um vídeo curto do fluxo (até 4 minutos e 10 MB) são pedidos para liberar as credenciais de produção.
+5. Confira o PDF assinado em [validar.staging.iti.br](https://validar.staging.iti.br): as assinaturas de homologação só são reconhecidas lá (validar.iti.gov.br e h-validar.iti.gov.br não conhecem a cadeia de teste HOM). Ele e um vídeo curto do fluxo (até 4 minutos e 10 MB) são pedidos para liberar as credenciais de produção.
 
 As assinaturas de homologação são de teste e não têm validade jurídica. Com as credenciais de produção, troque o cliente e o segredo e use `GOVBR_ASSINATURA_AMBIENTE=producao` (ou vazio). As assinaturas feitas em homologação continuam registradas nos planos: limpe esses dados de teste antes de abrir o sistema aos professores.
 
