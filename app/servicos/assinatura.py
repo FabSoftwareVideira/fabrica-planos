@@ -221,20 +221,24 @@ class Assinaturas:
         with open(original_path, 'rb') as arq:
             original = arq.read()
         dados = verificar(pdf_assinado, original, self.raizes + list(acs_extras))
-        # Quem assinou precisa ser o professor responsável (o nome do cadastro dele) ou um docente do PDF.
+        # Quem assinou deveria ser o professor responsável (o nome do cadastro dele) ou um docente do PDF. Se
+        # o nome não confere, a assinatura é aceita, com um alerta para o professor e a coordenação.
         try:
             docentes = identificacao.docentes(extrair_texto(original_path))
         except PdfIlegivel:
             docentes = []
         conferir = [n for n in [nome_usuario] if n] + docentes
+        aviso = ''
         if conferir and not any(mesma_pessoa(dados['signatario'], n) for n in conferir):
-            raise AssinaturaInvalida(f'O PDF foi assinado por {dados["signatario"] or "outra pessoa"}, que não é '
-                                     'docente deste plano. Assine com a sua conta gov.br.')
+            aviso = (f'O nome do certificado ({dados["signatario"] or "sem nome"}) não confere com o do professor '
+                     'nem com o dos docentes do plano.')
         registro = assinaturas.gravar(self.cfg.resultados_dir, nome, pdf_assinado, {
             'email': email, 'signatario': dados['signatario'], 'assinado_em': dados['assinado_em'],
             'versao': aprovacao['assinatura'], 'aprovado_em': aprovacao['revisado_em'], 'origem': origem,
+            'aviso': aviso,
         })
-        log.info('Plano assinado (%s): %s, por %s', email, nome, dados['signatario'])
+        log.info('Plano assinado (%s): %s, por %s%s', email, nome, dados['signatario'],
+                 ' (nome não confere)' if aviso else '')
         return registro
 
     def assinar_pela_api(self, nome, email, nome_usuario, cliente, token):
@@ -275,4 +279,4 @@ def resumo(registro):
     if not registro:
         return None
     return {'signatario': registro['signatario'], 'assinado_em': registro['assinado_em'],
-            'enviado_em': registro['enviado_em']}
+            'enviado_em': registro['enviado_em'], 'aviso': registro.get('aviso', '')}

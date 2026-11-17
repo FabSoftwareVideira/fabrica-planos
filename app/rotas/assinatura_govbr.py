@@ -86,7 +86,8 @@ def callback():
             usuario = _usuario()
             nome_conta = nome_usuario() or (s.usuarios.obter(usuario) or {}).get('nome', '')
             registro = s.assinaturas.assinar_pela_api(nome, usuario, nome_conta, cliente, token)
-            resp = _voltar(assinatura='ok', arquivo=nome, signatario=registro['signatario'])
+            resp = _voltar(assinatura='ok', arquivo=nome, signatario=registro['signatario'],
+                           **({'aviso': registro['aviso']} if registro.get('aviso') else {}))
         except assinatura.NaoLiberado:
             resp = _voltar(assinatura='erro', arquivo=nome,
                            motivo='O plano não pode mais ser assinado: ele mudou ou a aprovação foi desfeita.')

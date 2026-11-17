@@ -206,3 +206,6 @@ html.alto-contraste .situacao.ativo,html.alto-contraste .selo-revisao,html.alto-
 html.alto-contraste .plano .assinado{background:#0b2b17;color:#00e676}
 html.alto-contraste .papel-curso{background:#11181d;color:#ffd700}
 html.alto-contraste .paginacao .page.active{color:#000}
+/* Assinatura aceita com o nome do certificado diferente do professor e dos docentes (assinatura.py) */
+.aviso-assinatura,.assinado .fa-exclamation-triangle{color:#8a6100}
+html.alto-contraste .aviso-assinatura,html.alto-contraste .assinado .fa-exclamation-triangle{color:#ffd700}

@@ -974,13 +974,18 @@ def test_professor_assina_o_plano_depois_de_aprovado(fabrica, tmp_path):
     r = enviar(PDF)
     assert r.status_code == 422 and 'não tem assinatura' in r.json['erro']
     assert 'não é do gov.br' in enviar(assinar(PDF, gerar_ac())).json['erro']
-    outro = {**SERVIDOR, 'X-Usuario-Token': _token(email='fulano@ifc.edu.br', name='Beltrano Pereira')}
-    assert 'não é docente deste plano' in enviar(assinado, outro).json['erro']
     assert c.get('/pdf-assinado?arquivo=web.pdf', headers=SERVIDOR).status_code == 404
+    # Nome do certificado diferente do professor e dos docentes: aceita, com alerta
+    outro = {**SERVIDOR, 'X-Usuario-Token': _token(email='fulano@ifc.edu.br', name='Beltrano Pereira')}
+    r = enviar(assinado, outro)
+    assert r.status_code == 200 and 'não confere' in r.json['assinatura']['aviso']
+    html = c.get('/relatorio?arquivo=web.pdf', headers=NDE).get_data(as_text=True)
+    assert 'Atenção: O nome do certificado (FULANO DE TAL)' in html
 
     proprio = {**SERVIDOR, 'X-Usuario-Token': _token(email='fulano@ifc.edu.br', name='Fulano de Tal')}
     r = enviar(assinado, proprio)
     assert r.status_code == 200 and r.json['assinatura']['signatario'] == 'FULANO DE TAL'
+    assert r.json['assinatura']['aviso'] == ''
     [plano] = c.get('/meus-planos/lista', headers=SERVIDOR).json['planos']
     assert plano['assinatura']['signatario'] == 'FULANO DE TAL'
     assert c.get('/pdf-assinado?arquivo=web.pdf', headers=NDE).data == assinado

@@ -18,7 +18,9 @@ function link(href, nomeIcone, texto, novaAba) {
 // Situação do plano: o selo e uma frase curta
 function situacao(p) {
   if (p.situacao === 'sem_plano') return [selo('Sem plano', '#9ca3af'), 'Envie o PDF do plano desta disciplina.'];
-  if (p.assinatura) return [selo('Assinado', '#168821'), `Assinado via gov.br por ${p.assinatura.signatario}` + (p.assinatura.assinado_em ? ` em ${hora(p.assinatura.assinado_em)}.` : '.')];
+  if (p.assinatura) return [selo('Assinado', '#168821'), `Assinado via gov.br por ${p.assinatura.signatario}`
+    + (p.assinatura.assinado_em ? ` em ${hora(p.assinatura.assinado_em)}.` : '.')
+    + (p.assinatura.aviso ? ` Atenção: ${p.assinatura.aviso}` : '')];
   if (p.revisao && p.situacao === 'avaliado') {
     const r = p.revisao;
     const quem = `${r.parecer} por ${r.revisor} (${r.papel})` + (r.comentario ? ': ' + r.comentario : '.');
@@ -180,7 +182,8 @@ async function enviarAssinado(p, arquivo) {
   catch { msg($('envio-msg'), 'Falha de conexão no envio', 'erro'); return; }
   if (r.status === 401) { location.reload(); return; }  // sessão expirou: recarregar leva ao login
   const d = await corpo(r);
-  msg($('envio-msg'), r.ok ? `Plano de "${p.disciplina}" assinado por ${d.assinatura.signatario}.` : (d.erro || `Falha ao enviar o PDF assinado (erro ${r.status})`), r.ok ? 'ok' : 'erro');
+  msg($('envio-msg'), r.ok ? `Plano de "${p.disciplina}" assinado por ${d.assinatura.signatario}.`
+    + (d.assinatura.aviso ? ` Atenção: ${d.assinatura.aviso}` : '') : (d.erro || `Falha ao enviar o PDF assinado (erro ${r.status})`), r.ok ? 'ok' : 'erro');
   carregar();
 }
 
@@ -309,7 +312,8 @@ async function enviar(p, arquivo) {
 (function resultadoDaAssinatura() {
   const q = new URLSearchParams(location.search);
   if (!q.has('assinatura')) return;
-  if (q.get('assinatura') === 'ok') msg($('envio-msg'), `Plano assinado via gov.br por ${q.get('signatario') || 'você'}.`, 'ok');
+  if (q.get('assinatura') === 'ok') msg($('envio-msg'), `Plano assinado via gov.br por ${q.get('signatario') || 'você'}.`
+    + (q.get('aviso') ? ` Atenção: ${q.get('aviso')}` : ''), 'ok');
   else msg($('envio-msg'), `Não foi possível assinar o plano: ${q.get('motivo') || 'tente de novo.'}`, 'erro');
   history.replaceState(null, '', location.pathname + location.hash);
 })();
