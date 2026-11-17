@@ -46,6 +46,8 @@ class Config:
     proxy_segredo: str = ''
     # Limite de requisições por IP e por usuário (app/limites.py); LIMITES=0 desliga
     limites: bool = True
+    # IPs ou faixas (CIDR) sem limite de requisições, como um IP interno da instituição (LIMITES_ISENTOS)
+    limites_isentos: tuple = ()
     email_dominio: str = 'ifc.edu.br'
     # Certificados raiz aceitos nas assinaturas dos planos (servicos/assinatura.py): por padrão os do
     # repositório, em app/certificados (a AC Raiz do Governo Federal do Brasil, do gov.br)
@@ -113,6 +115,7 @@ def carregar():
         login_simulado=os.environ.get('LOGIN_SIMULADO', '0') == '1',
         proxy_segredo=os.environ.get('PROXY_SEGREDO', '').strip(),
         limites=os.environ.get('LIMITES', '1') != '0',
+        limites_isentos=_redes(os.environ.get('LIMITES_ISENTOS', '')),
         email_dominio=(os.environ.get('EMAIL_DOMINIO') or 'ifc.edu.br').strip().lower(),
         certificados_dir=os.environ.get('CERTIFICADOS_DIR') or CERTIFICADOS_PADRAO,
         govbr_client_id=os.environ.get('GOVBR_CLIENT_ID', '').strip(),
@@ -164,3 +167,19 @@ def _ambiente(valor):
     """Nome do ambiente sem acentos nem maiúsculas ("Homologação" = "homologacao")."""
     valor = unicodedata.normalize('NFKD', (valor or '').strip().lower())
     return valor.encode('ascii', 'ignore').decode()
+
+
+def _redes(texto):
+    """IPs e faixas CIDR separados por vírgula ('10.0.0.5, 192.168.10.0/24'); os inválidos são ignorados, com
+    aviso no log."""
+    import ipaddress
+    import logging
+    redes = []
+    for item in (t.strip() for t in (texto or '').split(',')):
+        if not item:
+            continue
+        try:
+            redes.append(ipaddress.ip_network(item, strict=False))
+        except ValueError:
+            logging.getLogger(__name__).warning('LIMITES_ISENTOS: endereço inválido ignorado: %s', item)
+    return tuple(redes)

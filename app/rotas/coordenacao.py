@@ -10,6 +10,7 @@ from flask import Blueprint, redirect, render_template, request, send_file
 from ..paginas import coordenacao
 from .comum import cursos_coordenados, eh_admin, servicos, texto
 from .painel import dados_da_validacao, revisaveis
+from ..limites import EXPORTACAO
 
 # Visão da coordenação: situação dos planos de cada curso. O coordenador vê os cursos que coordena (papel
 # dado em Administração → Usuários); a administração vê todos os cursos da validação atual.
@@ -57,6 +58,7 @@ def _slug(texto_):
 
 
 @bp.get('/coordenacao/assinados.zip')
+@EXPORTACAO
 def zip_assinados():
     """Zip com os PDFs assinados (a versão assinada vigente de cada plano, a mesma da transparência) do curso
     e do período (vazio: todos). Só para quem coordena o curso, ou para a administração."""

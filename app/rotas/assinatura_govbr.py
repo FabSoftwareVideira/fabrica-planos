@@ -8,6 +8,7 @@ from itsdangerous import BadSignature, URLSafeTimedSerializer
 from ..avaliacao import pipeline
 from ..servicos import assinatura, assinatura_api
 from .comum import email, nome as nome_usuario, servicos
+from ..limites import LOGIN
 
 # Assinatura do plano pela API do gov.br (servicos/assinatura_api.py): "Assinar com gov.br" em "Meus planos"
 # leva ao gov.br (/iniciar), que volta em /callback com o código; o app troca o código pelo token, assina
@@ -44,6 +45,7 @@ def _voltar(**parametros):
 
 
 @bp.get('/iniciar')
+@LOGIN
 def iniciar():
     s = servicos()
     cliente = assinatura_api.cliente(s.cfg)
@@ -68,6 +70,7 @@ def iniciar():
 
 
 @bp.get('/callback')
+@LOGIN
 def callback():
     s = servicos()
     cliente = assinatura_api.cliente(s.cfg)
@@ -107,6 +110,7 @@ def callback():
 
 
 @retorno.get('/auth/govbr/assinatura/callback')
+@LOGIN
 def retorno_cadastrado():
     consulta = request.query_string.decode('ascii', 'ignore')
     return redirect('/assinatura/govbr/callback' + ('?' + consulta if consulta else ''), 302)

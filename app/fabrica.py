@@ -11,7 +11,7 @@ from .armazenamento.revisoes import Revisoes
 from .armazenamento.versoes import Versoes
 from .armazenamento.usuarios import Usuarios
 from .banco import Banco
-from .limites import Limitador
+from . import limites
 from .config import Config, carregar
 from .servicos.assinatura import Assinaturas
 from .servicos.backup import Backup
@@ -59,7 +59,7 @@ def criar_app(cfg=None, executar=None):
     transparencia = Transparencia(cfg, disciplinas.ofertas, usuarios, assinaturas, versoes)
     app.extensions['servicos'] = Servicos(cfg, validador, planos, usuarios, revisao, assinaturas, backup, disciplinas,
                                           transparencia)
-    app.extensions['limitador'] = Limitador()  # limite de requisições (app/limites.py)
+    limites.iniciar(app, cfg.limites)  # limite de requisições (Flask-Limiter, app/limites.py)
     paginas.registrar(app)
     rotas.registrar(app)
     if cfg.login_simulado:  # só em desenvolvimento (docker-compose.dev.yml)

@@ -3,6 +3,8 @@ gunicorn==22.0.0
 pdfplumber==0.11.10
 psycopg[binary]==3.2.9
 requests==2.34.2
+# Limite de requisições (app/limites.py)
+flask-limiter==4.1.1
 # Conferência das assinaturas digitais (gov.br) dos planos assinados pelos professores
 pyhanko==0.38.1
 # Dependência do pdfplumber, fixada na versão que corrige as vulnerabilidades do pip-audit (exige Python 3.11+)

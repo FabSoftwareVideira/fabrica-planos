@@ -8,6 +8,7 @@ from ..paginas import administracao, backup as backup_pagina, usuarios
 from ..servicos.backup import BackupInvalido, BackupOcupado
 from ..servicos.planos import NaoEncontrado, Ocupado, Proibido
 from .comum import eh_admin, email, json_, mesma_origem, ocupado, servicos, somente_admin, texto
+from ..limites import ENVIO
 
 log = logging.getLogger(__name__)
 
@@ -145,6 +146,7 @@ def alterar_papel():
 
 @bp.post('/validar')
 @bp.post('/webhook/validar')
+@ENVIO
 @somente_admin
 def validar():
     s = servicos()

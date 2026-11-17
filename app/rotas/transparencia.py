@@ -4,6 +4,7 @@ from flask import Blueprint, redirect, render_template, request, send_file
 
 from .comum import servicos, texto
 from .publico import ja_logado
+from ..limites import PDF_PUBLICO, PUBLICO
 
 # Área de transparência, pública (sem login; liberada também no Caddy): os planos de ensino assinados, para
 # qualquer pessoa consultar (servicos/transparencia.py). URLs fixas, para divulgar:
@@ -18,6 +19,7 @@ FILTROS = ('periodo', 'curso', 'fase', 'docente', 'q')
 
 
 @bp.get('')
+@PUBLICO
 def lista():
     filtros = {f: (request.args.get(f) or '').strip()[:80] for f in FILTROS}
     planos, opcoes = servicos().transparencia.listar(filtros['periodo'], filtros['curso'], filtros['fase'],
@@ -31,6 +33,7 @@ def _plano_ou_404(oferta_id):
 
 
 @bp.get('/<int:oferta_id>')
+@PUBLICO
 def plano(oferta_id):
     p = _plano_ou_404(oferta_id)
     if not p:
@@ -39,6 +42,7 @@ def plano(oferta_id):
 
 
 @bp.get('/<int:oferta_id>/v<int:numero>')
+@PUBLICO
 def versao(oferta_id, numero):
     p = _plano_ou_404(oferta_id)
     v = next((v for v in (p or {}).get('assinadas', []) if v['numero'] == numero), None)
@@ -59,12 +63,14 @@ def _pdf(p, numero):
 
 
 @bp.get('/<int:oferta_id>.pdf')
+@PDF_PUBLICO
 def pdf_vigente(oferta_id):
     p = _plano_ou_404(oferta_id)
     return _pdf(p, p['versao']) if p else texto('PDF não encontrado.', 404)
 
 
 @bp.get('/<int:oferta_id>/v<int:numero>.pdf')
+@PDF_PUBLICO
 def pdf_versao(oferta_id, numero):
     return _pdf(_plano_ou_404(oferta_id), numero)
 

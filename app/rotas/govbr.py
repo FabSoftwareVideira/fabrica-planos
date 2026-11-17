@@ -12,6 +12,7 @@ from flask import Blueprint, Response, make_response, redirect, render_template,
 from itsdangerous import BadSignature, URLSafeTimedSerializer
 
 from .comum import email, mesma_origem, servicos
+from ..limites import LOGIN
 
 # Login com a conta gov.br (Login Único, OpenID Connect com PKCE) e a verificação de sessão que o Caddy
 # consulta a cada requisição (forward_auth em /auth/verificar).
@@ -129,6 +130,7 @@ def token_de_nome(endereco, nome):
 # Ida e volta do gov.br -------------------------------------------------------------------------------
 
 @bp.get('/auth/govbr/login')
+@LOGIN
 def login():
     cfg = servicos().cfg
     if not cfg.govbr_ativo:
@@ -137,6 +139,7 @@ def login():
 
 
 @bp.get('/conta/govbr/vincular')
+@LOGIN
 def vincular():
     """Quem já entrou (pelo Google, com o e-mail institucional) vai ao gov.br para ligar a conta gov.br a
     este usuário. Fica atrás do login do Caddy; o e-mail segue assinado no cookie até a volta."""
@@ -159,6 +162,7 @@ def desvincular():
 
 
 @bp.get('/auth/govbr/callback')
+@LOGIN
 def callback():
     cfg = servicos().cfg
     if not cfg.govbr_ativo:
@@ -256,6 +260,7 @@ def verificar():
 
 
 @bp.get('/entrar')
+@LOGIN
 def entrar():
     """Para onde o Caddy manda quem abre uma página sem login: direto ao único login disponível ou, com os
     dois, à página inicial com os botões."""

@@ -9,6 +9,7 @@ from ..paginas import meus_planos
 from ..servicos import assinatura, assinatura_api, revisao
 from ..servicos.planos import NaoEncontrado, Ocupado, Proibido, Protegido, Recusado, versao_protegida
 from .comum import email, json_, nome as nome_usuario, ocupado, servicos, texto
+from ..limites import ENVIO
 
 # "Meus planos": cada professor vê as disciplinas em que a coordenação o vinculou como docente e entrega
 # o plano de cada uma (a entrega oficial, que vai para a mesma pasta do NDE), acompanha a avaliação e pode
@@ -74,6 +75,7 @@ def baixar_versao():
 
 
 @bp.post('')
+@ENVIO
 def enviar():
     """PDF do plano de uma disciplina (campo `oferta`) em que quem envia é docente."""
     arquivo = request.files.get('arquivo')
@@ -136,6 +138,7 @@ def excluir_versao():
 
 
 @bp.post('/assinatura')
+@ENVIO
 def enviar_assinado():
     """PDF do plano aprovado, assinado pelo professor no assinador do gov.br (ver servicos/assinatura.py)."""
     s = servicos()

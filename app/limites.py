@@ -1,67 +1,79 @@
-import threading
-import time
-from collections import deque
+import ipaddress
+import logging
 
-# Limite de requisições (rotas/publico.py: limitar). Janela deslizante em memória: o gunicorn roda com um só
-# worker (o validador já depende disso), então um contador por processo vale para o sistema todo.
+from flask import current_app, request
+from flask_limiter import Limiter
+
+# Limite de requisições com o Flask-Limiter (https://flask-limiter.readthedocs.io). Armazenamento em memória
+# (memory://), janela deslizante (moving-window): o gunicorn roda com um só worker (o validador já depende
+# disso), então o contador do processo vale para o sistema todo. Com mais workers ou réplicas, troque
+# storage_uri por um Redis.
 #
-# Política: (nome, métodos, teste do caminho, contado por 'ip' ou 'usuario', limite, janela em segundos).
-# Vale a primeira regra que casar. Os números ficam bem acima do uso normal; o objetivo é barrar robôs,
-# loops e abusos (cada envio de plano dispara a IA, o recurso mais caro do servidor).
+# Política (os números ficam bem acima do uso normal; o objetivo é barrar robôs, loops e abusos, e cada envio
+# de plano dispara a IA, o recurso mais caro do servidor):
+#   login, vínculo e assinatura gov.br       20 por minuto por IP           LOGIN
+#   envio de planos e disparo de validação   30 por hora por usuário        ENVIO
+#   zip dos assinados (coordenação)          10 por hora por usuário        EXPORTACAO
+#   PDFs da transparência                    60 por minuto por IP           PDF_PUBLICO
+#   páginas públicas                         120 por minuto por IP          PUBLICO
+#   demais rotas                             600 por minuto por usuário     (padrão)
+# Fora da contagem: arquivos estáticos, o healthcheck, a conferência do login que o Caddy faz a cada pedido e
+# os IPs de LIMITES_ISENTOS. Acima do limite: 429 com Retry-After (página de erro para quem navega).
 
-TODOS = None
-LEITURA = frozenset({'GET', 'HEAD'})
-ESCRITA = frozenset({'POST', 'PUT', 'PATCH', 'DELETE'})
+log = logging.getLogger(__name__)
 
-LOGIN = ('/auth/govbr/login', '/auth/govbr/callback', '/auth/govbr/assinatura/', '/conta/govbr/vincular',
-         '/assinatura/govbr/', '/entrar')
-ENVIOS = ('/meus-planos', '/meus-planos/assinatura', '/validar', '/webhook/validar')
-PUBLICAS = ('/', '/privacidade')
-
-REGRAS = (
-    ('login', TODOS, lambda c: c.startswith(LOGIN), 'ip', 20, 60),
-    ('envio', ESCRITA, lambda c: c in ENVIOS, 'usuario', 30, 3600),
-    ('exportacao', LEITURA, lambda c: c == '/coordenacao/assinados.zip', 'usuario', 10, 3600),
-    ('pdf_publico', LEITURA, lambda c: c.startswith('/transparencia') and c.endswith('.pdf'), 'ip', 60, 60),
-    ('publico', TODOS, lambda c: c in PUBLICAS or c.startswith('/transparencia'), 'ip', 120, 60),
-    ('geral', TODOS, lambda c: True, 'usuario', 600, 60),
-)
-# Fora da contagem: arquivos estáticos, o healthcheck e a conferência do login que o Caddy faz a cada pedido
+# IP de quem pediu, como o Caddy o determinou ({client_ip}, atrás do Traefik do Dokploy); vale porque só se
+# chega ao app pelo Caddy (PROXY_SEGREDO)
+CABECALHO_CLIENTE = 'X-Planos-Cliente'
 ISENTAS = ('/static/', '/health', '/auth/verificar')
 
 
-def regra(metodo, caminho):
-    """A regra que vale para o pedido, ou None se ele não é contado."""
-    if caminho.startswith(ISENTAS):
-        return None
-    for r in REGRAS:
-        nome, metodos, casa, por, limite, janela = r
-        if (metodos is TODOS or metodo in metodos) and casa(caminho):
-            return r
-    return None  # pragma: no cover (a regra geral casa com tudo)
+def ip_do_cliente():
+    return (request.headers.get(CABECALHO_CLIENTE) or request.remote_addr or '-').strip()
 
 
-class Limitador:
-    def __init__(self, relogio=time.monotonic):
-        self.relogio = relogio
-        self._pedidos = {}  # chave: deque com os instantes dos pedidos dentro da janela
-        self._trava = threading.Lock()
+def usuario_ou_ip():
+    """Chave das regras por usuário: o e-mail de quem entrou (repassado pelo Caddy) ou, sem login, o IP."""
+    email = (request.headers.get('X-Usuario-Email') or '').strip().lower()
+    return 'usuario:' + email if email else 'ip:' + ip_do_cliente()
 
-    def conferir(self, chave, limite, janela):
-        """0 se o pedido pode seguir (e ele é contado); senão, em quantos segundos tentar de novo."""
-        agora = self.relogio()
-        with self._trava:
-            fila = self._pedidos.setdefault(chave, deque())
-            while fila and fila[0] <= agora - janela:
-                fila.popleft()
-            if len(fila) >= limite:
-                return max(1, int(fila[0] + janela - agora) + 1)
-            fila.append(agora)
-            if len(self._pedidos) > 10000:  # não deixa a memória crescer com chaves antigas
-                self._limpar(agora)
-            return 0
 
-    def _limpar(self, agora):
-        maior_janela = max(r[5] for r in REGRAS)
-        for chave in [k for k, f in self._pedidos.items() if not f or f[-1] <= agora - maior_janela]:
-            del self._pedidos[chave]
+def isento(ip, redes):
+    """O IP está numa das redes isentas do limite (Config.limites_isentos)."""
+    if not redes:
+        return False
+    try:
+        endereco = ipaddress.ip_address(ip)
+    except ValueError:
+        return False
+    return any(endereco in rede for rede in redes)
+
+
+def _registrar(limite):
+    log.warning('Limite de requisições (%s) atingido por %s em %s', limite.limit, limite.key, request.path)
+
+
+limiter = Limiter(key_func=usuario_ou_ip, default_limits=['600 per minute'], storage_uri='memory://',
+                  strategy='moving-window', headers_enabled=True, on_breach=_registrar)
+
+
+@limiter.request_filter
+def _fora_da_contagem():
+    if request.path.startswith(ISENTAS):
+        return True
+    return isento(ip_do_cliente(), current_app.extensions['servicos'].cfg.limites_isentos)
+
+
+# Limites dos grupos, para decorar as rotas (abaixo do @bp.get/@bp.post)
+LOGIN = limiter.shared_limit('20 per minute', scope='login', key_func=ip_do_cliente)
+ENVIO = limiter.shared_limit('30 per hour', scope='envio', key_func=usuario_ou_ip)
+EXPORTACAO = limiter.shared_limit('10 per hour', scope='exportacao', key_func=usuario_ou_ip)
+PDF_PUBLICO = limiter.shared_limit('60 per minute', scope='pdf_publico', key_func=ip_do_cliente)
+PUBLICO = limiter.shared_limit('120 per minute', scope='publico', key_func=ip_do_cliente)
+
+
+def iniciar(app, ativo=True):
+    """Liga o limitador ao app (LIMITES=0 desliga). Cada app começa com a contagem zerada."""
+    app.config['RATELIMIT_ENABLED'] = bool(ativo)
+    limiter.init_app(app)
+    limiter.reset()
