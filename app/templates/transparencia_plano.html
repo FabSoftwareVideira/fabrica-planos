@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+{#- Um plano assinado, público (rotas/transparencia.py): /transparencia/<id> mostra a versão assinada vigente;
+    /transparencia/<id>/v<n>, uma versão específica (marcada "substituída" se não for a vigente). -#}
+{% set vigente = versao.numero == plano.versao %}
+
+{% block titulo %}{{ plano.disciplina }} ({{ plano.periodo }}) · Transparência{% endblock %}
+
+{% block estilos %}
+{% include '_ds.html' %}
+  <link rel="stylesheet" href="{{ estatico('css/transparencia.css') }}">
+{% endblock %}
+
+{% block corpo %}
+{% with sem_menu=true %}{% include '_cabecalho.html' %}{% endwith %}
+<main id="main">
+  <div class="container-lg py-4 transparencia plano-publico">
+    <nav class="trilha" aria-label="Você está em"><a href="/transparencia"><i class="fas fa-arrow-left" aria-hidden="true"></i> Planos assinados</a></nav>
+    <p class="sobretitulo">Plano de ensino · {{ plano.curso_nome }} · {{ plano.periodo }}</p>
+    <h1>{{ plano.disciplina }}</h1>
+
+    {% if not vigente %}
+    <div class="br-message warning" role="status">
+      <div class="icon"><i class="fas fa-history fa-lg" aria-hidden="true"></i></div>
+      <div class="content"><span class="message-body">Esta é a versão {{ versao.numero }}, substituída pela <a href="/transparencia/{{ plano.id }}">versão {{ plano.versao }}</a>, que é a vigente.</span></div>
+    </div>
+    {% elif plano.em_atualizacao %}
+    <div class="br-message info" role="status">
+      <div class="icon"><i class="fas fa-sync-alt fa-lg" aria-hidden="true"></i></div>
+      <div class="content"><span class="message-body">O docente enviou uma versão nova deste plano, que ainda passa pela revisão e pela assinatura. Até lá, vale esta versão assinada.</span></div>
+    </div>
+    {% endif %}
+
+    <div class="br-card">
+      <div class="card-content">
+        <dl class="dados">
+          <div><dt>Código</dt><dd>{{ plano.codigo or '—' }}</dd></div>
+          <div><dt>Turma</dt><dd>{{ plano.turma }}</dd></div>
+          {% if plano.fase %}<div><dt>Fase</dt><dd>{{ plano.fase }}ª</dd></div>{% endif %}
+          {% if plano.carga_horaria %}<div><dt>Carga horária</dt><dd>{{ plano.carga_horaria }} h</dd></div>{% endif %}
+          <div><dt>Docente{{ 's' if plano.docentes|length > 1 }}</dt><dd>{{ plano.docentes|join(', ') }}</dd></div>
+          <div><dt>Assinado por</dt><dd>{{ versao.signatario or '—' }}{% if versao.assinado_em %}, em {{ versao.assinado_em|data_br }}{% endif %}</dd></div>
+          <div><dt>Versão</dt><dd>{{ versao.numero }}{% if vigente %} (vigente){% else %} (substituída){% endif %}</dd></div>
+        </dl>
+        <div class="acoes-plano">
+          <a class="br-button primary" href="/transparencia/{{ plano.id }}/v{{ versao.numero }}.pdf" target="_blank" rel="noopener"><i class="fas fa-file-pdf" aria-hidden="true"></i> Abrir o PDF assinado</a>
+          <button class="br-button secondary" type="button" id="copiar" data-caminho="/transparencia/{{ plano.id }}{% if not vigente %}/v{{ versao.numero }}{% endif %}"><i class="fas fa-link" aria-hidden="true"></i> Copiar o link</button>
+          <span class="copiado" id="copiado" role="status"></span>
+        </div>
+        <p class="nota">A assinatura digital gov.br do PDF pode ser conferida em <a href="https://validar.iti.gov.br" target="_blank" rel="noopener">validar.iti.gov.br</a>: envie o arquivo baixado.</p>
+      </div>
+    </div>
+  </div>
+</main>
+{% include '_rodape.html' %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.getElementById('copiar').onclick = async e => {
+    const url = location.origin + e.currentTarget.dataset.caminho, aviso = document.getElementById('copiado');
+    try { await navigator.clipboard.writeText(url); aviso.textContent = 'Link copiado.'; }
+    catch { aviso.textContent = url; }
+  };
+</script>
+{% endblock %}

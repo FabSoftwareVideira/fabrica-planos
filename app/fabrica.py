@@ -17,6 +17,7 @@ from .servicos.backup import Backup
 from .servicos.disciplinas import Disciplinas
 from .servicos.planos import PastaDePlanos
 from .servicos.revisao import Revisao
+from .servicos.transparencia import Transparencia
 from .servicos.validador import Validador
 
 
@@ -31,6 +32,7 @@ class Servicos:
     assinaturas: Assinaturas
     backup: Backup
     disciplinas: Disciplinas
+    transparencia: Transparencia = None
 
 
 def criar_app(cfg=None, executar=None):
@@ -50,8 +52,12 @@ def criar_app(cfg=None, executar=None):
     assinaturas = Assinaturas(cfg, revisao, disciplinas)
     backup = Backup(cfg, validador, banco)
     # Atualizar um plano (mesmo assinado) guarda a versão anterior no histórico
-    planos = PastaDePlanos(cfg, validador, revisoes, assinaturas, disciplinas, Versoes(banco, cfg.resultados_dir))
-    app.extensions['servicos'] = Servicos(cfg, validador, planos, usuarios, revisao, assinaturas, backup, disciplinas)
+    versoes = Versoes(banco, cfg.resultados_dir)
+    planos = PastaDePlanos(cfg, validador, revisoes, assinaturas, disciplinas, versoes)
+    # Transparência: os planos assinados, públicos
+    transparencia = Transparencia(cfg, disciplinas.ofertas, usuarios, assinaturas, versoes)
+    app.extensions['servicos'] = Servicos(cfg, validador, planos, usuarios, revisao, assinaturas, backup, disciplinas,
+                                          transparencia)
     paginas.registrar(app)
     rotas.registrar(app)
     if cfg.login_simulado:  # só em desenvolvimento (docker-compose.dev.yml)

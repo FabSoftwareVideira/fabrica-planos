@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+{#- Transparência (rotas/transparencia.py): os planos de ensino assinados, públicos, com filtros por período,
+    curso, fase, docente e disciplina. Formulário GET simples: a busca fica no endereço e pode ser compartilhada. -#}
+
+{% block titulo %}Transparência · Planos de ensino assinados{% endblock %}
+
+{% block estilos %}
+{% include '_ds.html' %}
+  <link rel="stylesheet" href="{{ estatico('css/transparencia.css') }}">
+{% endblock %}
+
+{% block corpo %}
+{% with sem_menu=true %}{% include '_cabecalho.html' %}{% endwith %}
+<main id="main">
+  <div class="container-lg py-4 transparencia">
+    <h1>Planos de ensino assinados</h1>
+    <p class="intro">Consulte os planos de ensino do IFC Campus Videira aprovados pela coordenação, pelo NDE ou pelo NDB e assinados pelos docentes com a conta gov.br. Cada plano tem um endereço próprio, e a assinatura do PDF pode ser conferida em <a href="https://validar.iti.gov.br" target="_blank" rel="noopener">validar.iti.gov.br</a>.</p>
+
+    <form class="br-card filtros-transparencia" method="get" action="/transparencia" role="search" aria-label="Filtrar os planos">
+      <div class="card-content campos">
+        <div class="br-input campo-busca">
+          <label for="q">Disciplina ou código</label>
+          <input id="q" name="q" type="search" value="{{ filtros.q }}" placeholder="Ex.: Banco de Dados ou CCC0715">
+        </div>
+        <div class="br-input">
+          <label for="periodo">Período</label>
+          <select id="periodo" name="periodo">
+            <option value="">Todos</option>
+            {% for per in opcoes.periodos %}<option value="{{ per }}"{% if per == filtros.periodo %} selected{% endif %}>{{ per }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="br-input">
+          <label for="curso">Curso</label>
+          <select id="curso" name="curso">
+            <option value="">Todos</option>
+            {% for sigla, nome in opcoes.cursos %}<option value="{{ sigla }}"{% if sigla == filtros.curso %} selected{% endif %}>{{ nome }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="br-input campo-fase">
+          <label for="fase">Fase</label>
+          <select id="fase" name="fase">
+            <option value="">Todas</option>
+            {% for f in opcoes.fases %}<option value="{{ f }}"{% if f|string == filtros.fase %} selected{% endif %}>{{ f }}ª</option>{% endfor %}
+          </select>
+        </div>
+        <div class="br-input">
+          <label for="docente">Docente</label>
+          <input id="docente" name="docente" list="docentes" value="{{ filtros.docente }}" placeholder="Nome do docente">
+          <datalist id="docentes">{% for d in opcoes.docentes %}<option value="{{ d }}">{% endfor %}</datalist>
+        </div>
+        <div class="botoes">
+          <button class="br-button primary" type="submit"><i class="fas fa-search" aria-hidden="true"></i> Filtrar</button>
+          {% if filtrado %}<a class="br-button secondary" href="/transparencia">Limpar</a>{% endif %}
+        </div>
+      </div>
+    </form>
+
+    <p class="contagem" role="status">
+      {% if planos %}{{ planos|length }} plano{{ 's' if planos|length != 1 }} assinado{{ 's' if planos|length != 1 }}{% if filtrado %} com esses filtros{% endif %}
+      {% elif filtrado %}Nenhum plano assinado com esses filtros.
+      {% else %}Ainda não há planos assinados publicados.{% endif %}
+    </p>
+
+    {% if planos %}
+    <ul class="lista-planos">
+      {% for p in planos %}
+      <li>
+        <div class="ident">
+          <a class="disciplina" href="/transparencia/{{ p.id }}">{{ p.disciplina }}</a>
+          <span class="meta">{{ p.codigo or 'Sem código' }} · Turma {{ p.turma }}{% if p.fase %} · {{ p.fase }}ª fase{% endif %} · {{ p.curso_nome }} · {{ p.periodo }}</span>
+          <span class="meta">Docente{{ 's' if p.docentes|length > 1 }}: {{ p.docentes|join(', ') }}</span>
+        </div>
+        <div class="situacao">
+          <span class="assinado"><i class="fas fa-file-signature" aria-hidden="true"></i> Assinado{% if p.assinado_em %} em {{ p.assinado_em|data_br }}{% endif %}</span>
+          {% if p.em_atualizacao %}<span class="atualizando" title="O docente enviou uma versão nova, que ainda não foi assinada; vale a versão assinada abaixo">Em atualização</span>{% endif %}
+        </div>
+        <a class="br-button secondary small pdf" href="/transparencia/{{ p.id }}.pdf" target="_blank" rel="noopener" aria-label="PDF assinado do plano de {{ p.disciplina }}, turma {{ p.turma }}, {{ p.periodo }}"><i class="fas fa-file-pdf" aria-hidden="true"></i> PDF</a>
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </div>
+</main>
+{% include '_rodape.html' %}
+{% endblock %}

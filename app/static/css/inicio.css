@@ -35,3 +35,7 @@
 .logins{scroll-margin-top:120px;border-radius:var(--surface-rounder-md)}
 .logins:target{animation:destaca-login 1.6s ease-out}
 @keyframes destaca-login{0%,40%{box-shadow:0 0 0 6px var(--interactive-light)}100%{box-shadow:0 0 0 6px transparent}}
+
+/* Link para a área de transparência (pública), abaixo dos botões de login */
+.consulta-publica{margin:var(--spacing-scale-3x) auto 0;font-size:var(--font-size-scale-down-01);color:var(--gray-60)}
+.consulta-publica a{font-weight:var(--font-weight-semi-bold)}
