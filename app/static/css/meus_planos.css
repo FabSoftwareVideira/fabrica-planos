@@ -56,3 +56,6 @@ h2{font-size:var(--font-size-scale-up-02);margin:0}
 .ajuda-envio p{margin:var(--spacing-scale-base) 0 0;max-width:80ch}
 .msg.aviso{color:#8a6d00}
 .versao .protegida{display:inline-flex;align-items:center;gap:4px;color:#168821;font-weight:var(--font-weight-semi-bold);cursor:help}
+/* Assinatura bloqueada pelo nível da conta gov.br (bronze ou desconhecido) */
+.assinatura .aviso-nivel{display:flex;gap:var(--spacing-scale-base);align-items:baseline}
+.assinatura .aviso-nivel .fa-exclamation-triangle{color:#8a6100}

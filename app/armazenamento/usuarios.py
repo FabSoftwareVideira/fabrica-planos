@@ -29,14 +29,19 @@ CREATE TABLE IF NOT EXISTS papeis_curso (
 """
 
 # Conta gov.br vinculada ao usuário: quem tem e-mail pessoal no gov.br entra pelo CPF. Guarda só um HMAC
-# do CPF (rotas/govbr.py: _chave_cpf), nunca o número; uma conta gov.br por usuário e vice-versa.
+# do CPF (rotas/govbr.py: _chave_cpf), nunca o número; uma conta gov.br por usuário e vice-versa. `nivel`:
+# o nível da conta (bronze, prata ou ouro) informado pelo gov.br no último login ou vínculo; assinar pela API
+# exige prata ou ouro.
 ESQUEMA_GOVBR = """
 CREATE TABLE IF NOT EXISTS vinculos_govbr (
     chave_cpf TEXT PRIMARY KEY,
     email TEXT NOT NULL UNIQUE,
-    vinculado_em TEXT NOT NULL
+    vinculado_em TEXT NOT NULL,
+    nivel TEXT NOT NULL DEFAULT ''
 )
 """
+# Tabela criada antes da coluna nivel
+MIGRACAO_GOVBR = "ALTER TABLE vinculos_govbr ADD COLUMN IF NOT EXISTS nivel TEXT NOT NULL DEFAULT ''"
 
 PAPEIS_CURSO = {'coordenador': 'Coordenação', 'nde': 'NDE', 'ndb': 'NDB'}
 
@@ -64,6 +69,7 @@ class Usuarios:
             con.execute(ESQUEMA)
             con.execute(ESQUEMA_PAPEIS)
             con.execute(ESQUEMA_GOVBR)
+            con.execute(MIGRACAO_GOVBR)
 
     def _conexao(self):
         return self.banco.conexao()
@@ -94,12 +100,23 @@ class Usuarios:
 
     # Vínculo com a conta gov.br --------------------------------------------------------------------
 
-    def vincular_govbr(self, chave_cpf, email):
+    def vincular_govbr(self, chave_cpf, email, nivel=''):
         """Liga a conta gov.br (pela chave do CPF) ao e-mail; desfaz o vínculo anterior de cada um."""
         with self._trava, self._conexao() as con:
             con.execute('DELETE FROM vinculos_govbr WHERE chave_cpf = %s OR email = %s', (chave_cpf, email))
-            con.execute('INSERT INTO vinculos_govbr (chave_cpf, email, vinculado_em) VALUES (%s, %s, %s)',
-                        (chave_cpf, email, _agora()))
+            con.execute('INSERT INTO vinculos_govbr (chave_cpf, email, vinculado_em, nivel) VALUES (%s, %s, %s, %s)',
+                        (chave_cpf, email, _agora(), nivel or ''))
+
+    def definir_nivel_govbr(self, chave_cpf, nivel):
+        """Atualiza o nível da conta gov.br vinculada (a cada login com gov.br)."""
+        with self._trava, self._conexao() as con:
+            con.execute('UPDATE vinculos_govbr SET nivel = %s WHERE chave_cpf = %s', (nivel or '', chave_cpf))
+
+    def nivel_govbr(self, email):
+        """Nível da conta gov.br vinculada ao usuário ('bronze', 'prata', 'ouro'), ou '' se não se sabe."""
+        with self._conexao() as con:
+            linha = con.execute('SELECT nivel FROM vinculos_govbr WHERE email = %s', (email,)).fetchone()
+        return linha['nivel'] if linha else ''
 
     def email_do_govbr(self, chave_cpf):
         with self._conexao() as con:

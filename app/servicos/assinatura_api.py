@@ -38,6 +38,22 @@ CARIMBO = TextStampStyle(
     timestamp_format='%d/%m/%Y %H:%M:%S %z', border_width=1)
 
 
+UPGRADE_URL = 'https://confiabilidades.acesso.gov.br/'
+# Mensagens do bloqueio antes da autorização (roteiro da assinatura: conta bronze não chega à autorização)
+MENSAGEM_BRONZE = ('É necessário possuir conta gov.br nível prata ou ouro para utilizar o serviço de assinatura. '
+                   f'Eleve o nível da sua conta em {UPGRADE_URL} e entre de novo com gov.br.')
+MENSAGEM_SEM_NIVEL = ('Para assinar pelo app, entre com gov.br ou vincule a sua conta gov.br (no seu perfil): '
+                      'a assinatura exige conta nível prata ou ouro, e o app confere o nível antes de assinar.')
+
+
+def pode_assinar(cfg, nivel):
+    """'ok', 'bronze' ou 'sem_nivel' (o nível da conta gov.br do usuário não é conhecido). Só se confere com
+    o login gov.br configurado (é ele que informa o nível) e fora da assinatura simulada."""
+    if cfg.assinatura_ambiente == 'simulada' or not cfg.govbr_ativo or nivel in ('prata', 'ouro'):
+        return 'ok'
+    return 'bronze' if nivel == 'bronze' else 'sem_nivel'
+
+
 class FalhaApi(Exception):
     """A API do gov.br não assinou; a mensagem diz por quê, para o professor."""
 

@@ -35,7 +35,10 @@ COOKIE_LOGIN = '_planos_govbr_login'  # state, nonce e verificador PKCE durante 
 COOKIE_GOOGLE = '_planos_login'
 DURACAO_SESSAO = 12 * 3600
 DURACAO_LOGIN = 10 * 60
-ESCOPOS = 'openid email profile'
+# govbr_confiabilidades_idtoken: o ID token traz o nível da conta (reliability_info.level), para bloquear a
+# assinatura de contas bronze antes da autorização no gov.br (exigência do roteiro da assinatura)
+ESCOPOS = 'openid email profile govbr_confiabilidades_idtoken'
+NIVEIS = {'bronze': 'bronze', 'silver': 'prata', 'gold': 'ouro'}
 
 
 def _serializador(sal):
@@ -69,6 +72,12 @@ def _claims(id_token):
         return json.loads(base64.urlsafe_b64decode(carga + '=' * (-len(carga) % 4)))
     except (IndexError, ValueError, AttributeError):
         return None
+
+
+def _nivel(claims):
+    """Nível da conta no ID token: 'bronze', 'prata', 'ouro' ou '' (não informado)."""
+    info = claims.get('reliability_info')
+    return NIVEIS.get(str(info.get('level') or '').lower(), '') if isinstance(info, dict) else ''
 
 
 def sessao():
@@ -179,22 +188,25 @@ def callback():
         log.warning('ID token do gov.br recusado (emissor, público, nonce ou validade)')
         return _recusa('A resposta do gov.br não pôde ser confirmada. Tente entrar de novo.', 400)
     cpf = str(claims.get('sub') or '').strip()
+    nivel = _nivel(claims)
     usuarios = servicos().usuarios
     resp = redirect(estado['rd'], 302)
     resp.delete_cookie(COOKIE_LOGIN, path='/')
     if estado.get('vincular'):
         if not cpf:
             return _recusa('O gov.br não informou a conta. Tente vincular de novo.', 400)
-        usuarios.vincular_govbr(_chave_cpf(cpf), estado['vincular'])
-        log.info('Conta gov.br vinculada a %s', estado['vincular'])
+        usuarios.vincular_govbr(_chave_cpf(cpf), estado['vincular'], nivel)
+        log.info('Conta gov.br vinculada a %s (nível %s)', estado['vincular'], nivel or 'não informado')
         return resp
     endereco = str(claims.get('email') or '').strip().lower()
     verificado = claims.get('email_verified') in (True, 'true')
     if endereco.rpartition('@')[2] == cfg.email_dominio and verificado:
         if cpf:  # o próximo login segue valendo mesmo se o e-mail do gov.br mudar
-            usuarios.vincular_govbr(_chave_cpf(cpf), endereco)
+            usuarios.vincular_govbr(_chave_cpf(cpf), endereco, nivel)
     else:
         endereco = usuarios.email_do_govbr(_chave_cpf(cpf)) if cpf else None
+        if endereco:
+            usuarios.definir_nivel_govbr(_chave_cpf(cpf), nivel)
         if not endereco:
             log.info('Login gov.br recusado: e-mail fora do domínio ou não verificado, e conta não vinculada')
             if cfg.login_google:

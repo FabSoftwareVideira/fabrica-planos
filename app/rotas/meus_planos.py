@@ -6,7 +6,7 @@ from flask import Blueprint, render_template, request, send_file
 
 from ..avaliacao import pipeline
 from ..paginas import meus_planos
-from ..servicos import assinatura, revisao
+from ..servicos import assinatura, assinatura_api, revisao
 from ..servicos.planos import NaoEncontrado, Ocupado, Proibido, Protegido, Recusado, versao_protegida
 from .comum import email, json_, nome as nome_usuario, ocupado, servicos, texto
 
@@ -25,8 +25,10 @@ def _dono():
 @bp.get('')
 def pagina():
     cfg = servicos().cfg
+    nivel = assinatura_api.pode_assinar(cfg, servicos().usuarios.nivel_govbr(email())) if email() else 'ok'
     return render_template('meus_planos.html', **meus_planos.contexto(
-        email(), cfg.pdf_max_mb, cfg.assinatura_api_ativa, homologacao=cfg.assinatura_ambiente == 'homologacao'))
+        email(), cfg.pdf_max_mb, cfg.assinatura_api_ativa, homologacao=cfg.assinatura_ambiente == 'homologacao',
+        nivel=nivel))
 
 
 @bp.get('/lista')

@@ -54,6 +54,11 @@ def iniciar():
     if not pipeline.nome_valido(nome) or not s.assinaturas.liberado(nome, _usuario()):
         return _voltar(assinatura='erro', arquivo=nome,
                        motivo='Só quem enviou o plano o assina, e só depois de aprovado na revisão.')
+    # Conta bronze (ou de nível desconhecido) não vai à tela de autorização do gov.br
+    situacao = assinatura_api.pode_assinar(s.cfg, s.usuarios.nivel_govbr(_usuario()))
+    if situacao != 'ok':
+        return _voltar(assinatura='erro', arquivo=nome, motivo=assinatura_api.MENSAGEM_BRONZE
+                       if situacao == 'bronze' else assinatura_api.MENSAGEM_SEM_NIVEL)
     estado = {'state': secrets.token_urlsafe(24), 'nonce': secrets.token_urlsafe(24), 'arquivo': nome,
               'email': _usuario()}
     resp = redirect(cliente.url_autorizacao(_redirect_uri(), estado['state'], estado['nonce']), 302)

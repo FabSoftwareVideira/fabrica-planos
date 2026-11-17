@@ -86,6 +86,8 @@ As credenciais de homologação da API de Assinatura Eletrônica chegam num arqu
 4. Crie uma conta de teste em [sso.staging.acesso.gov.br](https://sso.staging.acesso.gov.br). Se o nome do certificado não for o do professor nem o de um docente do plano, a assinatura é aceita com um alerta. Em **Meus planos**, num plano aprovado, use **Assinar com gov.br**. O código do SMS pode ser `12345`.
 5. Confira o PDF assinado em [validar.staging.iti.br](https://validar.staging.iti.br): as assinaturas de homologação só são reconhecidas lá (validar.iti.gov.br e h-validar.iti.gov.br não conhecem a cadeia de teste HOM). Ele e um vídeo curto do fluxo (até 4 minutos e 10 MB) são pedidos para liberar as credenciais de produção.
 
+**Conta bronze:** o roteiro exige que conta bronze não chegue à tela de autorização da assinatura. O login gov.br pede o escopo `govbr_confiabilidades_idtoken`, e o app guarda o nível da conta (bronze, prata ou ouro) junto do vínculo gov.br, a cada login ou vínculo. Em **Meus planos**, com conta bronze, o botão **Assinar com gov.br** dá lugar ao aviso de que é preciso conta prata ou ouro, com o link para [confiabilidades.acesso.gov.br](https://confiabilidades.acesso.gov.br/); quem entrou pelo Google e não vinculou a conta gov.br vê o convite para vinculá-la. Isso só vale com o login gov.br configurado.
+
 As assinaturas de homologação são de teste e não têm validade jurídica. Com as credenciais de produção, troque o cliente e o segredo e use `GOVBR_ASSINATURA_AMBIENTE=producao` (ou vazio). As assinaturas feitas em homologação continuam registradas nos planos: limpe esses dados de teste antes de abrir o sistema aos professores.
 
 #### Ollama e acesso por outros projetos

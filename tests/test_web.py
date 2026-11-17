@@ -1194,7 +1194,7 @@ def test_login_govbr_com_email_institucional(fabrica, monkeypatch):
     c, _ = fabrica(**GOVBR)
     assert c.get('/auth/verificar').status_code == 401
     ida, volta, pedidos = _login_govbr(c, monkeypatch)
-    assert ida['code_challenge_method'] == ['S256'] and ida['scope'] == ['openid email profile']
+    assert ida['code_challenge_method'] == ['S256'] and ida['scope'] == ['openid email profile govbr_confiabilidades_idtoken']
     assert ida['redirect_uri'] == ['https://planos.labia.ifc.edu.br/auth/govbr/callback']
     assert volta.status_code == 302 and volta.headers['Location'] == '/meus-planos'
     url, kw = pedidos[0]
@@ -1583,3 +1583,42 @@ def test_retorno_cadastrado_no_govbr_repassa_ao_callback(fabrica):
     r = c.get('/auth/govbr/assinatura/callback?state=abc&code=OC-1')  # público: sem login
     assert r.status_code == 302 and r.headers['Location'] == '/assinatura/govbr/callback?state=abc&code=OC-1'
     assert c.get('/auth/govbr/assinatura/callback').headers['Location'] == '/assinatura/govbr/callback'
+
+
+def test_login_govbr_guarda_o_nivel_da_conta(fabrica, monkeypatch):
+    c, _ = fabrica(**GOVBR)
+    _login_govbr(c, monkeypatch, reliability_info={'level': 'silver', 'reliabilities': []})
+    usuarios = _servicos(c).usuarios
+    assert usuarios.nivel_govbr('fulano@ifc.edu.br') == 'prata'
+    _login_govbr(c, monkeypatch, reliability_info={'level': 'bronze'})
+    assert usuarios.nivel_govbr('fulano@ifc.edu.br') == 'bronze'
+    _login_govbr(c, monkeypatch)  # sem a informação: fica "não se sabe"
+    assert usuarios.nivel_govbr('fulano@ifc.edu.br') == ''
+    assert usuarios.nivel_govbr('ninguem@ifc.edu.br') == ''
+
+
+def test_conta_bronze_nao_chega_a_autorizacao_da_assinatura(fabrica, tmp_path, monkeypatch):
+    """Roteiro da assinatura gov.br: com conta bronze (ou de nível desconhecido), "Assinar com gov.br" não leva
+    à tela de autorização; a página avisa e dá o link para elevar o nível."""
+    c, dono = _aprovado_para_assinar(fabrica, tmp_path, assinatura_client_id='cli', assinatura_client_secret='seg',
+                                     segredo_sessao='chave', assinatura_ambiente='homologacao',
+                                     govbr_client_id='cliente', govbr_client_secret='segredo',
+                                     assinatura_oauth_url='https://cas.staging.iti.br/oauth2.0',
+                                     assinatura_api_url='https://assinatura-api.staging.iti.br/externo/v2')
+    usuarios = _servicos(c).usuarios
+
+    def ir():
+        return c.get('/assinatura/govbr/iniciar?arquivo=web.pdf', headers=dono)
+    assert 'ASSINATURA_NIVEL = "sem_nivel"' in c.get('/meus-planos', headers=dono).get_data(as_text=True)
+    r = ir()
+    assert r.status_code == 303 and 'vincule' in _resultado(r)['motivo']
+
+    usuarios.vincular_govbr('chave-cpf', 'fulano@ifc.edu.br', 'bronze')
+    assert 'ASSINATURA_NIVEL = "bronze"' in c.get('/meus-planos', headers=dono).get_data(as_text=True)
+    motivo = _resultado(ir())['motivo']
+    assert 'prata ou ouro' in motivo and 'https://confiabilidades.acesso.gov.br/' in motivo
+
+    usuarios.definir_nivel_govbr('chave-cpf', 'ouro')
+    assert 'ASSINATURA_NIVEL = "ok"' in c.get('/meus-planos', headers=dono).get_data(as_text=True)
+    r = ir()
+    assert r.status_code == 302 and r.headers['Location'].startswith('https://cas.staging.iti.br/oauth2.0/authorize?')
