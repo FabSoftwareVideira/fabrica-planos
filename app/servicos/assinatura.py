@@ -255,14 +255,17 @@ class Assinaturas:
         except PdfIlegivel:
             titular = nome_usuario
         acs = []
+        # Nome do carimbo: o do certificado do professor, se a API o informar
+        certificado = cliente.certificado(token)
+        nome_carimbo = (signatario(certificado)[0] if certificado else '') or titular
 
         def assinar_hash(digest):
             cms_der = cliente.assinar_hash(token, digest, titular)
             acs.extend(cliente.acs_confiaveis(cms_der))
-            return cms_der
+            return assinatura_api.com_cadeia(cms_der, cliente.cadeia(cms_der))
 
         try:
-            pdf_assinado = assinatura_api.assinar_pdf(original, assinar_hash)
+            pdf_assinado = assinatura_api.assinar_pdf(original, assinar_hash, nome_carimbo)
         except assinatura_api.FalhaApi:
             raise
         except Exception as erro:  # PDF que o pyHanko não consegue preparar para assinar

@@ -5,6 +5,16 @@ import pytest
 
 
 @pytest.fixture(autouse=True)
+def sem_rede(monkeypatch):
+    """Nenhum teste vai à internet: requests.get falha, a menos que o teste o troque por uma resposta falsa."""
+    import requests
+
+    def bloqueado(url, *a, **kw):
+        raise requests.ConnectionError(f'rede desligada nos testes: {url}')
+    monkeypatch.setattr(requests, 'get', bloqueado)
+
+
+@pytest.fixture(autouse=True)
 def banco_isolado(monkeypatch):
     """Cada teste usa um esquema próprio do PostgreSQL apontado por TEST_DATABASE_URL, apagado ao final.
     Sem a variável, os testes que sobem o app falham (os demais rodam normalmente)."""

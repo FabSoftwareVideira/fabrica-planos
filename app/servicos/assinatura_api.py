@@ -6,12 +6,14 @@ from datetime import datetime, timedelta, timezone
 from urllib.parse import urlencode
 
 import requests
-from asn1crypto import cms
+from asn1crypto import cms, pem, x509
 from pyhanko.pdf_utils.incremental_writer import IncrementalPdfFileWriter
 from pyhanko.pdf_utils.reader import PdfFileReader
 from pyhanko.sign import fields
-from pyhanko.sign.signers.cms_embedder import PdfCMSEmbedder, SigIOSetup, SigMDPSetup, SigObjSetup
+from pyhanko.sign.signers.cms_embedder import (PdfCMSEmbedder, SigAppearanceSetup, SigIOSetup, SigMDPSetup,
+                                                SigObjSetup)
 from pyhanko.sign.signers.pdf_byterange import SignatureObject
+from pyhanko.stamp import TextStampStyle
 
 log = logging.getLogger(__name__)
 
@@ -21,32 +23,51 @@ log = logging.getLogger(__name__)
 #   2. o código que volta é trocado por um token (/token), que vale 10 minutos e uma assinatura;
 #   3. o app reserva no PDF o espaço da assinatura e calcula o hash SHA-256 dos trechos cobertos (ByteRange);
 #   4. POST /assinarPKCS7 com {"hashBase64": ...} devolve o PKCS#7 (CMS) com o certificado do professor;
-#   5. o CMS é gravado no espaço reservado, e o PDF segue para a conferência de sempre (assinatura.py).
+#   5. o CMS, com a cadeia do certificado acrescentada (a API manda só o do professor), é gravado no espaço
+#      reservado, e o PDF segue para a conferência de sempre (assinatura.py).
+# A assinatura tem um carimbo visível na última página, com o nome do certificado (GET /certificadoPublico).
 
 ESCOPO = 'sign govbr'  # uma assinatura, com o certificado do gov.br
-RESERVA_CMS = 16384  # bytes reservados no PDF para o CMS (certificado e cadeia cabem com folga)
+RESERVA_CMS = 32768  # bytes reservados no PDF para o CMS (certificado e cadeia cabem com folga)
 CAMPO = 'AssinaturaGovBr'
+# Carimbo da assinatura: na última página, logo acima do rodapé do SIGAA (x1, y1, x2, y2, em pontos a partir do canto inferior esquerdo)
+CAIXA_CARIMBO = (40, 100, 330, 160)
+CARIMBO = TextStampStyle(
+    stamp_text='Documento assinado digitalmente com gov.br\n%(signer)s\nData: %(ts)s\n'
+               'Verifique em https://validar.iti.gov.br',
+    timestamp_format='%d/%m/%Y %H:%M:%S %z', border_width=1)
 
 
 class FalhaApi(Exception):
     """A API do gov.br não assinou; a mensagem diz por quê, para o professor."""
 
 
-def assinar_pdf(pdf, assinar_hash):
+def assinar_pdf(pdf, assinar_hash, nome='', momento=None):
     """Devolve o PDF (bytes) com a assinatura embutida. `assinar_hash(digest)` recebe o SHA-256 dos trechos
-    cobertos pela assinatura e devolve o CMS (DER) que o assinador remoto produziu sobre ele.
+    cobertos pela assinatura e devolve o CMS (DER) que o assinador remoto produziu sobre ele. `nome` e
+    `momento` vão no carimbo visível, na última página.
 
     A assinatura é acrescentada ao final do arquivo (atualização incremental), então o original fica
-    intacto antes dela. Sendo a primeira do documento, ela certifica o PDF (DocMDP P=2: só preencher
-    formulários e assinar), como recomenda o manual do gov.br."""
-    ja_assinado = bool(PdfFileReader(io.BytesIO(pdf), strict=False).embedded_signatures)
+    intacto antes dela. Sendo a primeira do documento, ela certifica o PDF como recomenda o manual do gov.br:
+    /Reference com DocMDP P=2 (só preencher formulários e assinar) no dicionário da assinatura, sem /M e sem
+    /Perms no catálogo (que o manual desaconselha, por compatibilidade com o Adobe)."""
+    leitor = PdfFileReader(io.BytesIO(pdf), strict=False)
+    ja_assinado = bool(leitor.embedded_signatures)
+    ultima = int(leitor.root['/Pages']['/Count']) - 1
     buffer = io.BytesIO(pdf)
     escritor = IncrementalPdfFileWriter(buffer, strict=False)
-    etapas = PdfCMSEmbedder().write_cms(field_name=CAMPO, writer=escritor)
+    fields.append_signature_field(escritor, fields.SigFieldSpec(CAMPO, on_page=ultima, box=CAIXA_CARIMBO))
+    etapas = PdfCMSEmbedder().write_cms(field_name=CAMPO, writer=escritor, existing_fields_only=True)
     next(etapas)
     mdp = SigMDPSetup(md_algorithm='sha256', certify=not ja_assinado,
                       docmdp_perms=None if ja_assinado else fields.MDPPerm.FILL_FORMS)
-    etapas.send(SigObjSetup(sig_placeholder=SignatureObject(bytes_reserved=RESERVA_CMS), mdp_setup=mdp))
+    aparencia = SigAppearanceSetup(style=CARIMBO, timestamp=momento or datetime.now().astimezone(),
+                                   name=nome or 'Signatário gov.br')
+    etapas.send(SigObjSetup(sig_placeholder=SignatureObject(bytes_reserved=RESERVA_CMS), mdp_setup=mdp,
+                            appearance_setup=aparencia))
+    if '/Perms' in escritor.root:
+        del escritor.root['/Perms']
+        escritor.update_root()
     digest, saida = etapas.send(SigIOSetup(md_algorithm='sha256', in_place=True))
     cms_der = assinar_hash(digest.document_digest)
     if len(cms_der) > RESERVA_CMS:
@@ -91,6 +112,47 @@ def acs_do_cms(cms_der):
     return [c for c in certificados_do_cms(cms_der) if c.ca]
 
 
+def com_cadeia(cms_der, cadeia):
+    """O CMS com os certificados da `cadeia` que ainda não estão nele. Os certificados ficam fora da parte
+    assinada do CMS: acrescentá-los não muda a assinatura, e os validadores (validar.iti.gov.br) precisam
+    deles para chegar à AC raiz."""
+    if not cadeia:
+        return cms_der
+    info = cms.ContentInfo.load(cms_der)
+    dados = info['content']
+    atuais = list(dados['certificates'] or [])
+    ja = {c.chosen.sha256 for c in atuais if c.name == 'certificate'}
+    novos = [cms.CertificateChoices(name='certificate', value=c) for c in cadeia if c.sha256 not in ja]
+    if not novos:
+        return cms_der
+    dados['certificates'] = cms.CertificateSet(atuais + novos)
+    return info.dump(force=True)
+
+
+def certificados_de(conteudo):
+    """Certificados de um arquivo .p7b (DER ou PEM), como a cadeia publicada pelo ITI, ou de um PEM/DER."""
+    blocos = [b for _, _, b in pem.unarmor(conteudo, multiple=True)] if pem.detect(conteudo) else [conteudo]
+    saida = []
+    for bloco in blocos:
+        try:
+            certs = cms.ContentInfo.load(bloco)['content']['certificates'] or []
+            saida += [c.chosen for c in certs if c.name == 'certificate']
+        except (ValueError, KeyError, TypeError):
+            try:
+                saida.append(x509.Certificate.load(bloco))
+            except (ValueError, TypeError):
+                pass
+    return saida
+
+
+def _aia(certificado):
+    """Endereços 'ca_issuers' do certificado (onde o emissor publica a cadeia)."""
+    for ext in certificado['tbs_certificate']['extensions'] or []:
+        if ext['extn_id'].native == 'authority_information_access':
+            return [d['access_location'] for d in ext['extn_value'].native if d['access_method'] == 'ca_issuers']
+    return []
+
+
 def _motivo_403(texto):
     """A recusa do gov.br (403) para o professor: conta bronze ou CPF irregular, conforme o manual."""
     texto = (texto or '').lower()
@@ -106,6 +168,8 @@ def _motivo_403(texto):
 
 class ApiGovbr:
     """Cliente da API de Assinatura Eletrônica do gov.br (homologação ou produção)."""
+
+    _cadeias = {}  # cadeias já baixadas, por endereço (valem para todo o processo)
 
     def __init__(self, cfg):
         self.cfg = cfg
@@ -142,6 +206,33 @@ class ApiGovbr:
             raise FalhaApi('A API de assinatura do gov.br recusou o pedido. Tente assinar de novo.')
         return ler_cms(r.content)
 
+    def certificado(self, token):
+        """O certificado do professor (GET /certificadoPublico), para o nome no carimbo; None se falhar."""
+        try:
+            r = requests.get(self.cfg.assinatura_api_url + '/certificadoPublico', timeout=15,
+                             headers={'Authorization': 'Bearer ' + token})
+            r.raise_for_status()
+            return next(iter(certificados_de(r.content)), None)
+        except requests.RequestException as erro:
+            log.warning('Assinatura gov.br: falha ao obter o certificado do professor: %s', erro)
+            return None
+
+    def cadeia(self, cms_der):
+        """As ACs do certificado do professor, baixadas do endereço indicado nele (AIA, no repositório do
+        ITI), para irem junto da assinatura. Vazia se não der para baixar."""
+        folhas = [c for c in certificados_do_cms(cms_der) if not c.ca]
+        for url in (_aia(folhas[0]) if folhas else []):
+            if url not in self._cadeias:
+                try:
+                    r = requests.get(url, timeout=15)
+                    r.raise_for_status()
+                    self._cadeias[url] = [c for c in certificados_de(r.content) if c.ca]
+                except requests.RequestException as erro:
+                    log.warning('Assinatura gov.br: falha ao baixar a cadeia em %s: %s', url, erro)
+                    continue
+            return self._cadeias[url]
+        return []
+
     def acs_confiaveis(self, cms_der):
         """Em homologação, as ACs de teste do ITI não estão em app/certificados: confia nas que vieram no
         CMS, que chegou direto da API do ITI por HTTPS, ou, se a API mandou só o certificado do professor
@@ -168,6 +259,17 @@ class ApiSimulada:
 
     def token(self, codigo, redirect_uri):
         return 'simulado'
+
+    def certificado(self, token):
+        return None
+
+    def cadeia(self, cms_der):
+        return [self.ac_asn1()]
+
+    @classmethod
+    def ac_asn1(cls):
+        from cryptography.hazmat.primitives.serialization import Encoding
+        return x509.Certificate.load(cls.ac()[0].public_bytes(Encoding.DER))
 
     @classmethod
     def ac(cls):

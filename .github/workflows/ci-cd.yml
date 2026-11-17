@@ -5,8 +5,11 @@
 name: CI/CD
 
 on:
-  push:
-    branches: [master]
+  # push:
+  #   branches: [master]
+  # tag
+  tags:
+    - 'v*'
   pull_request:
   # Botão "Run workflow" na aba Actions, para reimplantar sem novo commit
   workflow_dispatch:

@@ -175,3 +175,91 @@ def test_homologacao_sem_a_cadeia_no_cms_confia_no_certificado_do_professor(capl
     assert [c.subject for c in acs] == [folha.subject] and 'FULANO DE TAL' in caplog.text
     assert assinatura.verificar(pdf, PDF_COM_TEXTO, acs)['cpf'] == '12345678901'
     assert ApiGovbr(_cfg(assinatura_ambiente='producao')).acs_confiaveis(cmss[0]) == []
+
+
+def _cert_com_aia(url):
+    """Certificado de professor (emitido pela AC simulada) com o endereço da cadeia (AIA)."""
+    from cryptography import x509 as cx509
+    from cryptography.hazmat.primitives import hashes
+    from cryptography.hazmat.primitives.asymmetric import ec
+    from cryptography.x509.oid import AuthorityInformationAccessOID, NameOID
+    from datetime import datetime, timedelta, timezone
+    ac, ac_chave = ApiSimulada.ac()
+    chave = ec.generate_private_key(ec.SECP256R1())
+    agora = datetime.now(timezone.utc)
+    return (cx509.CertificateBuilder()
+            .subject_name(cx509.Name([cx509.NameAttribute(NameOID.COMMON_NAME, 'MARIA DA SILVA:12345678901')]))
+            .issuer_name(ac.subject).public_key(chave.public_key()).serial_number(cx509.random_serial_number())
+            .not_valid_before(agora - timedelta(hours=1)).not_valid_after(agora + timedelta(days=1))
+            .add_extension(cx509.AuthorityInformationAccess([cx509.AccessDescription(
+                AuthorityInformationAccessOID.CA_ISSUERS, cx509.UniformResourceIdentifier(url))]), critical=False)
+            .sign(ac_chave, hashes.SHA256()))
+
+
+def test_cadeia_baixada_do_aia_vai_junto_da_assinatura(monkeypatch):
+    from asn1crypto import x509 as asn1_x509
+    from cryptography.hazmat.primitives.serialization import Encoding, pkcs7
+    url = 'http://repo.exemplo/cadeia-teste.p7b'
+    folha = asn1_x509.Certificate.load(_cert_com_aia(url).public_bytes(Encoding.DER))
+    p7b = pkcs7.serialize_certificates([ApiSimulada.ac()[0]], Encoding.DER)
+    pedidos = []
+    monkeypatch.setattr(requests, 'get', lambda u, **kw: (pedidos.append(u), _resposta(conteudo=p7b))[1])
+    cms_so_folha = assinatura_api.com_cadeia(ApiSimulada(_cfg()).assinar_hash('t', b'0' * 32), [])
+    from asn1crypto import cms
+    info = cms.ContentInfo.load(cms_so_folha)
+    info['content']['certificates'] = cms.CertificateSet([cms.CertificateChoices(name='certificate', value=folha)])
+    cms_der = info.dump(force=True)
+    api = ApiGovbr(_cfg())
+    cadeia = api.cadeia(cms_der)
+    assert [c.subject for c in cadeia] == [ApiSimulada.ac_asn1().subject] and pedidos == [url]
+    api.cadeia(cms_der)
+    assert pedidos == [url]  # baixada uma vez só
+    completo = assinatura_api.com_cadeia(cms_der, cadeia)
+    assert len(assinatura_api.certificados_do_cms(completo)) == 2
+    assert assinatura_api.com_cadeia(completo, cadeia) == completo  # nada repetido
+
+
+def test_cadeia_sem_aia_ou_fora_do_ar(monkeypatch):
+    def fora(u, **kw):
+        raise requests.ConnectionError('fora')
+    monkeypatch.setattr(requests, 'get', fora)
+    from asn1crypto import x509 as asn1_x509
+    from cryptography.hazmat.primitives.serialization import Encoding
+    folha = asn1_x509.Certificate.load(_cert_com_aia('http://repo.exemplo/outra.p7b').public_bytes(Encoding.DER))
+    from asn1crypto import cms
+    info = cms.ContentInfo.load(ApiSimulada(_cfg()).assinar_hash('t', b'0' * 32))
+    info['content']['certificates'] = cms.CertificateSet([cms.CertificateChoices(name='certificate', value=folha)])
+    assert ApiGovbr(_cfg()).cadeia(info.dump(force=True)) == []
+    assert ApiGovbr(_cfg()).cadeia(b'nao e cms') == []
+
+
+def test_certificado_do_professor(monkeypatch):
+    from cryptography.hazmat.primitives.serialization import Encoding
+    pem = _cert_com_aia('http://x').public_bytes(Encoding.PEM)
+    pedidos = []
+    monkeypatch.setattr(requests, 'get', lambda u, **kw: (pedidos.append((u, kw)), _resposta(conteudo=pem))[1])
+    cert = ApiGovbr(_cfg()).certificado('tok')
+    assert assinatura.signatario(cert) == ('MARIA DA SILVA', '12345678901')
+    assert pedidos[0][0] == 'https://api.exemplo/v2/certificadoPublico'
+    assert pedidos[0][1]['headers']['Authorization'] == 'Bearer tok'
+    monkeypatch.setattr(requests, 'get', lambda u, **kw: _resposta(status=401))
+    assert ApiGovbr(_cfg()).certificado('tok') is None
+    assert assinatura_api.certificados_de(b'lixo') == []
+
+
+def test_pdf_assinado_como_recomenda_o_manual():
+    """Primeira assinatura: /Reference com DocMDP P=2, sem /Perms nem /M; carimbo visível na última página."""
+    import io
+    import re
+    from pyhanko.pdf_utils.reader import PdfFileReader
+    api = ApiSimulada(_cfg())
+    pdf = assinatura_api.assinar_pdf(PDF_COM_TEXTO, lambda d: api.assinar_hash('t', d), 'MARIA DA SILVA')
+    novo = pdf[len(PDF_COM_TEXTO):]
+    assert pdf.startswith(PDF_COM_TEXTO) and b'/Perms' not in novo and b'/DocMDP' in novo
+    assert not re.search(rb'/M\s*\(', novo)
+    leitor = PdfFileReader(io.BytesIO(pdf), strict=False)
+    [sig] = leitor.embedded_signatures
+    campo = sig.sig_field
+    assert [float(x) for x in campo['/Rect']] == list(map(float, assinatura_api.CAIXA_CARIMBO))
+    assert '/AP' in campo
+    assert assinatura.verificar(pdf, PDF_COM_TEXTO, [ApiSimulada.ac_asn1()])['signatario']
