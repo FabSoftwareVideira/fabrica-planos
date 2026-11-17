@@ -94,7 +94,7 @@ class PastaDePlanos:
             det = detalhes.ler(execucoes[0].detalhes_dir, nome) if linha else None
             if det and det.get('validado_em', '') >= (oferta.get('enviado_em') or ''):  # avaliação desta versão
                 status_ia = linha.get('Status Geral', '')
-        return self.versoes.arquivar(
+        numero = self.versoes.arquivar(
             nome, self.caminho(nome),
             assinaturas.caminho_pdf(self.cfg.resultados_dir, nome) if assinatura else None,
             enviado_em=oferta.get('enviado_em'), enviado_por=oferta.get('enviado_por'), aviso=oferta.get('aviso') or '',
@@ -102,6 +102,13 @@ class PastaDePlanos:
             revisor=(revisao or {}).get('revisor_nome') or (revisao or {}).get('revisor_email', ''),
             revisado_em=(revisao or {}).get('revisado_em'), signatario=(assinatura or {}).get('signatario', ''),
             assinado_em=(assinatura or {}).get('assinado_em'))
+        # A revisão e a assinatura eram da versão arquivada (que as guarda no histórico): a nova começa sem
+        # elas. Sem isto, valeria só o carimbo do PDF (tamanho e data em segundos), e uma versão nova do mesmo
+        # tamanho, gravada no mesmo segundo, herdaria a aprovação e a assinatura da anterior.
+        if self.revisoes is not None:
+            self.revisoes.remover(nome)
+        assinaturas.remover(self.cfg.resultados_dir, [nome])
+        return numero
 
     def nomes_ocultos(self):
         return set(ocultos.ler(self.cfg.resultados_dir))

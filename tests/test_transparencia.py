@@ -125,3 +125,25 @@ def test_zip_da_coordenacao_so_com_assinados_dos_cursos_que_coordena(fabrica, tm
         assert c.get(url, headers=cab).status_code == 403
     assert c.get('/coordenacao/assinados.zip', headers=coord).status_code == 403  # sem curso
     assert c.get(url, headers={'X-Usuario-Email': 'admin@ifc.edu.br'}).status_code == 200  # administração
+
+
+def test_versao_nova_nao_herda_aprovacao_nem_assinatura(fabrica, tmp_path, monkeypatch):
+    """Mesmo com o mesmo tamanho e a mesma data (em segundos) do PDF anterior, a versão nova começa sem a
+    revisão e a assinatura dele (que ficam no histórico)."""
+    import os
+    c, dono, id_ = _assinado(fabrica, tmp_path, monkeypatch)
+    _assinar_pelo_govbr(c, dono)
+    caminho = Path(_servicos(c).cfg.planos_dir) / 'web.pdf'
+    antes = os.stat(caminho)
+
+    def ia_fora(*a, **k):
+        raise requests.ConnectionError('IA fora do ar nos testes')
+    monkeypatch.setattr(requests, 'post', ia_fora)
+    assert enviar_plano(c, id_, caminho.read_bytes(), dono).status_code == 200  # mesmo conteúdo e tamanho
+    os.utime(caminho, (antes.st_atime, antes.st_mtime))  # e a mesma data: o carimbo antigo
+    s = _servicos(c)
+    assert s.revisao.vigente('web.pdf') is None and s.assinaturas.vigente('web.pdf') is None
+    [plano] = c.get('/meus-planos/lista', headers=dono).json['planos']
+    assert plano['assinatura'] is None and [v['numero'] for v in plano['versoes']] == [1]
+    assert plano['versoes'][0]['signatario'] == 'FULANO DE TAL'  # a assinada ficou no histórico
+    assert c.get(f'/transparencia/{id_}/v1.pdf').status_code == 200
