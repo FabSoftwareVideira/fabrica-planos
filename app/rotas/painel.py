@@ -142,8 +142,10 @@ def pdf_assinado():
     caminho = servicos().assinaturas.caminho(nome) if pipeline.nome_valido(nome) else None
     if not caminho:
         return texto('Este plano não tem PDF assinado.', 404)
+    # Nome próprio, para não se confundir (nem se sobrepor, ao baixar) com o PDF original do plano
     pasta, arquivo = os.path.split(caminho)
-    return send_from_directory(pasta, arquivo, mimetype='application/pdf')
+    return send_from_directory(pasta, arquivo, mimetype='application/pdf',
+                               download_name=os.path.splitext(nome)[0] + '-assinado.pdf')
 
 
 @bp.get('/planos')

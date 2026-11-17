@@ -1424,8 +1424,9 @@ def test_assina_pela_api_do_govbr_em_homologacao(fabrica, tmp_path, monkeypatch)
     assert assinar_kw['headers']['Authorization'] == 'Bearer token-de-teste'
     [plano] = c.get('/meus-planos/lista', headers=dono).json['planos']
     assert plano['assinatura']['signatario'] == 'FULANO DE TAL'
-    pdf = c.get('/pdf-assinado?arquivo=web.pdf', headers=NDE).data
-    assert pdf.startswith(b'%PDF') and b'(AssinaturaGovBr)' in pdf
+    r = c.get('/pdf-assinado?arquivo=web.pdf', headers=NDE)
+    assert r.data.startswith(b'%PDF') and b'(AssinaturaGovBr)' in r.data
+    assert 'web-assinado.pdf' in r.headers['Content-Disposition']
 
 
 def test_em_producao_so_valem_as_acs_de_app_certificados(fabrica, tmp_path, monkeypatch):

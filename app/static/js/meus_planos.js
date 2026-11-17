@@ -80,7 +80,9 @@ function versaoAtual(p) {
     const links = el('span', 'links');
     links.append(link('/pdf?arquivo=' + encodeURIComponent(p.nome), 'file-pdf', 'PDF', true));
     if (p.situacao === 'avaliado') links.append(link('/relatorio?arquivo=' + encodeURIComponent(p.nome), 'file-alt', 'Relatório'));
-    if (p.assinatura) links.append(link('/pdf-assinado?arquivo=' + encodeURIComponent(p.nome), 'file-signature', 'PDF assinado', true));
+    // O endereço muda a cada assinatura (v=), para o navegador não reabrir a de uma versão anterior
+    if (p.assinatura) links.append(link('/pdf-assinado?arquivo=' + encodeURIComponent(p.nome)
+      + '&v=' + encodeURIComponent(p.assinatura.enviado_em || ''), 'file-signature', 'PDF assinado', true));
     // Assinada, a versão atual não é excluída: para corrigir, Atualizar (ela fica no histórico)
     if (p.assinatura) links.append(protegida('Assinada: não pode ser excluída; para corrigir, use Atualizar'));
     else links.append(botaoExcluir(' Excluir', () => excluir(p)));
