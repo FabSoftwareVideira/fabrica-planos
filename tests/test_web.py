@@ -1403,7 +1403,8 @@ def test_assina_pela_api_do_govbr_em_homologacao(fabrica, tmp_path, monkeypatch)
                                      segredo_sessao='chave', assinatura_ambiente='homologacao',
                                      assinatura_oauth_url='https://cas.staging.iti.br/oauth2.0',
                                      assinatura_api_url='https://assinatura-api.staging.iti.br/externo/v2')
-    assert 'ASSINATURA_API = true' in c.get('/meus-planos', headers=dono).get_data(as_text=True)
+    pagina = c.get('/meus-planos', headers=dono).get_data(as_text=True)
+    assert 'ASSINATURA_API = true' in pagina and 'ASSINATURA_HOMOLOGACAO = true' in pagina
     ida, q, volta = _assinar_pelo_govbr(c, dono)
     assert ida.netloc == 'cas.staging.iti.br' and ida.path == '/oauth2.0/authorize'
     assert q['client_id'] == 'cli' and q['scope'] == 'sign govbr' and q['response_type'] == 'code'

@@ -73,7 +73,20 @@ A produção roda no [Dokploy](https://dokploy.com), como recurso do tipo **Dock
 4. Em **Domains**, aponte o domínio para o serviço `caddy`, porta `80`, com HTTPS.
 5. Coloque em `app/certificados/` o certificado da AC Raiz do Governo Federal do Brasil v1 (veja o [LEIA-ME](app/certificados/LEIA-ME.md)). Sem ele, os planos assinados são recusados.
 6. Para o botão **Assinar com gov.br**, peça ao gov.br as credenciais da **API de Assinatura Eletrônica** (separadas das do login), com o endereço de retorno `https://SEU_DOMINIO/assinatura/govbr/callback`, e preencha as variáveis `GOVBR_ASSINATURA_*` (veja o `.env.example`). Sem elas, o professor assina em assinador.iti.br e envia o PDF, como antes. Assinar exige conta gov.br **prata ou ouro**. Em homologação, a conta de teste é criada em sso.staging.acesso.gov.br, o código de SMS pode ser `12345`, e a cadeia de teste do ITI é aceita a partir da própria resposta da API; em produção, só valem os certificados de `app/certificados/`.
+   Para conferir a configuração e se o servidor alcança o gov.br (sem mostrar segredos): `docker compose exec app python -m app.diagnostico_govbr`.
 7. Faça o deploy do projeto do Ollama conforme [`open-webui/README.md`](./open-webui/README.md) antes do validador.
+
+#### Assinatura gov.br em homologação
+
+As credenciais de homologação da API de Assinatura Eletrônica chegam num arquivo `.gpg`, cifrado com a chave pública PGP enviada ao gov.br no pedido. Para usá-las:
+
+1. Decifre o arquivo com a chave privada do par: no Kleopatra (Gpg4win), **Descriptografar/Verificar**; ou no terminal, `gpg --decrypt credenciaisHNO.txt.gpg`. Não coloque o arquivo nem o segredo no repositório.
+2. Em **Environment** no Dokploy, preencha `GOVBR_ASSINATURA_CLIENT_ID` (o Client ID de homologação), `GOVBR_ASSINATURA_CLIENT_SECRET` (o segredo do arquivo), `GOVBR_ASSINATURA_AMBIENTE=homologacao` (obrigatório se o login estiver em produção) e `GOVBR_ASSINATURA_REDIRECT_URI` igual, letra por letra, ao endereço de retorno cadastrado no pedido. Faça o deploy.
+3. Rode o diagnóstico acima. Os três endereços (`sso`, `cas.staging.iti.br` e `assinatura-api.staging.iti.br`) precisam responder.
+4. Crie uma conta de teste em [sso.staging.acesso.gov.br](https://sso.staging.acesso.gov.br), com o **mesmo nome** do professor no app ou do docente no plano (o app confere o nome do certificado). Em **Meus planos**, num plano aprovado, use **Assinar com gov.br**. O código do SMS pode ser `12345`.
+5. Confira o PDF assinado em [verificador.staging.iti.br](https://verificador.staging.iti.br). Ele e um vídeo curto do fluxo (até 4 minutos e 10 MB) são pedidos para liberar as credenciais de produção.
+
+As assinaturas de homologação são de teste e não têm validade jurídica. Com as credenciais de produção, troque o cliente e o segredo e use `GOVBR_ASSINATURA_AMBIENTE=producao` (ou vazio). As assinaturas feitas em homologação continuam registradas nos planos: limpe esses dados de teste antes de abrir o sistema aos professores.
 
 #### Ollama e acesso por outros projetos
 

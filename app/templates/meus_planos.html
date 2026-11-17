@@ -42,7 +42,7 @@
 
 {% block scripts %}
 <script>const MAX_MB = {{ max_mb }}, ASSINATURA_API = {{ 'true' if assinatura_api else 'false' }}, ADMIN = false,
-  DESTAQUES = {{ destaques|tojson }};</script>
+  ASSINATURA_HOMOLOGACAO = {{ 'true' if assinatura_homologacao else 'false' }}, DESTAQUES = {{ destaques|tojson }};</script>
 <script src="{{ estatico('js/status.js') }}"></script>
 <script src="{{ estatico('js/meus_planos.js') }}"></script>
 {% endblock %}

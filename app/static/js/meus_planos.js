@@ -141,7 +141,10 @@ function blocoAssinatura(p) {
   if (ASSINATURA_API) {
     const assinar = link('/assinatura/govbr/iniciar?arquivo=' + encodeURIComponent(p.nome), 'signature', 'Assinar com gov.br');
     assinar.className = 'br-button primary small';
-    const nota = el('p', 'nota', 'Você confirma no gov.br (conta nível prata ou ouro) e volta para cá com o plano assinado.');
+    const nota = el('p', 'nota', ASSINATURA_HOMOLOGACAO
+      ? 'Ambiente de homologação do gov.br: a assinatura é de teste, sem validade jurídica. Entre com uma conta de '
+        + 'teste (sso.staging.acesso.gov.br); o código do SMS pode ser 12345.'
+      : 'Você confirma no gov.br (conta nível prata ou ouro) e volta para cá com o plano assinado.');
     const alternativa = el('details', 'alternativa'); alternativa.append(el('summary', '', 'Ou assine em assinador.iti.br e envie o arquivo'));
     alternativa.append(passosManuais(p));
     div.append(assinar, nota, alternativa);

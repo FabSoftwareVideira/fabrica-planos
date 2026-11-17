@@ -25,8 +25,8 @@ def _dono():
 @bp.get('')
 def pagina():
     cfg = servicos().cfg
-    return render_template('meus_planos.html', **meus_planos.contexto(email(), cfg.pdf_max_mb,
-                                                                      cfg.assinatura_api_ativa))
+    return render_template('meus_planos.html', **meus_planos.contexto(
+        email(), cfg.pdf_max_mb, cfg.assinatura_api_ativa, homologacao=cfg.assinatura_ambiente == 'homologacao'))
 
 
 @bp.get('/lista')

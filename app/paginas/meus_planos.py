@@ -15,7 +15,8 @@ def periodos_em_destaque(hoje=None):
     return {atual: 'Atual', str(hoje.year): 'Atual', proximo: 'Próximo', str(hoje.year + 1): 'Próximo'}
 
 
-def contexto(email='', max_mb=10, assinatura_api=False, hoje=None):
-    """`assinatura_api`: se o botão "Assinar com gov.br" (API de assinatura) aparece nos planos aprovados."""
+def contexto(email='', max_mb=10, assinatura_api=False, hoje=None, homologacao=False):
+    """`assinatura_api`: se o botão "Assinar com gov.br" (API de assinatura) aparece nos planos aprovados;
+    `homologacao`: se ela usa o ambiente de testes do gov.br (o botão avisa que a assinatura é de teste)."""
     return {'email': email, 'max_mb': int(max_mb), 'assinatura_api': assinatura_api,
-            'destaques': periodos_em_destaque(hoje)}
+            'assinatura_homologacao': bool(assinatura_api and homologacao), 'destaques': periodos_em_destaque(hoje)}
