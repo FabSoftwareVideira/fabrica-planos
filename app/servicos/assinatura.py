@@ -112,7 +112,7 @@ def verificar(pdf_assinado, pdf_original, raizes):
     inteira = (status.coverage == SignatureCoverageLevel.ENTIRE_FILE or (
         status.coverage == SignatureCoverageLevel.ENTIRE_REVISION
         and status.modification_level in (ModificationLevel.NONE, ModificationLevel.LTA_UPDATES)))
-    if not inteira or not status.docmdp_ok:
+    if not inteira or status.docmdp_ok is False:  # None: a assinatura não certifica o PDF (não há DocMDP)
         raise AssinaturaInvalida('O PDF foi alterado depois de assinado. Envie o arquivo exatamente como o '
                                  'assinador o devolveu.')
     if not mesmo_conteudo(pdf_assinado, pdf_original):

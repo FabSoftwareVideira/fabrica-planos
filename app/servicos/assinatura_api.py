@@ -10,8 +10,7 @@ from asn1crypto import cms, pem, x509
 from pyhanko.pdf_utils.incremental_writer import IncrementalPdfFileWriter
 from pyhanko.pdf_utils.reader import PdfFileReader
 from pyhanko.sign import fields
-from pyhanko.sign.signers.cms_embedder import (PdfCMSEmbedder, SigAppearanceSetup, SigIOSetup, SigMDPSetup,
-                                                SigObjSetup)
+from pyhanko.sign.signers.cms_embedder import PdfCMSEmbedder, SigAppearanceSetup, SigIOSetup, SigObjSetup
 from pyhanko.sign.signers.pdf_byterange import SignatureObject
 from pyhanko.stamp import TextStampStyle
 
@@ -48,26 +47,20 @@ def assinar_pdf(pdf, assinar_hash, nome='', momento=None):
     `momento` vão no carimbo visível, na última página.
 
     A assinatura é acrescentada ao final do arquivo (atualização incremental), então o original fica
-    intacto antes dela. Sendo a primeira do documento, ela certifica o PDF como recomenda o manual do gov.br:
-    /Reference com DocMDP P=2 (só preencher formulários e assinar) no dicionário da assinatura, sem /M e sem
-    /Perms no catálogo (que o manual desaconselha, por compatibilidade com o Adobe)."""
+    intacto antes dela. É uma assinatura comum (de aprovação), sem certificar o PDF (DocMDP): com a
+    certificação (/Reference com DocMDP, como sugere o manual), validar.iti.gov.br e h-validar.iti.gov.br davam
+    erro no arquivo, e a mesma assinatura sem certificar era lida por eles. Sem /M (a data vem no CMS) e sem
+    /Perms no catálogo."""
     leitor = PdfFileReader(io.BytesIO(pdf), strict=False)
-    ja_assinado = bool(leitor.embedded_signatures)
     ultima = int(leitor.root['/Pages']['/Count']) - 1
     buffer = io.BytesIO(pdf)
     escritor = IncrementalPdfFileWriter(buffer, strict=False)
     fields.append_signature_field(escritor, fields.SigFieldSpec(CAMPO, on_page=ultima, box=CAIXA_CARIMBO))
     etapas = PdfCMSEmbedder().write_cms(field_name=CAMPO, writer=escritor, existing_fields_only=True)
     next(etapas)
-    mdp = SigMDPSetup(md_algorithm='sha256', certify=not ja_assinado,
-                      docmdp_perms=None if ja_assinado else fields.MDPPerm.FILL_FORMS)
     aparencia = SigAppearanceSetup(style=CARIMBO, timestamp=momento or datetime.now().astimezone(),
                                    name=nome or 'Signatário gov.br')
-    etapas.send(SigObjSetup(sig_placeholder=SignatureObject(bytes_reserved=RESERVA_CMS), mdp_setup=mdp,
-                            appearance_setup=aparencia))
-    if '/Perms' in escritor.root:
-        del escritor.root['/Perms']
-        escritor.update_root()
+    etapas.send(SigObjSetup(sig_placeholder=SignatureObject(bytes_reserved=RESERVA_CMS), appearance_setup=aparencia))
     digest, saida = etapas.send(SigIOSetup(md_algorithm='sha256', in_place=True))
     cms_der = assinar_hash(digest.document_digest)
     if len(cms_der) > RESERVA_CMS:

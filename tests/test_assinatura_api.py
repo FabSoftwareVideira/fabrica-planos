@@ -247,15 +247,16 @@ def test_certificado_do_professor(monkeypatch):
     assert assinatura_api.certificados_de(b'lixo') == []
 
 
-def test_pdf_assinado_como_recomenda_o_manual():
-    """Primeira assinatura: /Reference com DocMDP P=2, sem /Perms nem /M; carimbo visível na última página."""
+def test_pdf_assinado_aceito_pelos_validadores_do_iti():
+    """Assinatura comum (sem certificar: os validadores do ITI falhavam com o DocMDP), sem /Perms nem /M, com
+    carimbo visível na última página."""
     import io
     import re
     from pyhanko.pdf_utils.reader import PdfFileReader
     api = ApiSimulada(_cfg())
     pdf = assinatura_api.assinar_pdf(PDF_COM_TEXTO, lambda d: api.assinar_hash('t', d), 'MARIA DA SILVA')
     novo = pdf[len(PDF_COM_TEXTO):]
-    assert pdf.startswith(PDF_COM_TEXTO) and b'/Perms' not in novo and b'/DocMDP' in novo
+    assert pdf.startswith(PDF_COM_TEXTO) and b'/Perms' not in novo and b'/DocMDP' not in novo
     assert not re.search(rb'/M\s*\(', novo)
     leitor = PdfFileReader(io.BytesIO(pdf), strict=False)
     [sig] = leitor.embedded_signatures
