@@ -15,6 +15,9 @@ from .comum import email, nome as nome_usuario, servicos
 
 log = logging.getLogger(__name__)
 bp = Blueprint('assinatura_govbr', __name__, url_prefix='/assinatura/govbr')
+# Endereço de retorno cadastrado no gov.br para as credenciais de homologação. Fica em /auth/ (público no
+# Caddy, sem o e-mail de quem entrou) e fora do caminho do cookie: só repassa o retorno a /callback.
+retorno = Blueprint('assinatura_govbr_retorno', __name__)
 
 COOKIE = '_planos_assinatura'  # state, nonce, plano e quem pediu, durante a ida ao gov.br
 DURACAO = 10 * 60
@@ -96,3 +99,8 @@ def callback():
     resp.delete_cookie(COOKIE, path='/assinatura/govbr')
     return resp
 
+
+@retorno.get('/auth/govbr/assinatura/callback')
+def retorno_cadastrado():
+    consulta = request.query_string.decode('ascii', 'ignore')
+    return redirect('/assinatura/govbr/callback' + ('?' + consulta if consulta else ''), 302)

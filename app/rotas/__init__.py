@@ -3,7 +3,7 @@ from . import (administracao, assinatura_govbr, coordenacao, disciplinas, govbr,
 
 # Cada área do sistema é um Blueprint num arquivo próprio.
 BLUEPRINTS = (publico.bp, govbr.bp, painel.bp, validacoes.bp, coordenacao.bp, disciplinas.bp, administracao.bp,
-              meus_planos.bp, assinatura_govbr.bp)
+              meus_planos.bp, assinatura_govbr.bp, assinatura_govbr.retorno)
 
 
 def registrar(app):

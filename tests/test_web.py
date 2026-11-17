@@ -1570,3 +1570,10 @@ def test_meus_planos_tem_a_barra_de_status(com_login):
         assert html.index('js/status.js') < html.index('js/meus_planos.js') and 'ADMIN = false,' in html
     js = c.get('/static/js/meus_planos.js').get_data(as_text=True)
     assert 'function aoTerminar()' in js and 'const $ =' not in js  # $ e msg vêm de status.js
+
+
+def test_retorno_cadastrado_no_govbr_repassa_ao_callback(fabrica):
+    c, _ = fabrica(exigir_login=True)
+    r = c.get('/auth/govbr/assinatura/callback?state=abc&code=OC-1')  # público: sem login
+    assert r.status_code == 302 and r.headers['Location'] == '/assinatura/govbr/callback?state=abc&code=OC-1'
+    assert c.get('/auth/govbr/assinatura/callback').headers['Location'] == '/assinatura/govbr/callback'

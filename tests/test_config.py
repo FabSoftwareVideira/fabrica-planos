@@ -100,6 +100,11 @@ def test_urls_da_assinatura_so_com_o_host(ambiente):
     assert cfg.assinatura_oauth_url == ASSINATURA_URLS['producao'][0]
 
 
+def test_ambiente_com_acento(ambiente):
+    cfg = ambiente(GOVBR_AMBIENTE='Homologação', GOVBR_ASSINATURA_AMBIENTE=' homologação ')
+    assert cfg.assinatura_ambiente == 'homologacao' and cfg.govbr_url == 'https://sso.staging.acesso.gov.br'
+
+
 def test_ambiente_de_assinatura_desconhecido_vira_producao(ambiente):
     assert ambiente(GOVBR_ASSINATURA_AMBIENTE='qualquer').assinatura_ambiente == 'producao'
 

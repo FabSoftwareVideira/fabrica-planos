@@ -1,4 +1,5 @@
 import os
+import unicodedata
 from dataclasses import dataclass, field
 from urllib.parse import urlsplit
 
@@ -109,7 +110,7 @@ def carregar():
         govbr_client_id=os.environ.get('GOVBR_CLIENT_ID', '').strip(),
         govbr_client_secret=os.environ.get('GOVBR_CLIENT_SECRET', '').strip(),
         # GOVBR_AMBIENTE=homologacao usa o ambiente de testes do gov.br (credenciais de homologação)
-        govbr_url=GOVBR_HOMOLOGACAO if os.environ.get('GOVBR_AMBIENTE', '').strip().lower() == 'homologacao'
+        govbr_url=GOVBR_HOMOLOGACAO if _ambiente(os.environ.get('GOVBR_AMBIENTE')) == 'homologacao'
         else GOVBR_PRODUCAO,
         govbr_redirect_uri=os.environ.get('GOVBR_REDIRECT_URI', '').strip(),
         segredo_sessao=os.environ.get('SEGREDO_SESSAO', '').strip(),
@@ -123,8 +124,7 @@ def carregar():
 def _assinatura():
     """Configuração da API de assinatura. O ambiente segue o do login (GOVBR_AMBIENTE) se
     GOVBR_ASSINATURA_AMBIENTE não for dado; as URLs têm padrão por ambiente."""
-    ambiente = (os.environ.get('GOVBR_ASSINATURA_AMBIENTE') or os.environ.get('GOVBR_AMBIENTE') or 'producao')
-    ambiente = ambiente.strip().lower()
+    ambiente = _ambiente(os.environ.get('GOVBR_ASSINATURA_AMBIENTE') or os.environ.get('GOVBR_AMBIENTE') or 'producao')
     if ambiente not in ('homologacao', 'producao', 'simulada'):
         ambiente = 'producao'
     oauth, api = ASSINATURA_URLS.get(ambiente, ASSINATURA_URLS['producao'])
@@ -150,3 +150,9 @@ def _url(valor, padrao):
         caminhos = {urlsplit(u).netloc: urlsplit(u).path for par in ASSINATURA_URLS.values() for u in par}
         valor += caminhos.get(urlsplit(valor).netloc, '')
     return valor
+
+
+def _ambiente(valor):
+    """Nome do ambiente sem acentos nem maiúsculas ("Homologação" = "homologacao")."""
+    valor = unicodedata.normalize('NFKD', (valor or '').strip().lower())
+    return valor.encode('ascii', 'ignore').decode()
