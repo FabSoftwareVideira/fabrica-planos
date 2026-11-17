@@ -1,5 +1,6 @@
 import os
 from dataclasses import dataclass, field
+from urllib.parse import urlsplit
 
 GOVBR_PRODUCAO = 'https://sso.acesso.gov.br'
 GOVBR_HOMOLOGACAO = 'https://sso.staging.acesso.gov.br'
@@ -131,7 +132,20 @@ def _assinatura():
         'assinatura_client_id': os.environ.get('GOVBR_ASSINATURA_CLIENT_ID', '').strip(),
         'assinatura_client_secret': os.environ.get('GOVBR_ASSINATURA_CLIENT_SECRET', '').strip(),
         'assinatura_ambiente': ambiente,
-        'assinatura_oauth_url': (os.environ.get('GOVBR_ASSINATURA_OAUTH_URL') or oauth).strip().rstrip('/'),
-        'assinatura_api_url': (os.environ.get('GOVBR_ASSINATURA_API_URL') or api).strip().rstrip('/'),
+        'assinatura_oauth_url': _url(os.environ.get('GOVBR_ASSINATURA_OAUTH_URL'), oauth),
+        'assinatura_api_url': _url(os.environ.get('GOVBR_ASSINATURA_API_URL'), api),
         'assinatura_redirect_uri': os.environ.get('GOVBR_ASSINATURA_REDIRECT_URI', '').strip(),
     }
+
+
+def _url(valor, padrao):
+    """Endereço da variável, ou o padrão se vazia. Aceita só o host ("cas.staging.iti.br"): sem esquema, vale
+    https; sem caminho, o do padrão (/oauth2.0, /externo/v2)."""
+    valor = (valor or '').strip().rstrip('/')
+    if not valor:
+        return padrao
+    if '://' not in valor:
+        valor = 'https://' + valor
+    if not urlsplit(valor).path:
+        valor += urlsplit(padrao).path
+    return valor

@@ -91,6 +91,12 @@ def test_assinatura_com_ambiente_proprio_e_urls_trocadas(ambiente):
     assert cfg.assinatura_oauth_url == 'https://oauth.exemplo' and cfg.assinatura_api_url == 'https://api.exemplo/v2'
 
 
+def test_urls_da_assinatura_so_com_o_host(ambiente):
+    cfg = ambiente(GOVBR_ASSINATURA_AMBIENTE='homologacao', GOVBR_ASSINATURA_OAUTH_URL='cas.staging.iti.br',
+                   GOVBR_ASSINATURA_API_URL='https://assinatura-api.staging.iti.br/')
+    assert (cfg.assinatura_oauth_url, cfg.assinatura_api_url) == ASSINATURA_URLS['homologacao']
+
+
 def test_ambiente_de_assinatura_desconhecido_vira_producao(ambiente):
     assert ambiente(GOVBR_ASSINATURA_AMBIENTE='qualquer').assinatura_ambiente == 'producao'
 
