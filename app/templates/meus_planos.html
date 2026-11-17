@@ -27,6 +27,13 @@
       <div class="card-content">
         <p class="resumo-periodo" id="resumo"></p>
         <p class="msg" id="envio-msg" role="status" hidden></p>
+        <div class="filtros" id="filtros" hidden>
+          <div class="etapas" id="etapas" role="group" aria-label="Mostrar as disciplinas"></div>
+          <label class="caixa-busca" id="caixa-busca" hidden>
+            <i class="fas fa-search" aria-hidden="true"></i>
+            <input type="search" id="busca" placeholder="Buscar disciplina ou código" aria-label="Buscar disciplina ou código">
+          </label>
+        </div>
         <ul class="meus" id="lista"><li><span class="msg">Carregando…</span></li></ul>
         <details class="ajuda-envio">
           <summary>Como enviar e atualizar o plano</summary>

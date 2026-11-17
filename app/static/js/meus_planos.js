@@ -1,10 +1,14 @@
-// "Meus planos": as disciplinas do professor, separadas por período letivo (o atual e o próximo primeiro), com
-// a situação do plano, a ação principal (enviar, atualizar, assinar), os botões da versão atual (PDF,
-// relatório, excluir) e, recolhidas, as versões anteriores. MAX_MB, ASSINATURA_API e DESTAQUES ({período: 'Atual' | 'Próximo'}) vêm da
+// "Meus planos": as disciplinas do professor, separadas por período letivo (o atual e o próximo primeiro) e
+// filtradas pela etapa (a fazer, em andamento, assinados). Cada disciplina é uma linha com a situação e a ação
+// principal (enviar, atualizar, assinar); ao abri-la aparecem a versão atual (PDF, relatório, excluir), os
+// avisos, a assinatura e as versões anteriores. MAX_MB, ASSINATURA_API e DESTAQUES ({período: 'Atual' | 'Próximo'}) vêm da
 // página; $, msg, hora e corpo, de status.js (a barra de status, carregada antes).
 const CORES = { OK: '#22c55e', PENDENTE: '#eab308', INCOMPLETO: '#eab308' };
 const ROTULOS_REVISAO = { OK: 'Aprovado', PENDENTE: 'Ajustes necessários', REPROVADO: 'Reprovado' };
-let timerLista, planos = [], periodoEscolhido = '';
+let timerLista, planos = [], periodoEscolhido = '', filtro = '', busca = '', voltarPara = '';
+const abertos = new Set();  // disciplinas abertas (oferta_id), mantidas quando a lista recarrega
+const ETAPAS = [['fazer', 'A fazer'], ['andamento', 'Em andamento'], ['assinados', 'Assinados'], ['todas', 'Todas']];
+const BUSCA_A_PARTIR_DE = 7;  // com mais disciplinas no período que isso, aparece a busca
 
 function selo(texto, cor) { const s = document.createElement('span'); s.className = 'br-tag status-plano'; s.style.background = cor; s.textContent = texto; return s; }
 function el(tag, classe, texto) { const e = document.createElement(tag); if (classe) e.className = classe; if (texto) e.textContent = texto; return e; }
@@ -35,33 +39,88 @@ function situacao(p) {
   return [selo(p.status, CORES[p.status] || '#ef4444'), detalhe + ' Aguardando a revisão da coordenação/NDE.'];
 }
 
+// Etapa do plano, para os filtros: o que o professor precisa fazer, o que espera os outros e o que acabou
+function etapa(p) {
+  if (p.assinatura) return 'assinados';
+  if (!p.tem_plano || (p.pode_assinar && !p.assinatura)) return 'fazer';
+  if (p.revisao && p.situacao === 'avaliado' && p.revisao.status !== 'OK') return 'fazer';  // ajustes pedidos
+  return 'andamento';
+}
+
+// Uma disciplina: a linha (nome, situação, ação principal) e, ao abrir, o resto
 function item(p) {
   const li = el('li', 'disciplina'); li.id = 'oferta-' + p.oferta_id;
-  const topo = el('div', 'topo');
+  const aberto = abertos.has(p.oferta_id);
+  const corpoId = 'corpo-' + p.oferta_id;
+  const linha = el('div', 'linha');
+  const abrir = el('button', 'abrir'); abrir.type = 'button';
+  abrir.setAttribute('aria-expanded', String(aberto)); abrir.setAttribute('aria-controls', corpoId);
+  abrir.title = aberto ? 'Fechar os detalhes' : 'Ver a versão atual, os avisos e o histórico';
   const nome = el('span', 'nome', p.disciplina);
   const partes = [p.componente.split(' · ')[0]].filter(Boolean);
   if (p.fase) partes.push(`${p.fase}ª fase`);
+  if (p.tem_plano) partes.push(`versão ${p.versao}`);
   const outros = (p.docentes || []).map(d => d.nome || d.email);
   if (outros.length > 1) partes.push('com ' + outros.join(', '));
   nome.append(el('span', 'sub', partes.join(' · ')));
+  abrir.append(icone('chevron-right'), nome);
+  abrir.onclick = () => alternar(p.oferta_id);
   const [marca, frase] = situacao(p);
   const acoes = el('span', 'acoes');
-  acoes.append(marca, botaoEnviar(p));
-  topo.append(nome, acoes);
-  li.append(topo, el('p', 'frase', frase));
-  if (p.tem_plano) li.append(versaoAtual(p));
-  if (p.tem_plano && p.aviso) {
-    const aviso = el('p', 'aviso'); aviso.append(icone('exclamation-triangle'), ' ' + p.aviso); li.append(aviso);
+  if ((p.tem_plano && p.aviso) || (p.assinatura && p.assinatura.aviso)) {
+    const alerta = el('span', 'alerta'); alerta.title = 'Há um aviso sobre este plano: abra para ver';
+    alerta.append(icone('exclamation-triangle')); acoes.append(alerta);
   }
-  if (p.pode_assinar && !p.assinatura) li.append(blocoAssinatura(p));
-  if (p.versoes.length) li.append(detalhes(p));
+  acoes.append(marca, acaoPrincipal(p));
+  linha.append(abrir, acoes);
+
+  const corpo = el('div', 'corpo'); corpo.id = corpoId; corpo.hidden = !aberto;
+  corpo.append(el('p', 'frase', frase));
+  if (p.tem_plano) corpo.append(versaoAtual(p));
+  if (p.tem_plano && p.aviso) {
+    const aviso = el('p', 'aviso'); aviso.append(icone('exclamation-triangle'), ' ' + p.aviso); corpo.append(aviso);
+  }
+  if (p.pode_assinar && !p.assinatura) corpo.append(blocoAssinatura(p));
+  if (p.tem_plano && p.pode_assinar && !p.assinatura) {  // na linha está Assinar: Atualizar fica aqui
+    const atualizar = el('div', 'atualizar'); atualizar.append(botaoEnviar(p)); corpo.append(atualizar);
+  }
+  if (p.versoes.length) corpo.append(detalhes(p));
+  li.classList.toggle('aberta', aberto);
+  li.append(linha, corpo);
   return li;
 }
 
+function alternar(id, abrir) {
+  const deve = abrir === undefined ? !abertos.has(id) : abrir;
+  if (deve) abertos.add(id); else abertos.delete(id);
+  const li = document.getElementById('oferta-' + id);
+  if (!li) return;
+  li.classList.toggle('aberta', deve);
+  li.querySelector('.corpo').hidden = !deve;
+  const b = li.querySelector('.abrir'); b.setAttribute('aria-expanded', String(deve));
+  b.title = deve ? 'Fechar os detalhes' : 'Ver a versão atual, os avisos e o histórico';
+}
+
+// A ação principal, na linha: enviar o plano, assinar (aprovado) ou atualizar (com destaque se pediram ajustes)
+function acaoPrincipal(p) {
+  if (p.pode_assinar && !p.assinatura) {
+    if (ASSINATURA_API && ASSINATURA_NIVEL === 'ok') {
+      const a = link('/assinatura/govbr/iniciar?arquivo=' + encodeURIComponent(p.nome), 'signature', 'Assinar');
+      a.className = 'br-button primary small'; a.title = 'Assinar o plano aprovado com a sua conta gov.br';
+      return a;
+    }
+    const b = el('button', 'br-button primary small'); b.type = 'button';
+    b.append(icone('signature'), ' Assinar'); b.title = 'Ver como assinar o plano aprovado';
+    b.onclick = () => { alternar(p.oferta_id, true); document.getElementById('oferta-' + p.oferta_id).querySelector('.assinatura').scrollIntoView({ block: 'nearest', behavior: 'smooth' }); };
+    return b;
+  }
+  return botaoEnviar(p, etapa(p) === 'fazer');
+}
+
 // Enviar (sem plano) ou Atualizar (com plano, mesmo assinado: a versão anterior vai para o histórico)
-function botaoEnviar(p) {
+function botaoEnviar(p, destaque) {
   const entrada = el('input'); entrada.type = 'file'; entrada.accept = 'application/pdf,.pdf'; entrada.hidden = true;
-  const botao = el('button', 'br-button small ' + (p.tem_plano ? 'secondary' : 'primary')); botao.type = 'button';
+  const botao = el('button', 'br-button small ' + (!p.tem_plano || destaque ? 'primary' : 'secondary')); botao.type = 'button';
   botao.append(icone(p.tem_plano ? 'sync-alt' : 'upload'), p.tem_plano ? ' Atualizar' : ' Enviar plano');
   botao.title = p.tem_plano ? 'Enviar uma nova versão do plano (a atual fica no histórico)' : 'Enviar o PDF do plano';
   botao.onclick = () => {
@@ -249,9 +308,33 @@ function desenharPeriodos(lista) {
 }
 
 function escolher(per) {
-  periodoEscolhido = per;
+  periodoEscolhido = per; filtro = ''; busca = '';
   history.replaceState(null, '', '#periodo=' + encodeURIComponent(per));
+  const campo = $('busca'); if (campo) campo.value = '';
   desenhar();
+}
+
+// Filtros por etapa (com a contagem) e a busca, quando o período tem muitas disciplinas
+function desenharFiltros(doPeriodo) {
+  const conta = e => e === 'todas' ? doPeriodo.length : doPeriodo.filter(p => etapa(p) === e).length;
+  if (!filtro) filtro = conta('fazer') ? 'fazer' : 'todas';
+  const area = $('filtros');
+  area.hidden = doPeriodo.length < 2;
+  const botoes = ETAPAS.map(([e, rotulo]) => {
+    const b = el('button', 'filtro' + (e === filtro ? ' ativo' : '') + (e === 'fazer' && conta(e) ? ' pendente' : ''));
+    b.type = 'button'; b.setAttribute('aria-pressed', String(e === filtro));
+    b.append(rotulo + ' ', el('span', 'n', String(conta(e))));
+    b.onclick = () => { filtro = e; desenhar(); };
+    return b;
+  });
+  $('etapas').replaceChildren(...botoes);
+  $('caixa-busca').hidden = doPeriodo.length < BUSCA_A_PARTIR_DE;
+}
+
+function combina(p) {
+  if (!busca) return true;
+  const norm = t => (t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  return norm(`${p.disciplina} ${p.componente} ${p.turma || ''}`).includes(norm(busca));
 }
 
 function desenhar() {
@@ -259,15 +342,22 @@ function desenhar() {
   if (!lista.includes(periodoEscolhido)) periodoEscolhido = padrao(lista);
   desenharPeriodos(lista);
   const doPeriodo = planos.filter(p => p.periodo === periodoEscolhido);
+  desenharFiltros(doPeriodo);
+  if (doPeriodo.length === 1) abertos.add(doPeriodo[0].oferta_id);  // uma só: já aberta
+  const visiveis = doPeriodo.filter(p => (filtro === 'todas' || etapa(p) === filtro) && combina(p));
   const itens = [];
   let grupo = null;
-  for (const p of doPeriodo) {
+  for (const p of visiveis) {
     if (p.grupo !== grupo) { grupo = p.grupo; itens.push(el('li', 'cab-grupo', p.grupo_titulo)); }
     itens.push(item(p));
   }
   if (!itens.length) {
-    const li = el('li');
-    li.append(el('span', 'msg', 'Nenhuma disciplina vinculada a você ainda. A coordenação do curso vincula os docentes de cada disciplina do semestre; depois disso, envie aqui o plano de cada uma.'));
+    const li = el('li', 'vazio');
+    li.append(el('span', 'msg', !doPeriodo.length
+      ? 'Nenhuma disciplina vinculada a você ainda. A coordenação do curso vincula os docentes de cada disciplina do semestre; depois disso, envie aqui o plano de cada uma.'
+      : busca ? `Nenhuma disciplina com "${busca}".`
+      : filtro === 'fazer' ? 'Nada a fazer neste período: os planos estão em andamento ou assinados.'
+      : 'Nenhuma disciplina nesta situação.'));
     itens.push(li);
   }
   $('lista').replaceChildren(...itens);
@@ -290,11 +380,20 @@ async function carregar() {
   catch { timerLista = setTimeout(carregar, 10000); return; }
   if (r.status === 401) { location.reload(); return; }  // sessão expirou: recarregar leva ao login
   ({ planos = [] } = await corpo(r));
-  // Mantém abertos os "Detalhes" que estavam abertos
+  if (voltarPara) {  // de volta da assinatura: a disciplina aberta, no período dela
+    const p = planos.find(x => x.nome === voltarPara);
+    if (p) { abertos.add(p.oferta_id); periodoEscolhido = p.periodo; filtro = 'todas'; }
+  }
+  // Mantém abertos os "Versões anteriores" e afins que estavam abertos
   const chave = d => (d.closest('li') || {}).id + d.className;
-  const abertos = new Set([...document.querySelectorAll('#lista details[open]')].map(chave));
+  const detalhesAbertos = new Set([...document.querySelectorAll('#lista details[open]')].map(chave));
   desenhar();
-  document.querySelectorAll('#lista details').forEach(d => { if (abertos.has(chave(d))) d.open = true; });
+  document.querySelectorAll('#lista details').forEach(d => { if (detalhesAbertos.has(chave(d))) d.open = true; });
+  if (voltarPara) {
+    const li = planos.find(x => x.nome === voltarPara) && document.getElementById('oferta-' + planos.find(x => x.nome === voltarPara).oferta_id);
+    if (li) li.scrollIntoView({ block: 'center' });
+    voltarPara = '';
+  }
   const andamento = planos.some(p => p.situacao === 'na_fila' || p.situacao === 'validando');
   timerLista = setTimeout(carregar, andamento ? 3000 : 30000);
 }
@@ -335,10 +434,12 @@ async function enviar(p, arquivo) {
 (function resultadoDaAssinatura() {
   const q = new URLSearchParams(location.search);
   if (!q.has('assinatura')) return;
+  voltarPara = q.get('arquivo') || '';
   if (q.get('assinatura') === 'ok') msg($('envio-msg'), `Plano assinado via gov.br por ${q.get('signatario') || 'você'}.`
     + (q.get('aviso') ? ` Atenção: ${q.get('aviso')}` : ''), 'ok');
   else msg($('envio-msg'), `Não foi possível assinar o plano: ${q.get('motivo') || 'tente de novo.'}`, 'erro');
   history.replaceState(null, '', location.pathname + location.hash);
 })();
 periodoEscolhido = decodeURIComponent((location.hash.match(/periodo=([^&]+)/) || [])[1] || '');
+$('busca').oninput = e => { busca = e.target.value.trim(); desenhar(); };
 carregar();
