@@ -109,6 +109,9 @@ services:
       - GOVBR_AMBIENTE=${GOVBR_AMBIENTE:-producao}
       - GOVBR_REDIRECT_URI=${GOVBR_REDIRECT_URI:-}
       - SEGREDO_SESSAO=${SEGREDO_SESSAO:-}
+      # Segredo que o Caddy põe em toda requisição: o app recusa quem o alcança sem passar pelo Caddy (ele também
+      # está na rede do Ollama, onde outros contêineres poderiam forjar o cabeçalho com o e-mail de quem entrou)
+      - PROXY_SEGREDO=${PROXY_SEGREDO:?Defina PROXY_SEGREDO no .env (openssl rand -hex 32)}
       - LOGIN_GOOGLE=${LOGIN_GOOGLE:-1}
       # Assinatura dos planos pela API do gov.br (servicos/assinatura_api.py): credenciais próprias, separadas
       # das do login. O ambiente segue GOVBR_AMBIENTE se GOVBR_ASSINATURA_AMBIENTE não for dado.
@@ -169,6 +172,9 @@ services:
     # Sem "ports" no host; o HTTPS é do Traefik.
     image: caddy:2
     restart: unless-stopped
+    environment:
+      # O mesmo do app (Caddyfile: request_header X-Planos-Proxy)
+      - PROXY_SEGREDO=${PROXY_SEGREDO:?Defina PROXY_SEGREDO no .env (openssl rand -hex 32)}
     expose:
       - "80"
     volumes:

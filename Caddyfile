@@ -13,6 +13,10 @@
 }
 
 :80 {
+	# Segredo do Caddy para o app (PROXY_SEGREDO): o app só atende quem o traz, ou seja, quem passou por aqui.
+	# Vale em todas as rotas, inclusive na conferência do login (forward_auth). Substitui o que vier do navegador.
+	request_header X-Planos-Proxy {$PROXY_SEGREDO}
+
 	# Compressão: o CSS do Design System gov.br cai de ~570 KB para ~70 KB
 	encode zstd gzip
 

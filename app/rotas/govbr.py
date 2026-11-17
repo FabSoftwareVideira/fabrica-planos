@@ -46,8 +46,13 @@ def _serializador(sal):
 
 
 def destino(valor):
-    """Só caminhos deste site (nada de //outro-site ou https://...)."""
-    return valor if valor and valor.startswith('/') and not valor.startswith('//') and '\\' not in valor else '/dashboard'
+    """Só caminhos deste site (nada de //outro-site ou https://...). Caracteres de controle também são
+    recusados: o navegador descarta TAB e quebras de linha da URL, e '/<TAB>/outro-site' viraria
+    '//outro-site'."""
+    if (not valor or not valor.startswith('/') or valor.startswith('//') or '\\' in valor
+            or any(ord(c) < 32 or ord(c) == 127 for c in valor)):
+        return '/dashboard'
+    return valor
 
 
 def _redirect_uri():

@@ -67,6 +67,7 @@ jobs:
       - run: docker compose -f docker-compose.yml config --quiet
         env:
           POSTGRES_PASSWORD: teste
+          PROXY_SEGREDO: teste
       - run: docker compose -f docker-compose.dev.yml config --quiet
       - run: docker compose -f open-webui/docker-compose.yml config --quiet
 

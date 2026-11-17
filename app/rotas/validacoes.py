@@ -39,10 +39,8 @@ def baixar_csv(id_):
     pedidos = set(request.args.getlist('arquivo'))
     grupo = _nome_de_arquivo(request.args.get('nome', ''))
     nome = f'validacao-{grupo + "-" if grupo else ""}{execucao.id}.csv'
-    if not pedidos:
-        return send_file(execucao.csv_path, mimetype='text/csv', as_attachment=True, download_name=nome)
-    linhas = [l for l in csvsaida.ler_csv(execucao.csv_path) if l.get('Arquivo') in pedidos]
-    if not linhas:
+    linhas = [l for l in csvsaida.ler_csv(execucao.csv_path) if not pedidos or l.get('Arquivo') in pedidos]
+    if pedidos and not linhas:
         return texto('Nenhum dos planos pedidos está nessa validação.', 404)
     return send_file(io.BytesIO(csvsaida.csv_em_bytes(linhas)), mimetype='text/csv', as_attachment=True,
                      download_name=nome)

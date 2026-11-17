@@ -65,6 +65,9 @@ def criar_app(cfg=None, executar=None):
         app.wsgi_app = login_simulado.Middleware(app.wsgi_app)
         app.register_blueprint(login_simulado.bp)
         logging.getLogger(__name__).warning('LOGIN SIMULADO ATIVO (/dev/login): use só em desenvolvimento')
+    if cfg.exigir_login and not cfg.login_simulado and not cfg.proxy_segredo:
+        logging.getLogger(__name__).warning('PROXY_SEGREDO vazio: o app aceita X-Usuario-Email de quem o alcançar '
+                                            'sem passar pelo Caddy (defina-o no .env)')
     validador.preparar_historico()
     if cfg.agendar:
         validador.iniciar_agendador()

@@ -40,6 +40,10 @@ class Config:
     admins: frozenset = frozenset()
     # Só em desenvolvimento: login simulado em /dev/login no lugar do Google (rotas/login_simulado.py)
     login_simulado: bool = False
+    # Segredo que o Caddy põe em toda requisição (X-Planos-Proxy). Com ele, o app recusa quem chega sem passar
+    # pelo Caddy: o app está também na rede do Ollama (ollama-shared), onde outros contêineres o alcançam
+    # direto e poderiam forjar X-Usuario-Email. Vazio: não confere (desenvolvimento e testes).
+    proxy_segredo: str = ''
     email_dominio: str = 'ifc.edu.br'
     # Certificados raiz aceitos nas assinaturas dos planos (servicos/assinatura.py): por padrão os do
     # repositório, em app/certificados (a AC Raiz do Governo Federal do Brasil, do gov.br)
@@ -105,6 +109,7 @@ def carregar():
         exigir_login=os.environ.get('EXIGIR_LOGIN', '1') == '1',
         admins=frozenset(e.strip().lower() for e in os.environ.get('ADMIN_EMAILS', '').split(',') if e.strip()),
         login_simulado=os.environ.get('LOGIN_SIMULADO', '0') == '1',
+        proxy_segredo=os.environ.get('PROXY_SEGREDO', '').strip(),
         email_dominio=(os.environ.get('EMAIL_DOMINIO') or 'ifc.edu.br').strip().lower(),
         certificados_dir=os.environ.get('CERTIFICADOS_DIR') or CERTIFICADOS_PADRAO,
         govbr_client_id=os.environ.get('GOVBR_CLIENT_ID', '').strip(),

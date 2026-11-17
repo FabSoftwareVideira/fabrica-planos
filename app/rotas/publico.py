@@ -1,3 +1,4 @@
+import hmac
 from urllib.parse import quote
 
 from flask import Blueprint, current_app, redirect, render_template, request
@@ -38,8 +39,24 @@ CABECALHOS_SEGURANCA = {
 }
 
 
+CABECALHO_PROXY = 'X-Planos-Proxy'
+
+
+def _do_proxy():
+    """A requisição veio pelo Caddy (que põe o segredo em X-Planos-Proxy). O /health fica de fora: o
+    healthcheck do contêiner chama o app direto."""
+    segredo = servicos().cfg.proxy_segredo
+    if not segredo or request.path == '/health':
+        return True
+    return hmac.compare_digest(request.headers.get(CABECALHO_PROXY, '').encode(), segredo.encode())
+
+
 @bp.before_app_request
 def exigir_login():
+    # Quem chega ao app sem passar pelo Caddy não é atendido: os cabeçalhos de login (X-Usuario-Email) só
+    # valem vindos dele.
+    if not _do_proxy():
+        return texto('Acesso permitido só pelo endereço do sistema.', 403)
     # Envio, exclusão, validação e revisão só a partir das páginas do próprio sistema: um site de fora
     # não consegue disparar essas ações com o login de quem o visita (o navegador manda Origin nelas).
     if request.method not in METODOS_SEGUROS and not mesma_origem():
