@@ -349,8 +349,7 @@ def test_versao_que_nao_existe(admin, numero, extra):
     assert r.status_code == (400 if numero == 'x' else 404)
 
 
-@pytest.mark.parametrize('url', ['/validacoes/20990101-000000/csv', '/validacoes/20990101-000000/pdf?arquivo=a.pdf',
-                                 '/validacoes/20990101-000000/pdfs.zip'])
+@pytest.mark.parametrize('url', ['/validacoes/20990101-000000/pdf?arquivo=a.pdf'])
 def test_validacao_que_nao_existe(admin, url):
     c, _ = admin
     assert c.get(url, headers=ADMIN).status_code == 404

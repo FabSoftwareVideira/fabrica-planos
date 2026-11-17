@@ -56,28 +56,6 @@ def escrever_csv(caminho, linhas):
             escritor.writerow(linha)
 
 
-# Começos de célula que o Excel e o LibreOffice tratam como fórmula (CSV injection)
-INICIO_DE_FORMULA = ('=', '+', '-', '@', '\t', '\r')
-
-
-def sem_formula(valor):
-    """O texto da célula, com um apóstrofo na frente se ele viraria fórmula na planilha. As observações vêm da
-    IA a partir do texto do PDF, que quem envia o plano controla."""
-    valor = '' if valor is None else str(valor)
-    return "'" + valor if valor.startswith(INICIO_DE_FORMULA) else valor
-
-
-def csv_em_bytes(linhas):
-    """O CSV dessas linhas (mesmo formato do arquivo da validação), para baixar, sem fórmulas."""
-    import io
-    saida = io.StringIO()
-    escritor = csv.DictWriter(saida, fieldnames=COLUNAS, delimiter=';', quoting=csv.QUOTE_ALL, extrasaction='ignore')
-    escritor.writeheader()
-    for linha in linhas:
-        escritor.writerow({k: sem_formula(v) for k, v in linha.items()})
-    return ('\ufeff' + saida.getvalue()).encode('utf-8')
-
-
 def ler_csv(caminho):
     if not os.path.exists(caminho):
         return []

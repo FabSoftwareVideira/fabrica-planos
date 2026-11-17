@@ -1,6 +1,5 @@
 """Brechas corrigidas na revisão de segurança: acesso ao app sem passar pelo Caddy, redirecionamento para fora
-depois do login e fórmulas no CSV exportado."""
-from app.armazenamento import csvsaida
+depois do login."""
 
 PROXY = {'X-Planos-Proxy': 'segredo-do-caddy'}
 ADMIN = {'X-Usuario-Email': 'admin@ifc.edu.br'}
@@ -41,20 +40,3 @@ def test_login_govbr_nao_leva_para_fora(fabrica):
     from urllib.parse import parse_qs, urlsplit
     assert c.get_cookie('_planos_govbr_login') is not None
     assert 'evil' not in str(parse_qs(urlsplit(r.headers['Location']).query))
-
-
-def test_csv_exportado_sem_formulas():
-    linha = {'Arquivo': 'a.pdf', 'Observação Geral': '=HYPERLINK("http://evil","x")', 'Ementa Obs': '+1+1',
-             'Metodologia Obs': '-2', 'Cronograma Obs': '@SUM(A1)', 'Referências Obs': 'normal'}
-    texto = csvsaida.csv_em_bytes([linha]).decode('utf-8-sig')
-    assert '"\'=HYPERLINK' in texto and '"\'+1+1"' in texto and '"\'-2"' in texto and '"\'@SUM(A1)"' in texto
-    assert '"normal"' in texto
-    assert csvsaida.sem_formula(None) == '' and csvsaida.sem_formula(3) == '3'
-
-
-def test_csv_completo_da_validacao_tambem_sem_formulas(fabrica):
-    from test_web import _execucao
-    c, _ = fabrica(exigir_login=True, admins=frozenset({'admin@ifc.edu.br'}))
-    execucao = _execucao(c, ['a.pdf'], 10, {'status_geral': 'OK', 'obs_geral': '=1+1'})
-    r = c.get(f'/validacoes/{execucao.id}/csv', headers=ADMIN)
-    assert r.status_code == 200 and '"\'=1+1"' in r.get_data(as_text=True)

@@ -44,6 +44,8 @@ class Config:
     # pelo Caddy: o app está também na rede do Ollama (ollama-shared), onde outros contêineres o alcançam
     # direto e poderiam forjar X-Usuario-Email. Vazio: não confere (desenvolvimento e testes).
     proxy_segredo: str = ''
+    # Limite de requisições por IP e por usuário (app/limites.py); LIMITES=0 desliga
+    limites: bool = True
     email_dominio: str = 'ifc.edu.br'
     # Certificados raiz aceitos nas assinaturas dos planos (servicos/assinatura.py): por padrão os do
     # repositório, em app/certificados (a AC Raiz do Governo Federal do Brasil, do gov.br)
@@ -110,6 +112,7 @@ def carregar():
         admins=frozenset(e.strip().lower() for e in os.environ.get('ADMIN_EMAILS', '').split(',') if e.strip()),
         login_simulado=os.environ.get('LOGIN_SIMULADO', '0') == '1',
         proxy_segredo=os.environ.get('PROXY_SEGREDO', '').strip(),
+        limites=os.environ.get('LIMITES', '1') != '0',
         email_dominio=(os.environ.get('EMAIL_DOMINIO') or 'ifc.edu.br').strip().lower(),
         certificados_dir=os.environ.get('CERTIFICADOS_DIR') or CERTIFICADOS_PADRAO,
         govbr_client_id=os.environ.get('GOVBR_CLIENT_ID', '').strip(),

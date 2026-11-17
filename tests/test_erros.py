@@ -55,7 +55,7 @@ def test_sem_login(app):
 
 
 def test_acesso_negado(app):
-    r = app.get('/validacoes/x/csv', headers={**NAVEGADOR, 'X-Usuario-Email': 'fulano@ifc.edu.br'})
+    r = app.get('/coordenacao/assinados.zip?curso=CC', headers={**NAVEGADOR, 'X-Usuario-Email': 'fulano@ifc.edu.br'})
     assert r.status_code in (403, 404) and 'class="erro-codigo"' in r.get_data(as_text=True)
 
 

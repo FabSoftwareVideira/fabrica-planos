@@ -208,25 +208,15 @@ def test_dashboard_mostra_so_a_validacao_atual(cliente):
     assert c.get('/relatorio?arquivo=velho.pdf').status_code == 404
 
 
-def test_zip_csv_e_pdf_da_ultima_validacao(cliente):
-    import io
-    import zipfile
+def test_pdf_da_ultima_validacao(cliente):
     c, _ = cliente
     antiga = _execucao(c, ['a.pdf'], 9)
     nova = _execucao(c, ['a.pdf', 'b.pdf'], 10, pdfs=['a.pdf', 'b.pdf'])
-
-    r = c.get(f'/validacoes/{nova.id}/pdfs.zip')
-    assert r.status_code == 200 and r.mimetype == 'application/zip'
-    assert f'planos-validacao-{nova.id}.zip' in r.headers['Content-Disposition']
-    with zipfile.ZipFile(io.BytesIO(r.data)) as z:
-        assert sorted(z.namelist()) == ['a.pdf', 'b.pdf']
-        assert z.read('a.pdf') == PDF
-
-    assert c.get(f'/validacoes/{antiga.id}/pdfs.zip').status_code == 404
-    assert c.get(f'/validacoes/{antiga.id}/csv').data.startswith('﻿'.encode())  # BOM do CSV
     assert c.get(f'/validacoes/{nova.id}/pdf?arquivo=b.pdf').data == PDF
     assert c.get(f'/validacoes/{antiga.id}/pdf?arquivo=a.pdf').status_code == 404
-    assert c.get('/validacoes/..%2Fx/csv').status_code == 404
+    assert c.get('/validacoes/..%2Fx/pdf?arquivo=a.pdf').status_code == 404
+    for rota in (f'/validacoes/{nova.id}/csv', f'/validacoes/{nova.id}/pdfs.zip'):  # exportações removidas
+        assert c.get(rota).status_code == 404
     assert [v['id'] for v in c.get('/validacoes').json['validacoes']] == [nova.id, antiga.id]
 
 
@@ -508,19 +498,6 @@ def test_dashboard_traz_dados_para_agrupar(cliente):
     # Filtro de curso e período na ordem dos grupos; os sem identificação no fim
     opcoes = [html.index(f'<option value="{v}">') for v in ('CC|2026.2', 'IN|2026', '-')]
     assert opcoes == sorted(opcoes)
-
-
-def test_zip_de_um_grupo(cliente):
-    import zipfile
-    c, _ = cliente
-    execucao = _execucao(c, ['a.pdf', 'b.pdf', 'c.pdf'], 10, pdfs=['a.pdf', 'b.pdf', 'c.pdf'])
-    r = c.get(f'/validacoes/{execucao.id}/pdfs.zip?arquivo=a.pdf&arquivo=c.pdf&arquivo=fora.pdf'
-              '&nome=Ciência da Computação · 2º semestre de 2026')
-    assert r.status_code == 200
-    assert sorted(zipfile.ZipFile(io.BytesIO(r.data)).namelist()) == ['a.pdf', 'c.pdf']
-    assert f'planos-ciencia-da-computacao-2o-semestre-de-2026-validacao-{execucao.id}.zip' in r.headers[
-        'Content-Disposition']
-    assert c.get(f'/validacoes/{execucao.id}/pdfs.zip?arquivo=fora.pdf').status_code == 404
 
 
 def test_meus_planos_agrupados_por_periodo_e_fase(com_login):
@@ -809,38 +786,6 @@ def test_sem_login_simulado_o_cookie_nao_vale(com_login):
     assert c.get('/planos').status_code == 401
     assert c.get('/dev/login').status_code == 401
     assert c.post('/dev/login', data={'email': 'admin@ifc.edu.br'}).status_code == 401
-
-
-def test_exportacao_so_pela_coordenacao_e_do_periodo_escolhido(com_login):
-    import zipfile
-    c, planos = com_login
-    execucao = _plano_cc(c, planos)
-    (Path(execucao.pdfs_dir) / 'web.pdf').write_bytes(PDF)
-    _dar_papel(c, 'nde@ifc.edu.br')
-    _dar_papel(c, 'coord@ifc.edu.br', papel='coordenador')
-    coord = {'X-Usuario-Email': 'coord@ifc.edu.br'}
-    rotas = (f'/validacoes/{execucao.id}/csv', f'/validacoes/{execucao.id}/pdfs.zip')
-    for cab in (SERVIDOR, NDE, coord, ADMIN):  # no painel, ninguém exporta
-        html = c.get('/dashboard', headers=cab).get_data(as_text=True)
-        assert '/csv' not in html and 'pdfs.zip' not in html and 'EXPORTAR' not in html
-    for cab in (SERVIDOR, NDE):
-        assert all(c.get(r, headers=cab).status_code == 403 for r in rotas)
-        # cada plano e PDF continua abrindo
-        assert c.get(f'/validacoes/{execucao.id}/pdf?arquivo=web.pdf', headers=cab).status_code == 200
-    for cab in (coord, ADMIN):
-        assert all(c.get(r, headers=cab).status_code == 200 for r in rotas)
-    # Na coordenação: o zip e o CSV do período escolhido
-    html = c.get('/coordenacao?curso=CC&periodo=2026.2', headers=coord).get_data(as_text=True)
-    assert 'PDFs de 2º semestre de 2026 (zip)' in html and 'CSV de 2º semestre de 2026' in html
-    import html as html_
-    url_csv = html_.unescape(html.split('CSV de 2º')[0].rsplit('href="', 1)[1].split('"')[0])
-    url_zip = html_.unescape(html.split('PDFs de 2º')[0].rsplit('href="', 1)[1].split('"')[0])
-    r = c.get(url_csv, headers=coord)
-    assert r.status_code == 200 and 'ciencia-da-computacao-2o-semestre-de-2026' in r.headers['Content-Disposition']
-    linhas = r.data.decode('utf-8-sig').splitlines()
-    assert len(linhas) == 2 and linhas[1].startswith('"web.pdf"')
-    assert zipfile.ZipFile(io.BytesIO(c.get(url_zip, headers=coord).data)).namelist() == ['web.pdf']
-    assert c.get(f'/validacoes/{execucao.id}/csv?arquivo=fora.pdf', headers=coord).status_code == 404
 
 
 def test_docente_do_plano_nao_o_revisa(com_login):

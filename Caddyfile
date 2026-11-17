@@ -9,6 +9,9 @@
 		# O Traefik (rede interna do Docker) informa o esquema e o host originais em X-Forwarded-*:
 		# o oauth2-proxy precisa deles para montar o endereço https de retorno do Google.
 		trusted_proxies static private_ranges
+		# IP do cliente: o mais à direita em X-Forwarded-For que não é um proxy confiável (o Traefik do Dokploy),
+		# para ninguém escolher o próprio IP mandando X-Forwarded-For
+		trusted_proxies_strict
 	}
 }
 
@@ -16,6 +19,8 @@
 	# Segredo do Caddy para o app (PROXY_SEGREDO): o app só atende quem o traz, ou seja, quem passou por aqui.
 	# Vale em todas as rotas, inclusive na conferência do login (forward_auth). Substitui o que vier do navegador.
 	request_header X-Planos-Proxy {$PROXY_SEGREDO}
+	# IP de quem pediu, para o limite de requisições do app (app/limites.py)
+	request_header X-Planos-Cliente {client_ip}
 
 	# Compressão: o CSS do Design System gov.br cai de ~570 KB para ~70 KB
 	encode zstd gzip

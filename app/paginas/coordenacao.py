@@ -1,4 +1,4 @@
-from urllib.parse import quote, urlencode
+from urllib.parse import quote
 
 from ..armazenamento.csvsaida import CAMPOS_COLUNA
 from ..avaliacao import identificacao
@@ -67,9 +67,10 @@ def _docentes(planos):
 
 
 def contexto(execucao, linhas, idents, docentes, revisoes, cursos, curso, periodo, revisaveis=(),
-             exportar=True, assinaturas=None):
+             assinaturas=None, zip_assinados=None):
     """`cursos`: {sigla: nome} que o usuário pode ver; `curso` e `periodo`: os pedidos (vazios: o primeiro
-    curso e o período mais recente dele). `assinaturas`: {arquivo: resumo}."""
+    curso e o período mais recente dele). `assinaturas`: {arquivo: resumo}. `zip_assinados(curso, periodo)`:
+    (endereço do zip dos planos assinados, quantos), para o botão de exportar."""
     assinaturas = assinaturas or {}
     ctx = {'execucao': execucao, 'cursos': list(cursos.items()), 'curso': '', 'nome_curso': '',
            'periodos': [], 'periodo': '', 'planos': [], 'meta': execucao.meta() if execucao else {}}
@@ -96,15 +97,8 @@ def contexto(execucao, linhas, idents, docentes, revisoes, cursos, curso, period
               for n in [sum(1 for p in planos if rotulo in p['problemas'])] if n]
     campos.sort(key=lambda c: -c[1])
     titulo_periodo = dict(periodos).get(periodo, 'Todos os períodos')
-    # Exportação do período escolhido: os PDFs (zip) e o CSV da avaliação dos planos dele
-    zip_ = csv_ = ''
-    if exportar and execucao and total:
-        nome = [('nome', cursos[curso] + ' ' + titulo_periodo)]
-        guardados = set(execucao.pdfs())
-        nomes = [p['arquivo'] for p in planos if p['arquivo'] in guardados]
-        if nomes:
-            zip_ = f'/validacoes/{execucao.id}/pdfs.zip?' + urlencode(nome + [('arquivo', n) for n in nomes])
-        csv_ = f'/validacoes/{execucao.id}/csv?' + urlencode(nome + [('arquivo', p['arquivo']) for p in planos])
+    # Exportação do período escolhido: o zip dos planos assinados
+    zip_, n_assinados = zip_assinados(curso, '' if periodo == TODOS else periodo) if zip_assinados else ('', 0)
     ctx.update({
         'periodos': periodos + ([(TODOS, 'Todos os períodos')] if len(periodos) > 1 else []),
         'periodo': periodo,
@@ -119,6 +113,6 @@ def contexto(execucao, linhas, idents, docentes, revisoes, cursos, curso, period
         'campos': campos,
         'docentes': _docentes(planos),
         'url_zip': zip_,
-        'url_csv': csv_,
+        'n_assinados': n_assinados,
     })
     return ctx

@@ -91,3 +91,37 @@ def test_nova_versao_mantem_a_assinada_publicada(fabrica, tmp_path, monkeypatch)
     assert c.get(f'/transparencia/{id_}/v1.pdf').data == v1
     assert c.get(f'/transparencia/{id_}.pdf').data != v1
     assert c.get(f'/transparencia/{id_}/v9').status_code == 404
+
+
+def test_zip_da_coordenacao_so_com_assinados_dos_cursos_que_coordena(fabrica, tmp_path, monkeypatch):
+    import io
+    import zipfile
+    from test_web import _dar_papel
+    c, dono, id_ = _assinado(fabrica, tmp_path, monkeypatch)
+    _dar_papel(c, 'coord@ifc.edu.br', papel='coordenador')  # de CC
+    _dar_papel(c, 'coord.in@ifc.edu.br', curso='IN', papel='coordenador')
+    coord, outro = {'X-Usuario-Email': 'coord@ifc.edu.br'}, {'X-Usuario-Email': 'coord.in@ifc.edu.br'}
+    url = '/coordenacao/assinados.zip?curso=CC&periodo=2026.2'
+
+    # Aprovado, mas ainda sem assinatura: nada a exportar
+    assert 'assinados.zip' not in c.get('/coordenacao?curso=CC&periodo=2026.2', headers=coord).get_data(as_text=True)
+    assert c.get(url, headers=coord).status_code == 404
+
+    _assinar_pelo_govbr(c, dono)
+    html = c.get('/coordenacao?curso=CC&periodo=2026.2', headers=coord).get_data(as_text=True)
+    assert 'href="/coordenacao/assinados.zip?curso=CC&amp;periodo=2026.2"' in html and '1 plano assinado' in html
+    assert '/csv' not in html and 'CSV' not in html
+    r = c.get(url, headers=coord)
+    assert r.status_code == 200 and r.mimetype == 'application/zip'
+    assert 'planos-assinados-cc-2026.2.zip' in r.headers['Content-Disposition']
+    with zipfile.ZipFile(io.BytesIO(r.data)) as z:
+        [nome] = z.namelist()
+        assert nome == '2026.2-CCC0723-T01-desenvolvimento-web-i-v1-assinado.pdf'
+        assert z.read(nome) == c.get(f'/transparencia/{id_}.pdf').data  # o assinado, não o original
+    assert c.get('/coordenacao/assinados.zip?curso=CC', headers=coord).status_code == 200  # todos os períodos
+
+    # Quem não coordena o curso não exporta: outro coordenador, NDE, docente
+    for cab in (outro, NDE, dono):
+        assert c.get(url, headers=cab).status_code == 403
+    assert c.get('/coordenacao/assinados.zip', headers=coord).status_code == 403  # sem curso
+    assert c.get(url, headers={'X-Usuario-Email': 'admin@ifc.edu.br'}).status_code == 200  # administração

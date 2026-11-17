@@ -1,7 +1,9 @@
 import hmac
 from urllib.parse import quote
 
-from flask import Blueprint, current_app, redirect, render_template, request
+from .. import limites
+
+from flask import Blueprint, current_app, make_response, redirect, render_template, request
 from werkzeug.exceptions import HTTPException
 
 from ..paginas import erros, inicio
@@ -40,6 +42,32 @@ CABECALHOS_SEGURANCA = {
 
 
 CABECALHO_PROXY = 'X-Planos-Proxy'
+# IP de quem pediu, como o Caddy o determinou ({client_ip}, atrás do Traefik do Dokploy); vale porque só se
+# chega ao app pelo Caddy (PROXY_SEGREDO)
+CABECALHO_CLIENTE = 'X-Planos-Cliente'
+
+
+def ip_do_cliente():
+    return (request.headers.get(CABECALHO_CLIENTE) or request.remote_addr or '-').strip()
+
+
+def _limitar():
+    """Limite de requisições (app/limites.py): 429, com Retry-After, acima do permitido."""
+    if not servicos().cfg.limites:
+        return None
+    r = limites.regra(request.method, request.path)
+    if not r:
+        return None
+    nome_regra, _, _, por, limite, janela = r
+    quem = (email() or ip_do_cliente()) if por == 'usuario' else ip_do_cliente()
+    espera = current_app.extensions['limitador'].conferir(f'{nome_regra}:{quem}', limite, janela)
+    if not espera:
+        return None
+    current_app.logger.warning('Limite de requisições (%s) atingido por %s em %s', nome_regra, quem, request.path)
+    minutos = f'{(espera + 59) // 60} minuto(s)' if espera >= 60 else f'{espera} segundo(s)'
+    resp = make_response(texto(f'Muitas requisições em pouco tempo. Tente de novo em {minutos}.', 429))
+    resp.headers['Retry-After'] = str(espera)
+    return resp
 
 
 def _do_proxy():
@@ -57,6 +85,9 @@ def exigir_login():
     # valem vindos dele.
     if not _do_proxy():
         return texto('Acesso permitido só pelo endereço do sistema.', 403)
+    excesso = _limitar()
+    if excesso:
+        return excesso
     # Envio, exclusão, validação e revisão só a partir das páginas do próprio sistema: um site de fora
     # não consegue disparar essas ações com o login de quem o visita (o navegador manda Origin nelas).
     if request.method not in METODOS_SEGUROS and not mesma_origem():

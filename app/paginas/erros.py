@@ -13,6 +13,8 @@ ERROS = {
     405: ('Ação não permitida', 'Esta página não aceita esse tipo de pedido.', 'ban', 'warning'),
     409: ('Ação em andamento', 'Há uma validação ou outra ação em andamento. Tente de novo em instantes.',
           'hourglass-half', 'info'),
+    429: ('Muitas requisições', 'Foram feitos muitos pedidos em pouco tempo a partir do seu acesso. Aguarde um pouco '
+          'e tente de novo.', 'hourglass-half', 'warning'),
     413: ('Arquivo grande demais', 'O envio passou do tamanho máximo aceito.', 'file-upload', 'warning'),
     500: ('Erro interno', 'Algo deu errado do nosso lado. O erro foi registrado; tente de novo em instantes. Se '
           'continuar, avise a coordenação ou a Fábrica de Software do IFC Videira.', 'bug', 'danger'),

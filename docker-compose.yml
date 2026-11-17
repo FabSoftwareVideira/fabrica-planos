@@ -112,6 +112,8 @@ services:
       # Segredo que o Caddy põe em toda requisição: o app recusa quem o alcança sem passar pelo Caddy (ele também
       # está na rede do Ollama, onde outros contêineres poderiam forjar o cabeçalho com o e-mail de quem entrou)
       - PROXY_SEGREDO=${PROXY_SEGREDO:?Defina PROXY_SEGREDO no .env (openssl rand -hex 32)}
+      # Limite de requisições por IP e por usuário (app/limites.py); 0 desliga
+      - LIMITES=${LIMITES:-1}
       - LOGIN_GOOGLE=${LOGIN_GOOGLE:-1}
       # Assinatura dos planos pela API do gov.br (servicos/assinatura_api.py): credenciais próprias, separadas
       # das do login. O ambiente segue GOVBR_AMBIENTE se GOVBR_ASSINATURA_AMBIENTE não for dado.
