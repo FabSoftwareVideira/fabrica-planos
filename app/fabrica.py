@@ -11,7 +11,7 @@ from .armazenamento.revisoes import Revisoes
 from .armazenamento.versoes import Versoes
 from .armazenamento.usuarios import Usuarios
 from .banco import Banco
-from . import limites
+from . import limites, versao
 from .config import Config, carregar
 from .servicos.assinatura import Assinaturas
 from .servicos.backup import Backup
@@ -70,6 +70,8 @@ def criar_app(cfg=None, executar=None):
     if cfg.exigir_login and not cfg.login_simulado and not cfg.proxy_segredo:
         logging.getLogger(__name__).warning('PROXY_SEGREDO vazio: o app aceita X-Usuario-Email de quem o alcançar '
                                             'sem passar pelo Caddy (defina-o no .env)')
+    v = versao.atual()
+    logging.getLogger(__name__).info('Versão %s (commit %s, build %s)', v['rotulo'], v['commit'] or '?', v['build'] or '?')
     validador.preparar_historico()
     if cfg.agendar:
         validador.iniciar_agendador()

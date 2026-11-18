@@ -6,6 +6,7 @@ from ..limites import PUBLICO
 from flask import Blueprint, current_app, redirect, render_template, request
 from werkzeug.exceptions import HTTPException
 
+from .. import versao
 from ..paginas import erros, inicio
 from . import govbr
 from .comum import eh_admin, email, json_, mesma_origem, nome, servicos, texto
@@ -150,4 +151,5 @@ def privacidade():
 
 @bp.get('/health')
 def health():
-    return json_({'status': 'ok'})
+    v = versao.atual()
+    return json_({'status': 'ok', 'versao': v['rotulo'], 'commit': v['commit'], 'build': v['build']})

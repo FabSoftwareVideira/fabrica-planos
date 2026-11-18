@@ -37,6 +37,10 @@ RUN useradd --system --uid 10001 --no-create-home --shell /usr/sbin/nologin vali
 
 COPY app ./app
 
+# Versão mostrada no rodapé e no /health: o commit (e a tag, se o commit tiver uma) lidos do .git do código
+# que o Dokploy baixou. Só HEAD e as refs entram no build (ver .dockerignore); sem .git, fica "desconhecida".
+RUN --mount=type=bind,source=.,target=/fonte python -m app.versao /fonte/.git app/versao.json
+
 USER 10001
 
 # Um único worker: a fila e o lock ficam dentro do processo. O timeout maior dá tempo de criar ou

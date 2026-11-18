@@ -120,6 +120,7 @@ html{scroll-padding-top:88px}  /* âncoras (#entrar...) não ficam escondidas so
 .br-footer .br-divider{border-color:rgba(255,255,255,.25)}
 .br-footer .info{padding:var(--spacing-scale-3x) 0;text-align:center}
 .br-footer .info a{font-weight:var(--font-weight-semi-bold);text-decoration:underline}
+.br-footer .info .versao{margin-top:var(--spacing-scale-base);font-size:var(--font-size-scale-down-01);opacity:.85}
 
 /* Área de envio de PDFs (arrastar e soltar ou escolher), usada no dashboard e em "Meus planos" */
 .soltar{border:2px dashed var(--gray-20);border-radius:var(--surface-rounder-md);padding:var(--spacing-scale-3x);

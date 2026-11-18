@@ -37,6 +37,8 @@
       <p>© 2023 Instituto Federal Catarinense · Campus Videira.
         Desenvolvido pela <a href="https://fabrica.labia.ifc.edu.br" target="_blank" rel="noopener">Fábrica de Software do IFC Videira</a>.
         Usa só cookies necessários ao login · <a href="/privacidade">Privacidade</a>.</p>
+      {% set v = versao_sistema() %}
+      <p class="versao">Versão <span title="{{ ('commit ' ~ v.commit) if v.commit else 'commit desconhecido' }}{{ (' · build ' ~ v.build) if v.build }}">{{ v.rotulo }}</span>{% if v.tag and v.commit %} ({{ v.commit[:7] }}){% endif %}</p>
     </div>
   </div>
 </footer>

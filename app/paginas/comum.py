@@ -4,6 +4,8 @@ from datetime import datetime
 
 from flask import current_app, url_for
 
+from .. import versao
+
 # Funções disponíveis em todos os templates (registradas em app/fabrica.py).
 CORES = {
     'OK': '#22c55e',
@@ -71,7 +73,8 @@ def ano_atual():
 
 
 def registrar(app):
-    app.jinja_env.globals.update(cor=cor, estatico=estatico, ano_atual=ano_atual, logo_ifc=logo_ifc)
+    app.jinja_env.globals.update(cor=cor, estatico=estatico, ano_atual=ano_atual, logo_ifc=logo_ifc,
+                            versao_sistema=versao.atual)
     app.context_processor(_usuario)
     app.jinja_env.filters['data_br'] = data_br
     # Sem espaços e quebras sobrando em volta dos blocos {% ... %}

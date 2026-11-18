@@ -3,6 +3,10 @@
 dev-dados/
 graphify-out/
 .git
+# ...menos o necessário para saber o commit e a tag (app/versao.py)
+!.git/HEAD
+!.git/refs
+!.git/packed-refs
 **/__pycache__/
 .pytest_cache/
 .venv*/

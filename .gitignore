@@ -16,3 +16,5 @@ __pycache__/
 .coverage
 .coverage.*
 htmlcov/
+# Versão gravada no build da imagem (app/versao.py)
+app/versao.json
