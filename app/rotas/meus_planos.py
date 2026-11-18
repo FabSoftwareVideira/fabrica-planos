@@ -53,6 +53,24 @@ def listar():
     return json_({'planos': planos})
 
 
+@bp.post('/validar')
+@ENVIO
+def validar():
+    """Põe na fila de avaliação da IA os planos do professor que ainda não têm revisão humana (coordenação,
+    NDE ou NDB) sobre o PDF atual. Os revisados e os assinados ficam de fora: a avaliação da IA já não muda nada."""
+    s = servicos()
+    vigentes = s.revisao.vigentes()
+    enviados = [p['nome'] for p in s.planos.do_professor(_dono()) if p['tem_plano']]
+    alvos = [nome for nome in enviados if nome not in vigentes and not s.assinaturas.vigente(nome)]
+    if not alvos:
+        mensagem = ('Nenhum plano aguardando avaliação: os seus planos enviados já foram revisados pela coordenação, '
+                    'pelo NDE ou pelo NDB.' if enviados else 'Você ainda não enviou nenhum plano para validar.')
+        return json_({'status': 'sem_planos', 'mensagem': mensagem}, 422)
+    for nome in alvos:  # um por vez, na mesma fila do painel; um plano já na fila não entra de novo
+        s.validador.enfileirar(nome)
+    return json_({'status': 'iniciado', 'planos': len(alvos)})
+
+
 @bp.get('/versao')
 def baixar_versao():
     """PDF de uma versão anterior do plano (?arquivo=, ?numero=; ?assinado=1 para o assinado)."""
@@ -109,7 +127,7 @@ def excluir():
     except Proibido:
         return json_({'erro': 'Você só pode excluir os planos das suas disciplinas'}, 403)
     except Protegido:
-        return json_({'erro': 'O plano assinado não pode ser excluído; para corrigi-lo, use Atualizar (a versão '
+        return json_({'erro': 'O plano assinado não pode ser excluído; para corrigi-lo, use Enviar nova versão (a versão '
                               'assinada fica no histórico)'}, 403)
     except Ocupado:
         return ocupado()

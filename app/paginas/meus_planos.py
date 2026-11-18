@@ -22,4 +22,4 @@ def contexto(email='', max_mb=10, assinatura_api=False, hoje=None, homologacao=F
     pelo aviso de conta prata ou ouro."""
     return {'email': email, 'max_mb': int(max_mb), 'assinatura_api': assinatura_api,
             'assinatura_homologacao': bool(assinatura_api and homologacao), 'assinatura_nivel': nivel,
-            'destaques': periodos_em_destaque(hoje)}
+            'destaques': periodos_em_destaque(hoje), 'validar_meus': True}

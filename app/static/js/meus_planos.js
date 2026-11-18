@@ -1,6 +1,6 @@
 // "Meus planos": as disciplinas do professor, separadas por período letivo (o atual e o próximo primeiro) e
 // filtradas pela etapa (a fazer, em andamento, assinados). Cada disciplina é uma linha com a situação e a ação
-// principal (enviar, atualizar, assinar); ao abri-la aparecem a versão atual (PDF, relatório, excluir), os
+// principal (enviar, enviar nova versão, assinar); ao abri-la aparecem a versão atual (PDF, relatório, excluir), os
 // avisos, a assinatura e as versões anteriores. MAX_MB, ASSINATURA_API e DESTAQUES ({período: 'Atual' | 'Próximo'}) vêm da
 // página; $, msg, hora e corpo, de status.js (a barra de status, carregada antes).
 const CORES = { OK: '#22c55e', PENDENTE: '#eab308', INCOMPLETO: '#eab308' };
@@ -81,7 +81,7 @@ function item(p) {
     const aviso = el('p', 'aviso'); aviso.append(icone('exclamation-triangle'), ' ' + p.aviso); corpo.append(aviso);
   }
   if (p.pode_assinar && !p.assinatura) corpo.append(blocoAssinatura(p));
-  if (p.tem_plano && p.pode_assinar && !p.assinatura) {  // na linha está Assinar: Atualizar fica aqui
+  if (p.tem_plano && p.pode_assinar && !p.assinatura) {  // na linha está Assinar: Enviar nova versão fica aqui
     const atualizar = el('div', 'atualizar'); atualizar.append(botaoEnviar(p)); corpo.append(atualizar);
   }
   if (p.versoes.length) corpo.append(detalhes(p));
@@ -101,7 +101,7 @@ function alternar(id, abrir) {
   b.title = deve ? 'Fechar os detalhes' : 'Ver a versão atual, os avisos e o histórico';
 }
 
-// A ação principal, na linha: enviar o plano, assinar (aprovado) ou atualizar (com destaque se pediram ajustes)
+// A ação principal, na linha: enviar o plano, assinar (aprovado) ou enviar nova versão (com destaque se pediram ajustes)
 function acaoPrincipal(p) {
   if (p.pode_assinar && !p.assinatura) {
     if (ASSINATURA_API && ASSINATURA_NIVEL !== 'bronze') {  // sem nível conhecido, o servidor pede o login gov.br
@@ -117,12 +117,12 @@ function acaoPrincipal(p) {
   return botaoEnviar(p, etapa(p) === 'fazer');
 }
 
-// Enviar (sem plano) ou Atualizar (com plano, mesmo assinado: a versão anterior vai para o histórico)
+// Enviar plano (sem plano) ou Enviar nova versão (com plano, mesmo assinado: a versão anterior vai para o histórico)
 function botaoEnviar(p, destaque) {
   const entrada = el('input'); entrada.type = 'file'; entrada.accept = 'application/pdf,.pdf'; entrada.hidden = true;
   const botao = el('button', 'br-button small ' + (!p.tem_plano || destaque ? 'primary' : 'secondary')); botao.type = 'button';
-  botao.append(icone(p.tem_plano ? 'sync-alt' : 'upload'), p.tem_plano ? ' Atualizar' : ' Enviar plano');
-  botao.title = p.tem_plano ? 'Enviar uma nova versão do plano (a atual fica no histórico)' : 'Enviar o PDF do plano';
+  botao.append(icone(p.tem_plano ? 'file-upload' : 'upload'), p.tem_plano ? ' Enviar nova versão' : ' Enviar plano');
+  botao.title = p.tem_plano ? 'Trocar o PDF por uma versão corrigida (a atual fica no histórico)' : 'Enviar o PDF do plano';
   botao.onclick = () => {
     if (p.assinatura && !confirm(`O plano de "${p.disciplina}" já está assinado. A versão nova vai precisar de nova avaliação, revisão e assinatura; a assinada fica no histórico. Continuar?`)) return;
     entrada.click();
@@ -142,8 +142,8 @@ function versaoAtual(p) {
     // O endereço muda a cada assinatura (v=), para o navegador não reabrir a de uma versão anterior
     if (p.assinatura) links.append(link('/pdf-assinado?arquivo=' + encodeURIComponent(p.nome)
       + '&v=' + encodeURIComponent(p.assinatura.enviado_em || ''), 'file-signature', 'PDF assinado', true));
-    // Assinada, a versão atual não é excluída: para corrigir, Atualizar (ela fica no histórico)
-    if (p.assinatura) links.append(protegida('Assinada: não pode ser excluída; para corrigir, use Atualizar'));
+    // Assinada, a versão atual não é excluída: para corrigir, Enviar nova versão (ela fica no histórico)
+    if (p.assinatura) links.append(protegida('Assinada: não pode ser excluída; para corrigir, use Enviar nova versão'));
     else links.append(botaoExcluir(' Excluir', () => excluir(p)));
     atual.append(links);
     return atual;
@@ -368,6 +368,20 @@ function desenhar() {
 
 // A barra de status (status.js) chama ao fim de uma avaliação: só atualiza a lista, sem sair da página.
 function aoTerminar() { carregar(); }
+
+// "Validar meus planos" (barra de status): põe na fila os planos ainda sem revisão humana
+async function validarMeus() {
+  const b = $('validar-meus'); b.disabled = true;
+  let r, d;
+  try { r = await fetch('/meus-planos/validar', { method: 'POST' }); d = await corpo(r); }
+  catch { msg($('envio-msg'), 'Sem conexão com o servidor; tente de novo', 'erro'); b.disabled = false; return; }
+  b.disabled = false;
+  if (!r.ok) { msg($('envio-msg'), d.mensagem || d.erro || 'Não foi possível iniciar a validação', r.status === 422 ? 'aviso' : 'erro'); return; }
+  msg($('envio-msg'), d.planos === 1 ? 'Um plano entrou na fila de avaliação.' : `${d.planos} planos entraram na fila de avaliação.`, 'ok');
+  estavaRodando = true; atualizarStatus();  // status.js: mostra o andamento na barra e recarrega ao terminar
+  carregar();
+}
+if ($('validar-meus')) $('validar-meus').onclick = validarMeus;
 
 async function carregar() {
   clearTimeout(timerLista);

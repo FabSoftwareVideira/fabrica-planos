@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {#- "Meus planos": as disciplinas em que a coordenação vinculou o professor como docente, separadas por período
     letivo (o atual e o próximo primeiro). Cada disciplina mostra a situação do plano, a ação principal
-    (enviar, atualizar, assinar) e os botões da versão atual; as versões anteriores ficam recolhidas. A lista vem de
+    (enviar, enviar nova versão, assinar) e os botões da versão atual; as versões anteriores ficam recolhidas. A lista vem de
     /meus-planos/lista (static/js/meus_planos.js). -#}
 
 {% block titulo %}Meus planos · Validação de Planos de Ensino{% endblock %}
@@ -37,8 +37,8 @@
         </div>
         <ul class="meus" id="lista"><li><span class="msg">Carregando…</span></li></ul>
         <details class="ajuda-envio">
-          <summary>Como enviar e atualizar o plano</summary>
-          <p>Envie o PDF do plano gerado pelo SIGAA em cada disciplina (com texto selecionável, até {{ max_mb }} MB; o nome do arquivo não importa). Ele é a entrega do plano ao NDE, e a avaliação automática começa logo em seguida. Para corrigir, gere o PDF de novo no SIGAA e use <strong>Atualizar</strong>, mesmo que o plano já esteja assinado: a versão anterior fica guardada no histórico, e a nova passa outra vez pela avaliação, pela revisão e pela assinatura.</p>
+          <summary>Como enviar e corrigir o plano</summary>
+          <p>Envie o PDF do plano gerado pelo SIGAA em cada disciplina (com texto selecionável, até {{ max_mb }} MB; o nome do arquivo não importa). Ele é a entrega do plano ao NDE, e a avaliação automática começa logo em seguida. Para corrigir, gere o PDF de novo no SIGAA e use <strong>Enviar nova versão</strong>, mesmo que o plano já esteja assinado: a versão anterior fica guardada no histórico, e a nova passa outra vez pela avaliação, pela revisão e pela assinatura.</p>
         </details>
       </div>
     </section>

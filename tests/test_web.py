@@ -53,6 +53,29 @@ def test_administrador_nao_envia_planos(cliente):
     assert not (planos / 'b.pdf').exists()
 
 
+def test_validar_meus_planos_so_os_sem_revisao_humana(com_login, sem_ia, monkeypatch):
+    c, planos = com_login
+    s = _servicos(c)
+    eu = 'fulano@ifc.edu.br'
+    r = c.post('/meus-planos/validar', headers=SERVIDOR)
+    assert r.status_code == 422 and 'ainda não enviou' in r.json['mensagem']
+    a, b = dar_disciplina(c, eu), dar_disciplina(c, eu, codigo='CCC0724', nome='Banco de Dados')
+    dar_disciplina(c, eu, codigo='CCC0725', nome='Sem plano')
+    outro = dar_disciplina(c, 'outro@ifc.edu.br', codigo='CCC0726', nome='De outro docente')
+    for o, cab in ((a, SERVIDOR), (b, SERVIDOR), (outro, {'X-Usuario-Email': 'outro@ifc.edu.br'})):
+        assert enviar_plano(c, o, PDF, cab=cab).status_code == 200
+    s.revisao.revisoes.salvar(b['arquivo'], s.revisao.assinatura(b['arquivo']), 'OK', 'OK', '', 'CC',
+                              'nde@ifc.edu.br', 'NDE', 'nde')
+    na_fila = []
+    monkeypatch.setattr(s.validador, 'enfileirar', na_fila.append)
+    r = c.post('/meus-planos/validar', headers=SERVIDOR)
+    assert r.status_code == 200 and r.json == {'status': 'iniciado', 'planos': 1} and na_fila == [a['arquivo']]
+    s.revisao.revisoes.salvar(a['arquivo'], s.revisao.assinatura(a['arquivo']), 'PENDENTE', 'OK', 'corrigir', 'CC',
+                              'nde@ifc.edu.br', 'NDE', 'nde')
+    r = c.post('/meus-planos/validar', headers=SERVIDOR)
+    assert r.status_code == 422 and 'revisados' in r.json['mensagem'] and na_fila == [a['arquivo']]
+
+
 def test_upload_pede_a_disciplina_e_um_pdf(cliente, sem_ia):
     c, planos = cliente
     o = dar_disciplina(c)
@@ -1011,7 +1034,7 @@ def test_excluir_versoes_menos_a_aprovada_e_assinada(fabrica, tmp_path, monkeypa
 
     # A versão atual, assinada, não é excluída: o professor atualiza
     r = c.delete('/meus-planos?arquivo=web.pdf', headers=SERVIDOR)
-    assert r.status_code == 403 and 'Atualizar' in r.json['erro'] and (planos / 'web.pdf').exists()
+    assert r.status_code == 403 and 'Enviar nova versão' in r.json['erro'] and (planos / 'web.pdf').exists()
     enviar_plano(c, o, gerar_pdf_plano('Versão 2.'), cab=SERVIDOR)  # v1 (assinada) vai para o histórico
     enviar_plano(c, o, gerar_pdf_plano('Versão 3.'), cab=SERVIDOR)  # v2 (sem revisão) também
     [plano] = c.get('/meus-planos/lista', headers=SERVIDOR).json['planos']
@@ -1518,6 +1541,7 @@ def test_meus_planos_tem_a_barra_de_status(com_login):
     for cab in (SERVIDOR, ADMIN):
         html = c.get('/meus-planos', headers=cab).get_data(as_text=True)
         assert 'class="barra-status"' in html and 'id="validar"' not in html  # sem "Validar agora" aqui
+        assert 'id="validar-meus"' in html and 'Validar meus planos' in html
         assert html.index('js/status.js') < html.index('js/meus_planos.js') and 'ADMIN = false,' in html
     js = c.get('/static/js/meus_planos.js').get_data(as_text=True)
     assert 'function aoTerminar()' in js and 'const $ =' not in js  # $ e msg vêm de status.js

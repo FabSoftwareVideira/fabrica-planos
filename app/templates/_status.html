@@ -1,11 +1,13 @@
 {#- Barra de status da validação, logo abaixo do cabeçalho (dashboard, administração e "Meus planos"). Mostra a última
     validação ou o andamento; enquanto valida, fica fixa no topo com a barra de progresso (static/js/status.js).
-    Administradores têm o botão "Validar agora". -#}
+    Administradores têm o botão "Validar agora" (todos os planos); em "Meus planos" (validar_meus), cada professor tem
+    "Validar meus planos", que avalia de novo os seus planos ainda sem revisão humana. -#}
 <section class="barra-status" aria-label="Situação da validação">
   <div class="container-lg">
     <i class="fas fa-sync-alt icone" aria-hidden="true"></i>
     <p class="msg" id="status-msg" role="status">Carregando…</p>
-    {% if admin %}<button class="br-button primary small" id="validar" type="button"><i class="fas fa-play" aria-hidden="true"></i> Validar agora</button>{% endif %}
+    {% if validar_meus %}<button class="br-button primary small" id="validar-meus" type="button" title="Avalia de novo, com a IA, os seus planos enviados que ainda não foram revisados pela coordenação, pelo NDE ou pelo NDB"><i class="fas fa-play" aria-hidden="true"></i> Validar meus planos</button>
+    {% elif admin %}<button class="br-button primary small" id="validar" type="button"><i class="fas fa-play" aria-hidden="true"></i> Validar agora</button>{% endif %}
   </div>
   <div class="barra" id="barra" hidden><div></div></div>
 </section>
