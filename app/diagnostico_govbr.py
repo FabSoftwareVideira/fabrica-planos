@@ -34,6 +34,14 @@ def linhas(cfg, alcanca=_alcanca):
     saida.append((ok, f'{cfg.govbr_url}: {texto}'))
 
     saida.append((True, f'Assinatura gov.br: ambiente {cfg.assinatura_ambiente}'))
+    if cfg.govbr_ativo and cfg.assinatura_ambiente in ('homologacao', 'producao'):
+        login = 'homologacao' if 'staging' in cfg.govbr_url else 'producao'
+        saida.append((login == cfg.assinatura_ambiente,
+                      f'Login gov.br ({login}) e assinatura ({cfg.assinatura_ambiente}) no mesmo ambiente'
+                      + ('' if login == cfg.assinatura_ambiente else
+                         ': NÃO. O nível conferido no login é de uma conta do outro ambiente, e uma conta bronze '
+                         'da assinatura chegaria à autorização. Para homologar, use GOVBR_AMBIENTE=homologacao '
+                         '(credencial de teste do Login Único).')))
     if cfg.assinatura_ambiente == 'simulada':
         saida.append((cfg.login_simulado, 'Assinatura simulada (só com LOGIN_SIMULADO=1, em desenvolvimento)'))
         return saida

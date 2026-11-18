@@ -11,6 +11,7 @@ BASE = Config(planos_dir='p', resultados_dir='r', ollama_url='http://o', modelo=
 
 def _completa():
     return replace(BASE, govbr_client_id='login', govbr_client_secret='s1', segredo_sessao='chave',
+                   govbr_url='https://sso.staging.acesso.gov.br',
                    assinatura_client_id='HNO7VC1ZL8', assinatura_client_secret='s2', assinatura_ambiente='homologacao',
                    assinatura_oauth_url='https://cas.staging.iti.br/oauth2.0',
                    assinatura_api_url='https://assinatura-api.staging.iti.br/externo/v2')
@@ -50,3 +51,11 @@ def test_alcanca(monkeypatch):
         raise requests.ConnectTimeout()
     monkeypatch.setattr(requests, 'get', falha)
     assert diagnostico_govbr._alcanca('https://x') == (False, 'sem resposta (ConnectTimeout)')
+
+
+def test_login_e_assinatura_em_ambientes_diferentes(capsys):
+    cfg = replace(_completa(), govbr_url='https://sso.acesso.gov.br')  # login em produção, assinatura em homologação
+    assert diagnostico_govbr.main(cfg, lambda url: (True, 'responde')) == 1
+    saida = capsys.readouterr().out
+    assert ' FALHA Login gov.br (producao) e assinatura (homologacao) no mesmo ambiente: NÃO' in saida
+    assert diagnostico_govbr.main(_completa(), lambda url: (True, 'responde')) == 0  # os dois em homologação

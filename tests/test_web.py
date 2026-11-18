@@ -1648,3 +1648,43 @@ def test_bronze_sem_acesso_ve_o_aviso_no_login(fabrica, monkeypatch):
     assert volta.status_code == 403 and 'aviso-bronze' in html and 'confiabilidades.acesso.gov.br' in html
     _, volta, _ = _login_govbr(c, monkeypatch, email='pessoal@gmail.com', reliability_info={'level': 'silver'})
     assert 'aviso-bronze' not in volta.get_data(as_text=True)
+
+
+def test_assinar_so_com_nivel_conferido_ha_pouco(fabrica, tmp_path, monkeypatch):
+    """O nível guardado pode ser de outra conta gov.br ou de antes de um upgrade: para ir à autorização, ele
+    precisa ter sido informado pelo gov.br há poucos minutos; senão, "Assinar" passa de novo pelo Login Único."""
+    from datetime import datetime, timedelta
+    from urllib.parse import urlsplit
+    from app.servicos import assinatura_api
+    c, dono = _aprovado_para_assinar(fabrica, tmp_path, assinatura_client_id='cli', assinatura_client_secret='seg',
+                                     segredo_sessao='chave', assinatura_ambiente='homologacao',
+                                     govbr_client_id='cliente', govbr_client_secret='segredo',
+                                     assinatura_oauth_url='https://cas.staging.iti.br/oauth2.0',
+                                     assinatura_api_url='https://assinatura-api.staging.iti.br/externo/v2')
+    usuarios = _servicos(c).usuarios
+    usuarios.vincular_govbr('chave-cpf', 'fulano@ifc.edu.br', 'prata')
+    assert usuarios.nivel_govbr_conferido('fulano@ifc.edu.br')[1]  # registrado agora
+
+    def ir():
+        return c.get('/assinatura/govbr/iniciar?arquivo=web.pdf', headers=dono)
+    assert ir().headers['Location'].startswith('https://cas.staging.iti.br/')  # conferido agora: segue
+
+    antigo = (datetime.now() - timedelta(seconds=assinatura_api.CONFERENCIA_VALE + 60)).isoformat(timespec='seconds')
+    with usuarios._conexao() as con:
+        con.execute('UPDATE vinculos_govbr SET nivel_em = %s', (antigo,))
+    r = ir()
+    assert r.status_code == 302 and urlsplit(r.headers['Location']).path == '/conta/govbr/vincular'
+
+    with usuarios._conexao() as con:
+        con.execute("UPDATE vinculos_govbr SET nivel = 'bronze'")
+    assert _resultado(ir())['assinatura'] == 'bronze'  # bronze, mesmo antigo: nunca vai à autorização
+
+
+def test_conferido_ha_pouco():
+    from datetime import datetime, timedelta
+    from app.servicos.assinatura_api import CONFERENCIA_VALE, conferido_ha_pouco
+    agora = datetime(2026, 11, 18, 10, 0, 0)
+    assert conferido_ha_pouco((agora - timedelta(seconds=60)).isoformat(), agora)
+    assert not conferido_ha_pouco((agora - timedelta(seconds=CONFERENCIA_VALE + 1)).isoformat(), agora)
+    assert not conferido_ha_pouco((agora + timedelta(seconds=60)).isoformat(), agora)  # no futuro
+    assert not conferido_ha_pouco('', agora) and not conferido_ha_pouco(None, agora)

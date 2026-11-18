@@ -46,6 +46,19 @@ MENSAGEM_SEM_NIVEL = ('O gov.br não informou o nível da sua conta, e a assinat
                       'Saia, entre de novo com gov.br e tente assinar outra vez.')
 
 
+# O nível vale para assinar só se o gov.br o informou há pouco: a sessão do gov.br que assina é então a da
+# conta conferida. Mais antigo, "Assinar" passa de novo pelo Login Único.
+CONFERENCIA_VALE = 10 * 60
+
+
+def conferido_ha_pouco(quando, agora=None):
+    from datetime import datetime
+    try:
+        return 0 <= ((agora or datetime.now()) - datetime.fromisoformat(quando)).total_seconds() <= CONFERENCIA_VALE
+    except (TypeError, ValueError):
+        return False
+
+
 def pode_assinar(cfg, nivel):
     """'ok', 'bronze' ou 'sem_nivel' (o nível da conta gov.br do usuário não é conhecido). Só se confere com
     o login gov.br configurado (é ele que informa o nível) e fora da assinatura simulada."""

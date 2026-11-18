@@ -56,11 +56,15 @@ def iniciar():
     if not pipeline.nome_valido(nome) or not s.assinaturas.liberado(nome, _usuario()):
         return _voltar(assinatura='erro', arquivo=nome,
                        motivo='Só quem enviou o plano o assina, e só depois de aprovado na revisão.')
-    # Conta bronze (ou de nível desconhecido) não vai à tela de autorização do gov.br
     # Roteiro: o nível da conta é conferido ANTES de qualquer chamada da assinatura; conta bronze nunca chega
-    # à tela de autorização. Sem o nível (entrou pelo Google), "Assinar" pede o login gov.br, que o informa,
-    # e volta aqui.
-    situacao = assinatura_api.pode_assinar(s.cfg, s.usuarios.nivel_govbr(_usuario()))
+    # à tela de autorização. Sem o nível, ou com ele conferido há mais de alguns minutos (pode ser de outra conta
+    # gov.br, ou de antes de um upgrade), "Assinar" passa pelo Login Único, que informa o nível da conta que
+    # está no gov.br agora (a mesma que vai assinar), e volta aqui.
+    nivel, quando = s.usuarios.nivel_govbr_conferido(_usuario())
+    situacao = assinatura_api.pode_assinar(s.cfg, nivel)
+    if (situacao == 'ok' and s.cfg.govbr_ativo and s.cfg.assinatura_ambiente != 'simulada'
+            and not assinatura_api.conferido_ha_pouco(quando)):
+        situacao = 'sem_nivel'
     if situacao == 'bronze':
         return _voltar(assinatura='bronze', arquivo=nome)
     if situacao == 'sem_nivel':
