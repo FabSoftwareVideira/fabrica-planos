@@ -104,7 +104,9 @@ function alternar(id, abrir) {
 // A ação principal, na linha: enviar o plano, assinar (aprovado) ou enviar nova versão (com destaque se pediram ajustes)
 function acaoPrincipal(p) {
   if (p.pode_assinar && !p.assinatura) {
-    if (ASSINATURA_API && ASSINATURA_NIVEL !== 'bronze') {  // sem nível conhecido, o servidor pede o login gov.br
+    if (ASSINATURA_API && ASSINATURA_NIVEL === 'bronze') return el('span', 'br-tag sem-assinatura', 'Assinatura indisponível');
+    if (ASSINATURA_API && ASSINATURA_NIVEL === 'sem_nivel') return botaoConferirConta(p);
+    if (ASSINATURA_API && ASSINATURA_NIVEL === 'ok') {  // prata ou ouro
       const a = link('/assinatura/govbr/iniciar?arquivo=' + encodeURIComponent(p.nome), 'signature', 'Assinar');
       a.className = 'br-button primary small'; a.title = 'Assinar o plano aprovado com a sua conta gov.br';
       return a;
@@ -206,6 +208,12 @@ function blocoAssinatura(p) {
     div.append(avisoBronze());
     return div;
   }
+  if (ASSINATURA_API && ASSINATURA_NIVEL === 'sem_nivel') {
+    // Nível desconhecido (entrou pelo Google): sem botão de assinar; primeiro, entrar com gov.br para o
+    // sistema conferir o nível da conta
+    div.append(botaoConferirConta(p), el('p', 'nota', 'A assinatura exige conta gov.br nível prata ou ouro. Entre com a sua conta gov.br para o sistema conferir o nível; com prata ou ouro, o botão de assinar aparece aqui.'));
+    return div;
+  }
   if (ASSINATURA_API) {
     const assinar = link('/assinatura/govbr/iniciar?arquivo=' + encodeURIComponent(p.nome), 'signature', 'Assinar com gov.br');
     assinar.className = 'br-button primary small';
@@ -222,6 +230,13 @@ function blocoAssinatura(p) {
   }
   div.append(passosManuais(p));
   return div;
+}
+
+// Entrar com gov.br só para conferir o nível da conta (sem assinar), voltando a esta página
+function botaoConferirConta(p) {
+  const a = link('/conta/govbr/vincular?rd=' + encodeURIComponent('/meus-planos#oferta-' + p.oferta_id), 'user-check', 'Entrar com gov.br');
+  a.className = 'br-button secondary small'; a.title = 'Entrar com a conta gov.br para o sistema conferir o nível dela';
+  return a;
 }
 
 // Aviso do roteiro para conta bronze, com o link para elevar o nível da conta

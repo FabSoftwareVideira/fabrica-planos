@@ -58,6 +58,9 @@ class Config:
     govbr_client_secret: str = ''
     govbr_url: str = GOVBR_PRODUCAO
     govbr_redirect_uri: str = ''
+    # "URL de Log Out" cadastrada na credencial do Login Único, para onde o gov.br volta depois do /logout
+    # (vazio: o endereço do pedido + /auth/gov/logout)
+    govbr_logout_uri: str = ''
     segredo_sessao: str = ''
     login_google: bool = True
     oauth2_proxy_url: str = 'http://oauth2-proxy:4180'
@@ -124,6 +127,7 @@ def carregar():
         govbr_url=GOVBR_HOMOLOGACAO if _ambiente(os.environ.get('GOVBR_AMBIENTE')) == 'homologacao'
         else GOVBR_PRODUCAO,
         govbr_redirect_uri=os.environ.get('GOVBR_REDIRECT_URI', '').strip(),
+        govbr_logout_uri=os.environ.get('GOVBR_LOGOUT_URI', '').strip(),
         segredo_sessao=os.environ.get('SEGREDO_SESSAO', '').strip(),
         login_google=os.environ.get('LOGIN_GOOGLE', '1') == '1',
         oauth2_proxy_url=(os.environ.get('OAUTH2_PROXY_URL') or 'http://oauth2-proxy:4180').rstrip('/'),

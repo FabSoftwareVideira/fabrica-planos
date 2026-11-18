@@ -1175,16 +1175,16 @@ def test_login_govbr_com_email_institucional(fabrica, monkeypatch):
     html = c.get('/meus-planos', headers={k: r.headers[k] for k in ('X-Usuario-Email', 'X-Usuario-Token')}).get_data(as_text=True)
     assert 'Fulano de Tal' in html
 
-    # Sair apaga a sessão e volta à página inicial, que encerra a sessão do gov.br num iframe oculto
+    # Sair apaga a sessão do app e vai ao /logout do gov.br (roteiro), que encerra a sessão dele e volta na URL
+    # de Log Out (/auth/gov/logout), que leva à página inicial
     r = c.get('/auth/sair')
-    assert r.headers['Location'] == '/oauth2/sign_out?rd=%2F%3Fsaiu%3Dgovbr'
+    assert r.headers['Location'] == ('https://sso.acesso.gov.br/logout?post_logout_redirect_uri='
+                                     'http%3A%2F%2Flocalhost%2Fauth%2Fgov%2Flogout')
     assert c.get('/auth/verificar').status_code == 401
-    r = c.get('/?saiu=govbr')
-    assert '<iframe src="https://sso.acesso.gov.br/logout"' in r.get_data(as_text=True)
-    assert 'frame-src https://sso.acesso.gov.br' in r.headers['Content-Security-Policy']
-    assert '<iframe' not in c.get('/').get_data(as_text=True)
+    assert c.get_cookie('_planos_govbr_sso') is None
     assert c.get('/auth/gov/logout').headers['Location'] == '/oauth2/sign_out?rd=%2F'
-    # Sem sessão gov.br (entrou pelo Google)
+    assert '<iframe' not in c.get('/').get_data(as_text=True)
+    # Sem ter passado pelo gov.br (entrou só pelo Google)
     assert c.get('/auth/sair').headers['Location'] == '/oauth2/sign_out?rd=%2F'
 
 
@@ -1613,7 +1613,6 @@ def test_pagina_inicial_mostra_acessar_para_quem_ja_entrou(fabrica, monkeypatch)
     c.set_cookie('_planos_login', 'qualquer')  # cookie do Google (oauth2-proxy)
     html = c.get('/').get_data(as_text=True)
     assert 'href="/dashboard"><i class="fas fa-arrow-right" aria-hidden="true"></i> Acessar</a>' in html
-    assert '> Acessar</a>' not in c.get('/?saiu=govbr').get_data(as_text=True)  # acabou de sair
     c.delete_cookie('_planos_login')
     _login_govbr(c, monkeypatch)  # sessão gov.br do app
     assert '> Acessar</a>' in c.get('/').get_data(as_text=True)
@@ -1688,3 +1687,17 @@ def test_conferido_ha_pouco():
     assert not conferido_ha_pouco((agora - timedelta(seconds=CONFERENCIA_VALE + 1)).isoformat(), agora)
     assert not conferido_ha_pouco((agora + timedelta(seconds=60)).isoformat(), agora)  # no futuro
     assert not conferido_ha_pouco('', agora) and not conferido_ha_pouco(None, agora)
+
+
+def test_sair_encerra_o_govbr_de_quem_entrou_pelo_google(fabrica, monkeypatch):
+    """Quem entrou pelo Google e passou pelo gov.br (vínculo, ou antes de assinar) tem sessão aberta no gov.br:
+    o Sair a encerra também, na URL de Log Out configurada."""
+    c, _ = fabrica(**dict(GOVBR, govbr_logout_uri='https://planos.labia.ifc.edu.br/auth/gov/logout'))
+    google = {'X-Usuario-Email': 'fulano@ifc.edu.br'}
+    assert c.get('/auth/sair', headers=google).headers['Location'] == '/oauth2/sign_out?rd=%2F'
+    _vincular_govbr(c, monkeypatch, google)
+    assert c.get_cookie('_planos_govbr_sso') is not None
+    r = c.get('/auth/sair', headers=google)
+    assert r.headers['Location'] == ('https://sso.acesso.gov.br/logout?post_logout_redirect_uri='
+                                     'https%3A%2F%2Fplanos.labia.ifc.edu.br%2Fauth%2Fgov%2Flogout')
+    assert c.get_cookie('_planos_govbr_sso') is None

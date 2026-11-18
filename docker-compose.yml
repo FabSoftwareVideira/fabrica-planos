@@ -108,6 +108,7 @@ services:
       - GOVBR_CLIENT_SECRET=${GOVBR_CLIENT_SECRET:-}
       - GOVBR_AMBIENTE=${GOVBR_AMBIENTE:-producao}
       - GOVBR_REDIRECT_URI=${GOVBR_REDIRECT_URI:-}
+      - GOVBR_LOGOUT_URI=${GOVBR_LOGOUT_URI:-}
       - SEGREDO_SESSAO=${SEGREDO_SESSAO:-}
       # Segredo que o Caddy põe em toda requisição: o app recusa quem o alcança sem passar pelo Caddy (ele também
       # está na rede do Ollama, onde outros contêineres poderiam forjar o cabeçalho com o e-mail de quem entrou)

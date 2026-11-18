@@ -69,7 +69,7 @@ Usuários, papéis em cursos e revisões ficam no PostgreSQL (variável `DATABAS
 
 A produção roda no [Dokploy](https://dokploy.com), como recurso do tipo **Docker Compose**, usando o `docker-compose.yml` da raiz. Para configurar:
 
-1. Crie um cliente OAuth no [Google Cloud](https://console.cloud.google.com) (tipo **Aplicativo da Web**), com o URI de redirecionamento `https://SEU_DOMINIO/oauth2/callback`. Para o login gov.br, peça a integração com o Login Único com o endereço de retorno `https://SEU_DOMINIO/auth/govbr/callback`. O **Sair** volta sempre à página inicial e encerra a sessão do gov.br em segundo plano, e preencha as variáveis `GOVBR_*` e `SEGREDO_SESSAO`. Com `LOGIN_GOOGLE=0`, fica só o gov.br.
+1. Crie um cliente OAuth no [Google Cloud](https://console.cloud.google.com) (tipo **Aplicativo da Web**), com o URI de redirecionamento `https://SEU_DOMINIO/oauth2/callback`. Para o login gov.br, peça a integração com o Login Único com o endereço de retorno `https://SEU_DOMINIO/auth/govbr/callback`. Cadastre também a **URL de Log Out** `https://SEU_DOMINIO/auth/gov/logout` (variável `GOVBR_LOGOUT_URI`): o **Sair** de quem passou pelo gov.br (login, vínculo ou assinatura) vai ao `/logout` do Login Único, que encerra a sessão do gov.br e volta por ela à página inicial. Preencha as variáveis `GOVBR_*` e `SEGREDO_SESSAO`. Com `LOGIN_GOOGLE=0`, fica só o gov.br.
 2. No Dokploy, cadastre o repositório (branch `master`, arquivo `./docker-compose.yml`) e **desligue o Autodeploy**.
 3. Em **Environment**, cole o `.env.example` e preencha os valores. Cada variável está explicada nele.
 4. Em **Domains**, aponte o domínio para o serviço `caddy`, porta `80`, com HTTPS.
