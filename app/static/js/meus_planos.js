@@ -104,7 +104,7 @@ function alternar(id, abrir) {
 // A ação principal, na linha: enviar o plano, assinar (aprovado) ou atualizar (com destaque se pediram ajustes)
 function acaoPrincipal(p) {
   if (p.pode_assinar && !p.assinatura) {
-    if (ASSINATURA_API && ASSINATURA_NIVEL === 'ok') {
+    if (ASSINATURA_API && ASSINATURA_NIVEL !== 'bronze') {  // sem nível conhecido, o servidor pede o login gov.br
       const a = link('/assinatura/govbr/iniciar?arquivo=' + encodeURIComponent(p.nome), 'signature', 'Assinar');
       a.className = 'br-button primary small'; a.title = 'Assinar o plano aprovado com a sua conta gov.br';
       return a;
@@ -203,32 +203,18 @@ function blocoAssinatura(p) {
   titulo.append(forte); div.append(titulo);
   if (ASSINATURA_API && ASSINATURA_NIVEL === 'bronze') {
     // Roteiro da assinatura gov.br: conta bronze não chega à autorização; aviso com o link para elevar o nível
-    const aviso = el('p', 'nota aviso-nivel');
-    const upgrade = el('a', '', 'Clique aqui'); upgrade.href = 'https://confiabilidades.acesso.gov.br/';
-    upgrade.target = '_blank'; upgrade.rel = 'noopener';
-    aviso.append(icone('exclamation-triangle'), ' É necessário possuir conta gov.br nível prata ou ouro para utilizar o serviço de assinatura. ',
-      upgrade, ' para realizar o upgrade da conta. Depois, saia e entre de novo com gov.br.');
-    div.append(aviso);
-    return div;
-  }
-  if (ASSINATURA_API && ASSINATURA_NIVEL === 'sem_nivel') {
-    const aviso = el('p', 'nota aviso-nivel');
-    const vincular = el('a', '', 'vincule a sua conta gov.br');
-    vincular.href = '/conta/govbr/vincular?rd=/meus-planos';
-    aviso.append(icone('info-circle'), ' Para assinar pelo app, ', vincular,
-      ': a assinatura exige conta gov.br nível prata ou ouro, e o app confere o nível antes.');
-    const alternativa = el('details', 'alternativa'); alternativa.append(el('summary', '', 'Ou assine em assinador.iti.br e envie o arquivo'));
-    alternativa.append(passosManuais(p));
-    div.append(aviso, alternativa);
+    div.append(avisoBronze());
     return div;
   }
   if (ASSINATURA_API) {
     const assinar = link('/assinatura/govbr/iniciar?arquivo=' + encodeURIComponent(p.nome), 'signature', 'Assinar com gov.br');
     assinar.className = 'br-button primary small';
-    const nota = el('p', 'nota', ASSINATURA_HOMOLOGACAO
-      ? 'Ambiente de homologação do gov.br: a assinatura é de teste, sem validade jurídica. Entre com uma conta de '
-        + 'teste (sso.staging.acesso.gov.br); o código do SMS pode ser 12345.'
-      : 'Você confirma no gov.br (conta nível prata ou ouro) e volta para cá com o plano assinado.');
+    const nota = el('p', 'nota', (ASSINATURA_NIVEL === 'sem_nivel'
+      ? 'Primeiro você entra com a sua conta gov.br, para o sistema conferir o nível dela (prata ou ouro). ' : '')
+      + (ASSINATURA_HOMOLOGACAO
+        ? 'Ambiente de homologação do gov.br: a assinatura é de teste, sem validade jurídica. Entre com uma conta de '
+          + 'teste (sso.staging.acesso.gov.br); o código do SMS pode ser 12345.'
+        : 'Você confirma no gov.br (conta nível prata ou ouro) e volta para cá com o plano assinado.'));
     const alternativa = el('details', 'alternativa'); alternativa.append(el('summary', '', 'Ou assine em assinador.iti.br e envie o arquivo'));
     alternativa.append(passosManuais(p));
     div.append(assinar, nota, alternativa);
@@ -236,6 +222,16 @@ function blocoAssinatura(p) {
   }
   div.append(passosManuais(p));
   return div;
+}
+
+// Aviso do roteiro para conta bronze, com o link para elevar o nível da conta
+function avisoBronze() {
+  const aviso = el('p', 'nota aviso-nivel');
+  const upgrade = el('a', '', 'Clique aqui'); upgrade.href = 'https://confiabilidades.acesso.gov.br/';
+  upgrade.target = '_blank'; upgrade.rel = 'noopener';
+  aviso.append(icone('exclamation-triangle'), ' É necessário possuir conta gov.br nível prata ou ouro para utilizar o serviço de assinatura. ',
+    upgrade, ' para realizar o upgrade da conta. Depois, saia e entre de novo com gov.br.');
+  return aviso;
 }
 
 // Assinatura manual: baixar o PDF, assinar em assinador.iti.br e enviar o arquivo assinado.
@@ -435,7 +431,10 @@ async function enviar(p, arquivo) {
   const q = new URLSearchParams(location.search);
   if (!q.has('assinatura')) return;
   voltarPara = q.get('arquivo') || '';
-  if (q.get('assinatura') === 'ok') msg($('envio-msg'), `Plano assinado via gov.br por ${q.get('signatario') || 'você'}.`
+  if (q.get('assinatura') === 'bronze') {
+    msg($('envio-msg'), 'Não foi possível assinar o plano: sua conta gov.br é nível bronze.', 'erro');
+    $('envio-msg').append(' ', avisoBronze());
+  } else if (q.get('assinatura') === 'ok') msg($('envio-msg'), `Plano assinado via gov.br por ${q.get('signatario') || 'você'}.`
     + (q.get('aviso') ? ` Atenção: ${q.get('aviso')}` : ''), 'ok');
   else msg($('envio-msg'), `Não foi possível assinar o plano: ${q.get('motivo') || 'tente de novo.'}`, 'erro');
   history.replaceState(null, '', location.pathname + location.hash);

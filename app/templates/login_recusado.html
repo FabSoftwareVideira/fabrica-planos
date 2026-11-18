@@ -19,6 +19,7 @@
         <span class="message-body">{{ motivo }}</span>
       </div>
     </div>
+    {% if bronze %}{% include '_aviso_bronze.html' %}{% endif %}
     {% if vincular %}
     <p><a class="br-button secondary botao-google" href="/oauth2/start?rd=/conta/govbr/vincular">
       {%- include 'logo_google.svg' -%} Entrar com Google</a></p>

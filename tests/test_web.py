@@ -1139,7 +1139,7 @@ def test_login_govbr_com_email_institucional(fabrica, monkeypatch):
     c, _ = fabrica(**GOVBR)
     assert c.get('/auth/verificar').status_code == 401
     ida, volta, pedidos = _login_govbr(c, monkeypatch)
-    assert ida['code_challenge_method'] == ['S256'] and ida['scope'] == ['openid email profile govbr_confiabilidades_idtoken']
+    assert ida['code_challenge_method'] == ['S256'] and ida['scope'] == ['openid email profile govbr_confiabilidades govbr_confiabilidades_idtoken']
     assert ida['redirect_uri'] == ['https://planos.labia.ifc.edu.br/auth/govbr/callback']
     assert volta.status_code == 302 and volta.headers['Location'] == '/meus-planos'
     url, kw = pedidos[0]
@@ -1554,14 +1554,27 @@ def test_conta_bronze_nao_chega_a_autorizacao_da_assinatura(fabrica, tmp_path, m
 
     def ir():
         return c.get('/assinatura/govbr/iniciar?arquivo=web.pdf', headers=dono)
-    assert 'ASSINATURA_NIVEL = "sem_nivel"' in c.get('/meus-planos', headers=dono).get_data(as_text=True)
+    pagina = c.get('/meus-planos', headers=dono).get_data(as_text=True)
+    assert 'ASSINATURA_NIVEL = "sem_nivel"' in pagina and 'aviso-bronze' not in pagina
+    # Login alternativo (Google), nível desconhecido: "Assinar" pede o login gov.br e volta para assinar
     r = ir()
-    assert r.status_code == 303 and 'vincule' in _resultado(r)['motivo']
+    assert r.status_code == 302
+    from urllib.parse import parse_qs, urlsplit
+    destino = urlsplit(r.headers['Location'])
+    assert destino.path == '/conta/govbr/vincular'
+    assert parse_qs(destino.query)['rd'] == ['/assinatura/govbr/iniciar?arquivo=web.pdf&tentou=1']
+    # Se nem depois do login o gov.br informar o nível, não insiste (sem laço)
+    r = c.get('/assinatura/govbr/iniciar?arquivo=web.pdf&tentou=1', headers=dono)
+    assert r.status_code == 303 and 'não informou o nível' in _resultado(r)['motivo']
 
+    # Conta bronze: aviso fixo na página, com o link de upgrade; "Assinar" volta com o aviso, sem autorização
     usuarios.vincular_govbr('chave-cpf', 'fulano@ifc.edu.br', 'bronze')
-    assert 'ASSINATURA_NIVEL = "bronze"' in c.get('/meus-planos', headers=dono).get_data(as_text=True)
-    motivo = _resultado(ir())['motivo']
-    assert 'prata ou ouro' in motivo and 'https://confiabilidades.acesso.gov.br/' in motivo
+    pagina = c.get('/meus-planos', headers=dono).get_data(as_text=True)
+    assert 'ASSINATURA_NIVEL = "bronze"' in pagina and 'aviso-bronze' in pagina
+    assert 'É necessário possuir conta gov.br nível prata ou ouro para utilizar o serviço de assinatura.' in pagina
+    assert 'href="https://confiabilidades.acesso.gov.br/"' in pagina
+    r = ir()
+    assert r.status_code == 303 and _resultado(r)['assinatura'] == 'bronze'
 
     usuarios.definir_nivel_govbr('chave-cpf', 'ouro')
     assert 'ASSINATURA_NIVEL = "ok"' in c.get('/meus-planos', headers=dono).get_data(as_text=True)
@@ -1580,3 +1593,34 @@ def test_pagina_inicial_mostra_acessar_para_quem_ja_entrou(fabrica, monkeypatch)
     c.delete_cookie('_planos_login')
     _login_govbr(c, monkeypatch)  # sessão gov.br do app
     assert '> Acessar</a>' in c.get('/').get_data(as_text=True)
+
+
+def test_nivel_pela_api_quando_o_id_token_nao_traz(fabrica, monkeypatch):
+    """"Verificar nível conta" do roteiro: sem reliability_info no ID token, o nível vem da API."""
+    import requests
+    pedidos = []
+
+    def get(url, **kw):
+        pedidos.append((url, kw))
+        return _Resposta(corpo=[{'id': '1', 'dataAtualizacao': 'x'}, {'id': '2', 'dataAtualizacao': 'x'}])
+    monkeypatch.setattr(requests, 'get', get)
+    c, _ = fabrica(**GOVBR)
+    _, volta, _ = _login_govbr(c, monkeypatch)
+    assert volta.status_code == 302 and _servicos(c).usuarios.nivel_govbr('fulano@ifc.edu.br') == 'prata'
+    url, kw = pedidos[0]
+    assert url == 'https://api.acesso.gov.br/confiabilidades/v3/contas/12345678900/niveis'
+    assert kw['params'] == {'response-type': 'ids'} and kw['headers']['Authorization'] == 'Bearer x'
+
+    monkeypatch.setattr(requests, 'get', lambda url, **kw: _Resposta(status=500))
+    _login_govbr(c, monkeypatch)
+    assert _servicos(c).usuarios.nivel_govbr('fulano@ifc.edu.br') == ''
+
+
+def test_bronze_sem_acesso_ve_o_aviso_no_login(fabrica, monkeypatch):
+    """O roteiro pede o aviso de bronze mesmo para quem não tem acesso ao sistema."""
+    c, _ = fabrica(**GOVBR)
+    _, volta, _ = _login_govbr(c, monkeypatch, email='pessoal@gmail.com', reliability_info={'level': 'bronze'})
+    html = volta.get_data(as_text=True)
+    assert volta.status_code == 403 and 'aviso-bronze' in html and 'confiabilidades.acesso.gov.br' in html
+    _, volta, _ = _login_govbr(c, monkeypatch, email='pessoal@gmail.com', reliability_info={'level': 'silver'})
+    assert 'aviso-bronze' not in volta.get_data(as_text=True)

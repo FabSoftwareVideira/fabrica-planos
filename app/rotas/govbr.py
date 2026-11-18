@@ -38,8 +38,10 @@ DURACAO_SESSAO = 12 * 3600
 DURACAO_LOGIN = 10 * 60
 # govbr_confiabilidades_idtoken: o ID token traz o nível da conta (reliability_info.level), para bloquear a
 # assinatura de contas bronze antes da autorização no gov.br (exigência do roteiro da assinatura)
-ESCOPOS = 'openid email profile govbr_confiabilidades_idtoken'
+ESCOPOS = 'openid email profile govbr_confiabilidades govbr_confiabilidades_idtoken'
 NIVEIS = {'bronze': 'bronze', 'silver': 'prata', 'gold': 'ouro'}
+# "Verificar nível conta" (roteiro do Login Único): ids dos níveis na API de confiabilidades
+NIVEIS_IDS = {'1': 'bronze', '2': 'prata', '3': 'ouro'}
 
 
 def _serializador(sal):
@@ -66,8 +68,11 @@ def _cookie(resp, nome, valor, duracao):
                     samesite='Lax', path='/')
 
 
-def _recusa(motivo, status=403, vincular=False, titulo='Login não concluído.'):
-    return render_template('login_recusado.html', motivo=motivo, vincular=vincular, titulo=titulo), status
+def _recusa(motivo, status=403, vincular=False, titulo='Login não concluído.', bronze=False):
+    """`bronze`: a conta gov.br é nível bronze; a página também avisa que a assinatura exige prata ou ouro
+    (o roteiro da assinatura pede o aviso mesmo para quem não tem acesso ao sistema)."""
+    return render_template('login_recusado.html', motivo=motivo, vincular=vincular, titulo=titulo,
+                           bronze=bronze), status
 
 
 def _claims(id_token):
@@ -84,6 +89,29 @@ def _nivel(claims):
     """Nível da conta no ID token: 'bronze', 'prata', 'ouro' ou '' (não informado)."""
     info = claims.get('reliability_info')
     return NIVEIS.get(str(info.get('level') or '').lower(), '') if isinstance(info, dict) else ''
+
+
+def _api_confiabilidades():
+    """https://sso.acesso.gov.br -> https://api.acesso.gov.br (e o mesmo na homologação, sso.staging)."""
+    return servicos().cfg.govbr_url.replace('://sso.', '://api.', 1)
+
+
+def _consultar_nivel(access_token, cpf):
+    """Nível da conta pela API de confiabilidades ("Verificar nível conta"), quando o ID token não o traz.
+    '' se não der para saber."""
+    if not access_token or not cpf.isdigit():
+        return ''
+    try:
+        r = requests.get(f'{_api_confiabilidades()}/confiabilidades/v3/contas/{cpf}/niveis',
+                         params={'response-type': 'ids'}, headers={'Authorization': 'Bearer ' + access_token},
+                         timeout=10)
+        r.raise_for_status()
+        ids = [str(n.get('id')) for n in r.json() if isinstance(n, dict)]
+    except (requests.RequestException, ValueError, TypeError, AttributeError) as erro:
+        log.warning('gov.br: falha ao consultar o nível da conta: %s', erro)
+        return ''
+    niveis = [NIVEIS_IDS[i] for i in ids if i in NIVEIS_IDS]
+    return max(niveis, key=['bronze', 'prata', 'ouro'].index) if niveis else ''
 
 
 def sessao():
@@ -197,7 +225,8 @@ def callback():
         log.warning('ID token do gov.br recusado (emissor, público, nonce ou validade)')
         return _recusa('A resposta do gov.br não pôde ser confirmada. Tente entrar de novo.', 400)
     cpf = str(claims.get('sub') or '').strip()
-    nivel = _nivel(claims)
+    # Nível da conta antes de qualquer chamada da assinatura: no ID token ou, sem ele, pela API
+    nivel = _nivel(claims) or _consultar_nivel(tokens.get('access_token'), cpf)
     usuarios = servicos().usuarios
     resp = redirect(estado['rd'], 302)
     resp.delete_cookie(COOKIE_LOGIN, path='/')
@@ -221,9 +250,9 @@ def callback():
             if cfg.login_google:
                 return _recusa('Para entrar com gov.br, entre uma vez com o Google institucional '
                                f'(@{cfg.email_dominio}). Depois, o gov.br passa a funcionar direto.',
-                               vincular=True, titulo='Vincule sua conta gov.br')
+                               vincular=True, titulo='Vincule sua conta gov.br', bronze=nivel == 'bronze')
             return _recusa(f'Sua conta gov.br precisa ter o e-mail institucional (@{cfg.email_dominio}) cadastrado e '
-                           'verificado.')
+                           'verificado.', bronze=nivel == 'bronze')
     nome = ' '.join(str(claims.get('name') or '').split())[:120]
     _cookie(resp, COOKIE_SESSAO, _serializador('sessao').dumps({'email': endereco, 'nome': nome}), DURACAO_SESSAO)
     log.info('Login gov.br: %s', endereco)

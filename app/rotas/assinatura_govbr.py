@@ -57,10 +57,17 @@ def iniciar():
         return _voltar(assinatura='erro', arquivo=nome,
                        motivo='Só quem enviou o plano o assina, e só depois de aprovado na revisão.')
     # Conta bronze (ou de nível desconhecido) não vai à tela de autorização do gov.br
+    # Roteiro: o nível da conta é conferido ANTES de qualquer chamada da assinatura; conta bronze nunca chega
+    # à tela de autorização. Sem o nível (entrou pelo Google), "Assinar" pede o login gov.br, que o informa,
+    # e volta aqui.
     situacao = assinatura_api.pode_assinar(s.cfg, s.usuarios.nivel_govbr(_usuario()))
-    if situacao != 'ok':
-        return _voltar(assinatura='erro', arquivo=nome, motivo=assinatura_api.MENSAGEM_BRONZE
-                       if situacao == 'bronze' else assinatura_api.MENSAGEM_SEM_NIVEL)
+    if situacao == 'bronze':
+        return _voltar(assinatura='bronze', arquivo=nome)
+    if situacao == 'sem_nivel':
+        if request.args.get('tentou'):  # o gov.br não informou o nível nem depois do login
+            return _voltar(assinatura='erro', arquivo=nome, motivo=assinatura_api.MENSAGEM_SEM_NIVEL)
+        volta = '/assinatura/govbr/iniciar?' + urlencode({'arquivo': nome, 'tentou': '1'})
+        return redirect('/conta/govbr/vincular?' + urlencode({'rd': volta}), 302)
     estado = {'state': secrets.token_urlsafe(24), 'nonce': secrets.token_urlsafe(24), 'arquivo': nome,
               'email': _usuario()}
     resp = redirect(cliente.url_autorizacao(_redirect_uri(), estado['state'], estado['nonce']), 302)

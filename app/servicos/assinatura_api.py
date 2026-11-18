@@ -42,8 +42,8 @@ UPGRADE_URL = 'https://confiabilidades.acesso.gov.br/'
 # Mensagens do bloqueio antes da autorização (roteiro da assinatura: conta bronze não chega à autorização)
 MENSAGEM_BRONZE = ('É necessário possuir conta gov.br nível prata ou ouro para utilizar o serviço de assinatura. '
                    f'Eleve o nível da sua conta em {UPGRADE_URL} e entre de novo com gov.br.')
-MENSAGEM_SEM_NIVEL = ('Para assinar pelo app, entre com gov.br ou vincule a sua conta gov.br (no seu perfil): '
-                      'a assinatura exige conta nível prata ou ouro, e o app confere o nível antes de assinar.')
+MENSAGEM_SEM_NIVEL = ('O gov.br não informou o nível da sua conta, e a assinatura exige conta nível prata ou ouro. '
+                      'Saia, entre de novo com gov.br e tente assinar outra vez.')
 
 
 def pode_assinar(cfg, nivel):
