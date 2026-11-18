@@ -7,8 +7,7 @@ name: CI/CD
 on:
   push:
     branches: [master]
-  tag:
-    - "v*.*.*"
+    tags: ["v*.*.*"]
   pull_request:
   # Botão "Run workflow" na aba Actions, para reimplantar sem novo commit
   workflow_dispatch:
