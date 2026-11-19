@@ -150,7 +150,7 @@ def test_cabecalho_com_logo_e_linha_colorida(cliente):
     assert 'Conferência automática dos planos de ensino' in html
     # O título da página fica discreto no conteúdo, não numa faixa do cabeçalho
     assert 'titulo-pagina' not in html
-    assert '<p class="titulo-conteudo">Painel de validação</p>' in html
+    assert '<h1 class="titulo-conteudo">Painel de validação</h1>' in html
     css = c.get('/static/css/ds.css').get_data(as_text=True)
     assert 'linear-gradient(90deg,#7eba00 0 22%,#1351b4 22% 100%)' in css
 

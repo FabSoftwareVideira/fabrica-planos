@@ -62,7 +62,18 @@ html{scroll-padding-top:88px}  /* âncoras (#entrar...) não ficam escondidas so
 .cabecalho .perfil-govbr form{margin:0}
 .cabecalho .perfil-acao{background:none;border:0;padding:0;color:var(--interactive);text-decoration:underline;cursor:pointer;font:inherit}
 /* Título da página: discreto, no alto do conteúdo (o cabeçalho fica só com a marca e o menu) */
-.titulo-conteudo{margin:0 0 var(--spacing-scale-2x);color:var(--gray-50);font-size:var(--font-size-scale-down-02);
+/* Acessibilidade (eMAG) ---------------------------------------------------------------------------------- */
+/* Texto só para leitores de tela */
+.sr-only{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+/* Links no meio do texto: sublinhados, para não se distinguirem só pela cor */
+main p a:not(.br-button),main li a:not(.br-button),main dd a:not(.br-button),.br-message a{text-decoration:underline}
+/* Atalhos da barra de acessibilidade */
+.barra-utilidade .atalhos{display:flex;flex-wrap:wrap;gap:var(--spacing-scale-2x);list-style:none;margin:0;padding:0}
+.barra-utilidade .atalhos span{opacity:.85}
+@media (max-width:767px){.barra-utilidade .atalhos li:not(:first-child){display:none}}
+#main:focus,#rodape:focus,#header:focus{outline:0}
+h1.titulo-conteudo{font-weight:var(--font-weight-semi-bold);line-height:inherit}
+.titulo-conteudo{margin:0 0 var(--spacing-scale-2x);color:var(--gray-60);font-size:var(--font-size-scale-down-02);
   font-weight:var(--font-weight-semi-bold);text-transform:uppercase;letter-spacing:.08em}
 @media (max-width:1199px){
   .cabecalho .menu-botao{display:inline-flex}

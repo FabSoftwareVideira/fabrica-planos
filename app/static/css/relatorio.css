@@ -5,7 +5,7 @@
   border-bottom:1px solid var(--gray-10);box-shadow:0 1px 4px rgba(0,0,0,.06)}
 .nav>div{display:flex;align-items:center;gap:var(--spacing-scale-base);flex-wrap:wrap;padding-top:var(--spacing-scale-base);
   padding-bottom:var(--spacing-scale-base)}
-.nav span.off{font-weight:var(--font-weight-semi-bold);color:var(--gray-20);padding:0 var(--spacing-scale-2x);white-space:nowrap}
+.nav span.off{font-weight:var(--font-weight-semi-bold);color:var(--gray-50);padding:0 var(--spacing-scale-2x);white-space:nowrap}
 .nav .pos{margin-left:auto;font-size:var(--font-size-scale-down-01);color:var(--gray-60)}
 .curto{display:none}
 

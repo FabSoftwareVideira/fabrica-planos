@@ -66,6 +66,13 @@
 		reverse_proxy fabrica-planos-web-interno:8000
 	}
 
+	# Recursos de acessibilidade (eMAG), público
+	handle /acessibilidade {
+		request_header -X-Usuario-Email
+		request_header -X-Usuario-Token
+		reverse_proxy fabrica-planos-web-interno:8000
+	}
+
 	# Aviso de privacidade (LGPD) e de cookies, público
 	handle /privacidade {
 		request_header -X-Usuario-Email

@@ -34,10 +34,13 @@ select:focus,.busca input:focus{outline:2px solid var(--focus-color,#c2850c);out
 .plano{background:var(--pure-0);border-radius:var(--surface-rounder-md);box-shadow:var(--surface-shadow-sm,0 1px 6px rgba(0,0,0,.16));
   margin-bottom:var(--spacing-scale-2x);scroll-margin-top:var(--spacing-scale-2x);transition:box-shadow .3s}
 .plano.destaque{box-shadow:0 0 0 3px var(--interactive-light)}
-.plano>summary{display:flex;flex-wrap:wrap;align-items:center;gap:var(--spacing-scale-base) var(--spacing-scale-2x);
-  padding:var(--spacing-scale-2x) var(--spacing-scale-3x);cursor:pointer;list-style:none}
-.plano>summary::-webkit-details-marker{display:none}
-.plano .titulo{flex:1 1 280px;min-width:0;overflow-wrap:anywhere}
+.plano>.cabeca{display:flex;flex-wrap:wrap;align-items:center;gap:var(--spacing-scale-base) var(--spacing-scale-2x);
+  padding:var(--spacing-scale-2x) var(--spacing-scale-3x)}
+.plano .abrir{display:flex;align-items:flex-start;gap:var(--spacing-scale-base);flex:1 1 280px;min-width:0;border:0;
+  background:transparent;padding:0;margin:0;text-align:left;font:inherit;color:inherit;cursor:pointer}
+.plano .abrir:hover .nome{color:var(--interactive)}
+.plano .abrir:focus-visible{outline:2px solid var(--focus-color);outline-offset:4px;border-radius:var(--surface-rounder-sm)}
+.plano .titulo{min-width:0;overflow-wrap:anywhere}
 .plano .nome{font-weight:var(--font-weight-semi-bold)}
 .plano .sub{display:block;font-size:var(--font-size-scale-down-01);color:var(--gray-60);margin-top:2px}
 .plano .acoes{display:flex;flex-wrap:wrap;align-items:center;gap:var(--spacing-scale-base) var(--spacing-scale-2x)}
@@ -47,14 +50,14 @@ select:focus,.busca input:focus{outline:2px solid var(--focus-color,#c2850c);out
 .plano .acoes a.revisar:hover{background:var(--blue-warm-vivid-80)}
 .revalidar{border:0;background:none;color:var(--interactive);font:inherit;cursor:pointer;padding:0}
 .revalidar:disabled{color:var(--gray-20);cursor:not-allowed}
-.plano .seta{color:var(--gray-50);font-size:var(--font-size-scale-down-01);white-space:nowrap}
+.plano .seta{color:var(--gray-60);margin-top:3px;font-size:var(--font-size-scale-down-01);white-space:nowrap}
 .plano .seta i{transition:transform .2s}
-.plano[open] .seta i{transform:rotate(180deg)}
+.plano.aberto .seta i{transform:rotate(180deg)}
 .plano .corpo{padding:0 var(--spacing-scale-3x) var(--spacing-scale-3x)}
 .plano .obs-geral{margin:0 0 var(--spacing-scale-2x);color:var(--gray-60);font-size:var(--font-size-scale-down-01)}
 /* Revisão manual (coordenação/NDE/NDB): selo no card e parecer no corpo */
 .selo-revisao{display:inline-flex;align-items:center;gap:4px;font-size:var(--font-size-scale-down-02);font-weight:var(--font-weight-semi-bold);
-  color:#168821;background:#e3f5e1;border-radius:var(--surface-rounder-pill);padding:2px 8px;white-space:nowrap}
+  color:#0f5e17;background:#e3f5e1;border-radius:var(--surface-rounder-pill);padding:2px 8px;white-space:nowrap}
 .plano .parecer{border-left:4px solid var(--cor);background:var(--gray-2);border-radius:var(--surface-rounder-sm);
   padding:var(--spacing-scale-base) var(--spacing-scale-2x);margin:0 0 var(--spacing-scale-2x);font-size:var(--font-size-scale-down-01)}
 .plano .parecer p{margin:var(--spacing-scale-half) 0 0;white-space:pre-line}
@@ -72,8 +75,7 @@ select:focus,.busca input:focus{outline:2px solid var(--focus-color,#c2850c);out
   .agrupar select{flex:1;min-width:0}
   .busca{flex-basis:100%}
   .contagem{margin-left:0}
-  .plano>summary{padding:var(--spacing-scale-2x)}
+  .plano>.cabeca{padding:var(--spacing-scale-2x)}
   .plano .corpo{padding:0 var(--spacing-scale-2x) var(--spacing-scale-2x)}
-  .plano .seta .rotulo{display:none}
   .cab-grupo a{margin-left:0}
 }

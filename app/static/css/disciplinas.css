@@ -40,8 +40,8 @@ input:focus,select:focus,summary:focus{outline:2px solid var(--focus-color);outl
 .identificacao h1{font-size:var(--font-size-scale-up-03);margin:0;flex:0 1 auto}
 .voltar-lista{flex-basis:100%;font-size:var(--font-size-scale-down-01)}
 .situacao-plan{border-radius:var(--surface-rounder-pill);padding:2px 12px;font-size:var(--font-size-scale-down-01);
-  font-weight:var(--font-weight-semi-bold);background:#fff5c2;color:#8a6d00}
-.situacao-plan.publicado{background:#e3f5e1;color:#168821}
+  font-weight:var(--font-weight-semi-bold);background:#fff5c2;color:#6b5200}
+.situacao-plan.publicado{background:#e3f5e1;color:#0f5e17}
 .situacao-plan.novo{background:var(--gray-10);color:var(--gray-70)}
 .etapas{list-style:none;margin:var(--spacing-scale-2x) 0 0;padding:0;display:flex;flex-wrap:wrap;gap:var(--spacing-scale-base);counter-reset:none}
 .etapas li{flex:1 1 150px;min-width:0}
@@ -56,7 +56,7 @@ input:focus,select:focus,summary:focus{outline:2px solid var(--focus-color);outl
 .etapas li.feita .numero{background:#168821;color:#fff}
 .etapas li>a:hover{border-color:var(--interactive);color:var(--interactive)}
 .rascunho-nota{margin:var(--spacing-scale-base) 0 0;font-size:var(--font-size-scale-down-01);color:var(--gray-60)}
-.rascunho-nota.publicado{color:#168821}
+.rascunho-nota.publicado{color:#0f5e17}
 
 /* Lista de planejamentos */
 .cab-curso{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:var(--spacing-scale-2x)}
@@ -101,8 +101,8 @@ h3.fase .contagem{font-size:var(--font-size-scale-down-01)}
 .linhas-oferta details>form,.acoes-oferta{padding:0 var(--spacing-scale-half);margin-top:var(--spacing-scale-base)}
 .tag{display:inline-flex;align-items:center;gap:4px;border-radius:var(--surface-rounder-pill);padding:2px 10px;
   font-size:var(--font-size-scale-down-02);font-weight:var(--font-weight-semi-bold);background:var(--gray-10);color:var(--gray-70)}
-.tag.enviado{background:#e3f5e1;color:#168821}.tag.avulsa{background:#e8f0fe;color:#1351b4}.tag.aviso{background:#fff5c2;color:#8a6d00}
-.aviso-plano{flex-basis:100%;font-size:var(--font-size-scale-down-01);color:#8a6d00}
+.tag.enviado{background:#e3f5e1;color:#0f5e17}.tag.avulsa{background:#e8f0fe;color:#1351b4}.tag.aviso{background:#fff5c2;color:#6b5200}
+.aviso-plano{flex-basis:100%;font-size:var(--font-size-scale-down-01);color:#6b5200}
 .avulsa-bloco{margin-top:var(--spacing-scale-2x);border-top:1px solid var(--gray-10);padding-top:var(--spacing-scale-2x)}
 .avulsa-bloco summary{cursor:pointer;color:var(--interactive);font-size:var(--font-size-scale-down-01);margin-bottom:var(--spacing-scale-base)}
 
@@ -123,7 +123,7 @@ h3.fase .contagem{font-size:var(--font-size-scale-down-01)}
   padding:var(--spacing-scale-2x);display:flex;flex-direction:column}
 .resumo-numeros b{font-size:var(--font-size-scale-up-04);line-height:1.1}
 .resumo-numeros span{color:var(--gray-60);font-size:var(--font-size-scale-down-01)}
-.resumo-numeros .falta b{color:#b45309}.resumo-numeros .ok b{color:#168821}
+.resumo-numeros .falta b{color:#b45309}.resumo-numeros .ok b{color:#0f5e17}
 .tabela-resumo{width:100%;border-collapse:collapse;font-size:var(--font-size-scale-down-01)}
 .tabela-resumo th{text-align:left;background:var(--gray-2);padding:var(--spacing-scale-base) var(--spacing-scale-2x);border-bottom:1px solid var(--gray-20)}
 .tabela-resumo td{padding:var(--spacing-scale-base) var(--spacing-scale-2x);border-bottom:1px solid var(--gray-10)}

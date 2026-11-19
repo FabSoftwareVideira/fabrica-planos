@@ -7,8 +7,8 @@ from ..avaliacao import identificacao
 # por período. Cada coordenador vê os cursos que coordena; a administração vê todos. Com revisão vigente,
 # o status do revisor vale sobre o da IA, como no dashboard.
 
-SITUACOES = [('OK', 'Aprovados', '#22c55e'), ('PENDENTE', 'Pendentes', '#eab308'),
-             ('REPROVADO', 'Reprovados', '#ef4444'), ('ERRO', 'Com erro', '#6b7280')]
+SITUACOES = [('OK', 'Aprovados', '#168821'), ('PENDENTE', 'Pendentes', '#a15c00'),
+             ('REPROVADO', 'Reprovados', '#c51d1d'), ('ERRO', 'Com erro', '#6b7280')]
 TODOS = 'todos'
 
 

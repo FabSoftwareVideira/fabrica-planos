@@ -19,7 +19,7 @@
   {% if texto %}
   <details class="br-card bruto">
     <summary class="card-header"><i class="fas fa-chevron-right" aria-hidden="true"></i> {{ titulo }}</summary>
-    <div class="card-content"><pre>{{ texto }}</pre></div>
+    <div class="card-content"><pre tabindex="0">{{ texto }}</pre></div>
   </details>
   {% endif %}
 {%- endmacro %}
@@ -41,7 +41,7 @@
 
 <main id="main">
   <div class="container-lg py-4">
-    {% include '_titulo_pagina.html' %}
+    {% with titulo_secundario=true %}{% include '_titulo_pagina.html' %}{% endwith %}
     <h1>{{ nome.removesuffix('.pdf') }}</h1>
     <div class="meta">
       <span>{{ tag_status(revisao.status if revisao else linha['Status Geral']) }}{% if revisao %} <span class="ia">IA: {{ linha['Status Geral'] }}</span>{% endif %}</span>
@@ -133,7 +133,7 @@
         {% endif %}
         {% if campo.mostrar_texto %}
           {% if campo.texto.strip() %}
-        <pre>{{ campo.texto }}</pre>
+        <pre tabindex="0">{{ campo.texto }}</pre>
             {% if campo.texto|length > campo.limite %}
         <p class="nota">A IA recebeu só os primeiros {{ campo.limite }} de {{ campo.texto|length }} caracteres.</p>
             {% endif %}

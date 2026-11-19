@@ -49,10 +49,14 @@
 
     <div id="resultados" data-validacao="{{ execucao.id }}">
       {% for c in cards %}
-      <details id="plano-{{ c.indice }}" class="plano" data-indice="{{ c.indice }}" data-arquivo="{{ c.arquivo }}" data-status="{{ c.status }}" data-revisado="{{ '1' if c.revisao else '0' }}"{% if c.url_pdf %} data-pdf="1"{% endif %}{% for nome, valor in c.dados %} data-{{ nome }}="{{ valor }}"{% endfor %}>
-        {# Título e ações quebram em duas linhas quando não cabem lado a lado (celular). #}
-        <summary>
-          <span class="titulo"><span class="nome">{{ c.nome }}</span>{% if c.sub %}<span class="sub">{{ c.sub }}</span>{% endif %}</span>
+      <article id="plano-{{ c.indice }}" class="plano" data-indice="{{ c.indice }}" data-arquivo="{{ c.arquivo }}" data-status="{{ c.status }}" data-revisado="{{ '1' if c.revisao else '0' }}"{% if c.url_pdf %} data-pdf="1"{% endif %}{% for nome, valor in c.dados %} data-{{ nome }}="{{ valor }}"{% endfor %}>
+        {# Título e ações quebram em duas linhas quando não cabem lado a lado (celular). O título é o botão que
+           abre os detalhes (aria-expanded); os links e botões ficam fora dele. #}
+        <div class="cabeca">
+          <button type="button" class="abrir" aria-expanded="false" aria-controls="corpo-{{ c.indice }}">
+            <span class="seta"><i class="fas fa-chevron-down" aria-hidden="true"></i></span>
+            <span class="titulo"><span class="nome">{{ c.nome }}</span>{% if c.sub %}<span class="sub">{{ c.sub }}</span>{% endif %}</span>
+          </button>
           <span class="acoes">
             {{ tag_status(c.status) }}
             {% if c.revisao %}<span class="selo-revisao" title="Revisado por {{ c.revisao.revisor }} ({{ c.revisao.papel }}) em {{ c.revisao.revisado_em|data_br }}"><i class="fas fa-user-check" aria-hidden="true"></i> Revisado</span>{% endif %}
@@ -62,10 +66,9 @@
             <a href="{{ c.url_relatorio }}" onclick="event.stopPropagation()"><i class="fas fa-file-alt" aria-hidden="true"></i> Relatório</a>
             {% if c.url_pdf %}<a href="{{ c.url_pdf }}" target="_blank" rel="noopener" onclick="event.stopPropagation()"><i class="fas fa-file-pdf" aria-hidden="true"></i> PDF</a>{% endif %}
             {% if c.revalidar %}<button type="button" class="revalidar" data-arquivo="{{ c.arquivo }}" title="Valida de novo só este plano, com o PDF atual da pasta"><i class="fas fa-redo" aria-hidden="true"></i> Revalidar</button>{% endif %}
-            <span class="seta"><i class="fas fa-chevron-down" aria-hidden="true"></i><span class="rotulo"> detalhes</span></span>
           </span>
-        </summary>
-        <div class="corpo">
+        </div>
+        <div class="corpo" id="corpo-{{ c.indice }}" hidden>
           {% if c.revisao %}
           <div class="parecer" style="--cor:{{ cor(c.revisao.status) }}">
             <strong>{{ c.revisao.parecer }}</strong> · revisado por {{ c.revisao.revisor }} ({{ c.revisao.papel }}) em {{ c.revisao.revisado_em|data_br }}
@@ -83,7 +86,7 @@
             {% endfor %}
           </div>
         </div>
-      </details>
+      </article>
       {% endfor %}
     </div>
     <p class="msg" id="sem-resultado" hidden>Nenhum plano corresponde aos filtros.</p>

@@ -1,13 +1,21 @@
-{#- Barra de utilidades acima do cabeçalho, como no portal do IFC: links de acesso rápido e o botão de
-    alto contraste, que alterna o tema em todas as páginas (static/js/contraste.js, carregado no <head>). -#}
-<div class="barra-utilidade">
+{#- Barra de acessibilidade, acima do cabeçalho (eMAG 3.1): atalhos para o conteúdo [1], o menu [2] e o
+    rodapé [3] (accesskey; no navegador, Alt+número ou Alt+Shift+número), a página de Acessibilidade e o
+    botão de alto contraste, que alterna o tema em todas as páginas (static/js/contraste.js, no <head>).
+    Também os links de acesso rápido do portal do IFC. -#}
+<nav class="barra-utilidade" aria-label="Acessibilidade e acesso rápido">
   <div class="container-lg">
+    <ul class="atalhos" aria-label="Atalhos de teclado">
+      <li><a href="#main" accesskey="1">Ir para o conteúdo <span>[1]</span></a></li>
+      <li><a href="#{{ 'menu-principal' if usuario_email and not sem_menu else 'header' }}" accesskey="2">Ir para o menu <span>[2]</span></a></li>
+      <li><a href="#rodape" accesskey="3">Ir para o rodapé <span>[3]</span></a></li>
+    </ul>
     <ul class="links-uteis" aria-label="Acesso rápido">
       <li><a href="https://sig.ifc.edu.br" target="_blank" rel="noopener noreferrer">SIGAA</a></li>
       <li><a href="https://videira.ifc.edu.br/" target="_blank" rel="noopener noreferrer">Portal do Campus</a></li>
+      <li><a href="/acessibilidade">Acessibilidade</a></li>
     </ul>
     <button type="button" class="botao-contraste" data-contraste aria-pressed="false">
       <i class="fas fa-adjust" aria-hidden="true"></i> Alto contraste
     </button>
   </div>
-</div>
+</nav>

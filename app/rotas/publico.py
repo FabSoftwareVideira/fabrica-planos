@@ -14,7 +14,7 @@ from .comum import eh_admin, email, json_, mesma_origem, nome, servicos, texto
 # Rotas sem login e a barreira de login das demais.
 bp = Blueprint('publico', __name__)
 
-PUBLICAS = {'/', '/health', '/entrar', '/privacidade'}
+PUBLICAS = {'/', '/health', '/entrar', '/privacidade', '/acessibilidade'}
 # CSS, JS, fontes e ícones: a página inicial (pública) também usa, e nada ali é sigiloso. Transparência: os
 # planos assinados, para qualquer pessoa (rotas/transparencia.py)
 PREFIXOS_PUBLICOS = ('/static/', '/transparencia')
@@ -130,6 +130,13 @@ def raiz():
     rd = govbr.destino(request.args.get('rd', ''))
     return render_template('inicio.html', ja_logado=ja_logado(),
                            **inicio.contexto(rd, cfg.govbr_ativo, cfg.login_google or cfg.login_simulado))
+
+
+@bp.get('/acessibilidade')
+@PUBLICO
+def acessibilidade():
+    """Recursos de acessibilidade do sistema (eMAG), público."""
+    return render_template('acessibilidade.html')
 
 
 @bp.get('/privacidade')

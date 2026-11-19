@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+{#- Página de Acessibilidade (eMAG 3.1): os recursos de acessibilidade do sistema e como usá-los. Pública,
+    ligada pela barra de acessibilidade e pelo rodapé de todas as páginas. -#}
+
+{% block titulo %}Acessibilidade · Validação de Planos de Ensino{% endblock %}
+
+{% block estilos %}
+{% include '_ds.html' %}
+<style>
+  .acessibilidade { max-width: 860px; }
+  .acessibilidade h2 { font-size: 1.25rem; margin-top: 2rem; }
+  .acessibilidade table { width: 100%; border-collapse: collapse; margin: .5rem 0 1rem; font-size: .95rem; }
+  .acessibilidade th, .acessibilidade td { text-align: left; vertical-align: top; padding: .4rem .5rem; border-bottom: 1px solid var(--gray-20, #ccc); }
+  .acessibilidade kbd { border: 1px solid var(--gray-40, #888); border-radius: 4px; padding: 0 .35em; font-size: .9em; background: var(--gray-2, #f8f8f8); }
+</style>
+{% endblock %}
+
+{% block corpo %}
+{% with sem_menu=true %}{% include '_cabecalho.html' %}{% endwith %}
+<main id="main" tabindex="-1">
+  <div class="container-lg py-4 acessibilidade">
+    <h1>Acessibilidade</h1>
+    <p>Este sistema segue as recomendações do <a href="https://emag.governoeletronico.gov.br/" target="_blank" rel="noopener">Modelo de Acessibilidade em Governo Eletrônico (eMAG)</a> e usa o <a href="https://www.gov.br/ds/" target="_blank" rel="noopener">Padrão Digital de Governo (Design System gov.br)</a>, para que possa ser usado por todas as pessoas, inclusive com leitores de tela, só com o teclado ou com baixa visão.</p>
+
+    <h2>Atalhos de teclado</h2>
+    <p>No alto de todas as páginas, a barra de acessibilidade tem atalhos para ir direto a cada parte da página:</p>
+    <table>
+      <thead><tr><th scope="col">Atalho</th><th scope="col">Vai para</th></tr></thead>
+      <tbody>
+        <tr><td><kbd>1</kbd></td><td>o conteúdo principal da página</td></tr>
+        <tr><td><kbd>2</kbd></td><td>o menu</td></tr>
+        <tr><td><kbd>3</kbd></td><td>o rodapé</td></tr>
+      </tbody>
+    </table>
+    <p>Como usar o atalho, conforme o navegador:</p>
+    <ul>
+      <li><strong>Chrome, Edge e Opera</strong> (Windows e Linux): <kbd>Alt</kbd> + número;</li>
+      <li><strong>Firefox</strong> (Windows e Linux): <kbd>Alt</kbd> + <kbd>Shift</kbd> + número;</li>
+      <li><strong>Safari e Chrome no macOS</strong>: <kbd>Control</kbd> + <kbd>Option</kbd> + número.</li>
+    </ul>
+    <p>Também é possível navegar só com o teclado: <kbd>Tab</kbd> avança entre links, botões e campos, <kbd>Shift</kbd> + <kbd>Tab</kbd> volta, e <kbd>Enter</kbd> ou <kbd>Espaço</kbd> aciona o item em foco, que fica sempre destacado.</p>
+
+    <h2>Alto contraste</h2>
+    <p>O botão <strong>Alto contraste</strong>, na barra de acessibilidade, troca as cores do sistema por cores de alto contraste, em todas as páginas. A escolha fica guardada no navegador.</p>
+
+    <h2>Tamanho do texto</h2>
+    <p>Para aumentar ou diminuir o texto, use o zoom do navegador: <kbd>Ctrl</kbd> + <kbd>+</kbd> e <kbd>Ctrl</kbd> + <kbd>-</kbd> (no macOS, <kbd>Command</kbd>). As páginas se ajustam sem perder conteúdo, inclusive no celular.</p>
+
+    <h2>Outros recursos</h2>
+    <ul>
+      <li>Páginas com título próprio, títulos de seção em ordem e marcação semântica (cabeçalho, menu, conteúdo e rodapé), para leitores de tela;</li>
+      <li>Cores com contraste adequado, e as situações dos planos indicadas também por texto, não só por cor;</li>
+      <li>Campos de formulário com rótulos e mensagens de erro descritivas;</li>
+      <li>Links que abrem em outra aba indicados, e documentos (os planos de ensino) em PDF com texto selecionável.</li>
+    </ul>
+
+    <h2>Encontrou alguma barreira?</h2>
+    <p>Se algum conteúdo ou recurso não estiver acessível para você, avise a coordenação do seu curso ou a Fábrica de Software do IFC Campus Videira, informando a página e o problema.</p>
+  </div>
+</main>
+{% include '_rodape.html' %}
+{% endblock %}

@@ -1,2 +1,4 @@
-{#- Título da página: discreto, no alto do conteúdo. O cabeçalho fica só com a marca e o menu. -#}
-{% if titulo_pagina %}<p class="titulo-conteudo">{{ titulo_pagina }}</p>{% endif %}
+{#- Título da página: discreto, no alto do conteúdo. O cabeçalho fica só com a marca e o menu. É o <h1> da
+    página (eMAG: títulos hierárquicos), menos onde a página tem o seu (titulo_secundario). -#}
+{% if titulo_pagina %}{% if titulo_secundario %}<p class="titulo-conteudo">{{ titulo_pagina }}</p>
+{%- else %}<h1 class="titulo-conteudo">{{ titulo_pagina }}</h1>{% endif %}{% endif %}

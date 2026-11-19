@@ -61,7 +61,7 @@ h2{font-size:var(--font-size-scale-up-02);margin:0}
 .meus .sub{display:block;font-size:var(--font-size-scale-down-01);font-weight:var(--font-weight-regular);color:var(--gray-60);margin-top:2px}
 .meus .acoes{display:flex;flex-wrap:wrap;gap:var(--spacing-scale-base) var(--spacing-scale-2x);align-items:center}
 .meus .frase{margin:var(--spacing-scale-half) 0 0;font-size:var(--font-size-scale-down-01);color:var(--gray-60);overflow-wrap:anywhere}
-.meus .aviso{margin:var(--spacing-scale-half) 0 0;font-size:var(--font-size-scale-down-01);color:#8a6d00}
+.meus .aviso{margin:var(--spacing-scale-half) 0 0;font-size:var(--font-size-scale-down-01);color:#6b5200}
 .meus .excluir-plano{color:var(--danger)}
 
 /* Assinatura pendente: chamada visível */
@@ -87,8 +87,8 @@ h2{font-size:var(--font-size-scale-up-02);margin:0}
 .ajuda-envio{margin-top:var(--spacing-scale-3x);font-size:var(--font-size-scale-down-01);color:var(--gray-60)}
 .ajuda-envio summary{cursor:pointer;color:var(--interactive)}
 .ajuda-envio p{margin:var(--spacing-scale-base) 0 0;max-width:80ch}
-.msg.aviso{color:#8a6d00}
-.versao .protegida{display:inline-flex;align-items:center;gap:4px;color:#168821;font-weight:var(--font-weight-semi-bold);cursor:help}
+.msg.aviso{color:#6b5200}
+.versao .protegida{display:inline-flex;align-items:center;gap:4px;color:#0f5e17;font-weight:var(--font-weight-semi-bold);cursor:help}
 /* Assinatura bloqueada pelo nível da conta gov.br (bronze ou desconhecido) */
 .assinatura .aviso-nivel{display:flex;gap:var(--spacing-scale-base);align-items:baseline}
 .assinatura .aviso-nivel .fa-exclamation-triangle{color:#8a6100}

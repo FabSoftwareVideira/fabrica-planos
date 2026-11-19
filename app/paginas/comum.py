@@ -8,14 +8,14 @@ from .. import versao
 
 # Funções disponíveis em todos os templates (registradas em app/fabrica.py).
 CORES = {
-    'OK': '#22c55e',
-    'INCOMPLETO': '#eab308',
-    'PENDENTE': '#eab308',
+    'OK': '#168821',
+    'INCOMPLETO': '#a15c00',
+    'PENDENTE': '#a15c00',
 }
 
 
 def cor(status):
-    return CORES.get(status, '#ef4444')
+    return CORES.get(status, '#c51d1d')
 
 
 def data_br(iso):

@@ -38,7 +38,7 @@ function agrupar() {
       const secao = document.createElement('section');
       secao.className = 'grupo';
       if (agruparPor) {
-        const cab = document.createElement('h3'); cab.className = 'cab-grupo';
+        const cab = document.createElement('h2'); cab.className = 'cab-grupo';
         const resumo = document.createElement('span');
         const n = s => g.cards.filter(c => c.dataset.status === s).length;
         const ok = n('OK'), pend = n('PENDENTE');
@@ -103,11 +103,24 @@ function focarPlano() {
   }
   if (!alvo) return;
   if (alvo.hidden) { filtro = { ...SEM_FILTRO }; aplicarFiltros(); }  // não esconder o plano pedido
-  alvo.open = true;
+  abrir(alvo, true);
   alvo.scrollIntoView({ block: 'start' });
   alvo.classList.add('destaque');
   setTimeout(() => alvo.classList.remove('destaque'), 2000);
 }
+
+// Abre e fecha os detalhes de um plano (o botão do título, com aria-expanded)
+function abrir(card, aberto) {
+  const botao = card.querySelector('.abrir'), corpo = card.querySelector('.corpo');
+  const deve = aberto === undefined ? botao.getAttribute('aria-expanded') !== 'true' : aberto;
+  botao.setAttribute('aria-expanded', String(deve));
+  corpo.hidden = !deve;
+  card.classList.toggle('aberto', deve);
+}
+document.addEventListener('click', e => {
+  const botao = e.target.closest('.plano .abrir');
+  if (botao) abrir(botao.closest('.plano'));
+});
 
 iniciarFiltros();
 focarPlano();

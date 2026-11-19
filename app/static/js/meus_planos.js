@@ -3,7 +3,7 @@
 // principal (enviar, enviar nova versão, assinar); ao abri-la aparecem a versão atual (PDF, relatório, excluir), os
 // avisos, a assinatura e as versões anteriores. MAX_MB, ASSINATURA_API e DESTAQUES ({período: 'Atual' | 'Próximo'}) vêm da
 // página; $, msg, hora e corpo, de status.js (a barra de status, carregada antes).
-const CORES = { OK: '#22c55e', PENDENTE: '#eab308', INCOMPLETO: '#eab308' };
+const CORES = { OK: '#168821', PENDENTE: '#a15c00', INCOMPLETO: '#a15c00' };
 const ROTULOS_REVISAO = { OK: 'Aprovado', PENDENTE: 'Ajustes necessários', REPROVADO: 'Reprovado' };
 let timerLista, planos = [], periodoEscolhido = '', filtro = '', busca = '', voltarPara = '';
 const abertos = new Set();  // disciplinas abertas (oferta_id), mantidas quando a lista recarrega
@@ -21,14 +21,14 @@ function link(href, nomeIcone, texto, novaAba) {
 
 // Situação do plano: o selo e uma frase curta
 function situacao(p) {
-  if (p.situacao === 'sem_plano') return [selo('Sem plano', '#9ca3af'), 'Envie o PDF do plano desta disciplina.'];
+  if (p.situacao === 'sem_plano') return [selo('Sem plano', '#636363'), 'Envie o PDF do plano desta disciplina.'];
   if (p.assinatura) return [selo('Assinado', '#168821'), `Assinado via gov.br por ${p.assinatura.signatario}`
     + (p.assinatura.assinado_em ? ` em ${hora(p.assinatura.assinado_em)}.` : '.')
     + (p.assinatura.aviso ? ` Atenção: ${p.assinatura.aviso}` : '')];
   if (p.revisao && p.situacao === 'avaliado') {
     const r = p.revisao;
     const quem = `${r.parecer} por ${r.revisor} (${r.papel})` + (r.comentario ? ': ' + r.comentario : '.');
-    return [selo(r.status === 'OK' ? 'Aprovado' : r.status, CORES[r.status] || '#ef4444'), quem];
+    return [selo(r.status === 'OK' ? 'Aprovado' : r.status, CORES[r.status] || '#c51d1d'), quem];
   }
   if (p.situacao === 'na_fila') return [selo(`Na fila (${p.posicao}º)`, '#6b7280'), 'Aguardando a vez da avaliação automática.'];
   if (p.situacao === 'validando') return [selo('Avaliando…', '#2563eb'), 'A IA está lendo o plano; leva cerca de um minuto.'];
@@ -36,7 +36,7 @@ function situacao(p) {
   const detalhe = p.status === 'OK' ? 'A avaliação automática não apontou ajustes.'
     : p.status === 'ERRO' || !p.problemas.length ? p.obs
     : 'Verificar: ' + p.problemas.join(', ') + '.';
-  return [selo(p.status, CORES[p.status] || '#ef4444'), detalhe + ' Aguardando a revisão da coordenação/NDE.'];
+  return [selo(p.status, CORES[p.status] || '#c51d1d'), detalhe + ' Aguardando a revisão da coordenação/NDE.'];
 }
 
 // Etapa do plano, para os filtros: o que o professor precisa fazer, o que espera os outros e o que acabou

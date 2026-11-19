@@ -9,8 +9,8 @@ PASSOS = [
     ('Resultado', 'O painel mostra a situação de cada plano, com relatório campo a campo.', 'chart-bar'),
 ]
 
-LEGENDA = [('OK', '#22c55e', 'campo completo'), ('INCOMPLETO', '#eab308', 'falta informação'),
-           ('AUSENTE', '#ef4444', 'campo vazio ou não encontrado')]
+LEGENDA = [('OK', '#168821', 'campo completo'), ('INCOMPLETO', '#a15c00', 'falta informação'),
+           ('AUSENTE', '#c51d1d', 'campo vazio ou não encontrado')]
 
 
 def contexto(rd='/dashboard', govbr=False, google=True):

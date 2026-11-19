@@ -29,7 +29,7 @@ h2{font-size:var(--font-size-scale-up-02);margin:0}
 .tabela .acao{text-align:right;white-space:nowrap}
 .tabela .acao form{margin:0}
 .situacao{font-size:var(--font-size-scale-down-02);border-radius:var(--surface-rounder-pill);padding:2px 10px;font-weight:var(--font-weight-semi-bold)}
-.situacao.ativo{background:#e3f5e1;color:#168821}
+.situacao.ativo{background:#e3f5e1;color:#0f5e17}
 .situacao.desativado{background:var(--gray-10);color:var(--gray-60)}
 .desativar{color:var(--danger) !important}
 .protegido{color:var(--gray-50);font-size:var(--font-size-scale-down-01)}

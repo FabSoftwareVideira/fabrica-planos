@@ -93,3 +93,15 @@ def test_redirecionamento_do_flask_continua_funcionando(fabrica):
                                             (502, 'Serviço indisponível'), (504, 'Erro interno')])
 def test_titulos_por_codigo(codigo, titulo):
     assert erros.dados(codigo)[0] == titulo
+
+
+def test_acessibilidade_emag(fabrica):
+    """eMAG: página de Acessibilidade pública, atalhos com accesskey e um <h1> por página."""
+    c, _ = fabrica(exigir_login=True, admins=frozenset({'admin@ifc.edu.br'}))
+    html = c.get('/acessibilidade').get_data(as_text=True)
+    assert 'Atalhos de teclado' in html and 'Alto contraste' in html and '<h1>Acessibilidade</h1>' in html
+    for pagina, cab in (('/', {}), ('/transparencia', {}), ('/dashboard', ADMIN), ('/meus-planos', ADMIN)):
+        html = c.get(pagina, headers=cab).get_data(as_text=True)
+        assert 'href="#main" accesskey="1"' in html and 'accesskey="2"' in html and 'href="#rodape" accesskey="3"' in html
+        assert 'href="/acessibilidade"' in html and 'id="rodape"' in html and 'id="main"' in html
+        assert html.count('<h1') == 1, pagina
