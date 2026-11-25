@@ -47,14 +47,9 @@ def logo_ifc():
 
 def _usuario():
     # Importado aqui: rotas.comum depende do Flask montado, e as rotas importam este pacote
-    from ..rotas.comum import cursos_coordenados, eh_admin, email, nome, servicos
+    from ..rotas.comum import cursos_coordenados, eh_admin, email, nome_exibido, servicos
     usuario = email()
-    nome_usuario = nome()
-    if usuario and not nome_usuario:  # sem o token nesta requisição, vale o nome guardado no último login
-        try:
-            nome_usuario = (servicos().usuarios.obter(usuario) or {}).get('nome', '')
-        except Exception:
-            nome_usuario = ''
+    nome_usuario = nome_exibido()  # o escolhido em Meu perfil ou o da conta de login
     admin = bool(usuario) and eh_admin()
     # Conta gov.br: o cabeçalho oferece vincular (para entrar pelo gov.br com e-mail pessoal) ou desvincular
     govbr = None

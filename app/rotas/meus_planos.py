@@ -8,7 +8,7 @@ from ..avaliacao import pipeline
 from ..paginas import meus_planos
 from ..servicos import assinatura, assinatura_api, revisao
 from ..servicos.planos import NaoEncontrado, Ocupado, Proibido, Protegido, Recusado, versao_protegida
-from .comum import email, json_, nome as nome_usuario, ocupado, servicos, texto
+from .comum import email, json_, nome_exibido as nome_usuario, ocupado, servicos, texto
 from ..limites import ENVIO
 
 # "Meus planos": cada professor vê as disciplinas em que a coordenação o vinculou como docente e entrega
@@ -171,7 +171,7 @@ def enviar_assinado():
         return json_({'erro': 'O conteúdo não é um PDF'}, 400)
     usuario = _dono()
     try:
-        registro = s.assinaturas.registrar(nome, usuario, nome_usuario() or (s.usuarios.obter(usuario) or {}).get('nome', ''),
+        registro = s.assinaturas.registrar(nome, usuario, nome_usuario(),
                                            dados)
     except assinatura.NaoLiberado:
         return json_({'erro': 'Só quem enviou o plano o assina, e só depois de aprovado na revisão da '

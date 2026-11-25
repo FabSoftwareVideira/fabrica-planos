@@ -57,6 +57,9 @@ def criar_app(cfg=None, executar=None):
     planos = PastaDePlanos(cfg, validador, revisoes, assinaturas, disciplinas, versoes)
     # Transparência: os planos assinados, públicos
     transparencia = Transparencia(cfg, disciplinas.ofertas, usuarios, assinaturas, versoes)
+    # Depois de restaurar um backup, as tabelas voltam como estavam nele: reaplica esquemas e migrações
+    backup.ao_restaurar = [usuarios.preparar_esquema, disciplinas.ofertas.preparar_esquema,
+                           revisoes.preparar_esquema, versoes.preparar_esquema]
     app.extensions['servicos'] = Servicos(cfg, validador, planos, usuarios, revisao, assinaturas, backup, disciplinas,
                                           transparencia)
     limites.iniciar(app, cfg.limites)  # limite de requisições (Flask-Limiter, app/limites.py)

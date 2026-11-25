@@ -215,3 +215,27 @@ def test_rotas_criam_baixam_restauram_e_excluem_backup(admin):
     assert r.status_code == 303 and 'aviso=excluido' in r.headers['Location']
     assert s.backup.caminho(nome) is None
     assert admin.get(f'/administracao/backup/{nome}', headers=ADMIN).status_code == 404
+
+
+def test_restaurar_backup_antigo_reaplica_as_migracoes(tmp_path):
+    """O dump recria as tabelas como eram no backup: colunas acrescentadas depois (como vinculos_govbr.nivel_em)
+    sumiriam até o app reiniciar, e o vínculo gov.br quebraria (UndefinedColumn). A restauração as recria."""
+    c, planos = _criar_app(tmp_path)
+    s, _ = _dados(c, planos)
+    with s.usuarios._conexao() as con:  # como um banco de antes das colunas novas
+        con.execute('ALTER TABLE vinculos_govbr DROP COLUMN nivel_em')
+        con.execute('ALTER TABLE usuarios DROP COLUMN nome_proprio')
+        con.execute('ALTER TABLE versoes_planos DROP COLUMN excluida')
+    antigo = s.backup.criar('manual')['nome']
+    s.usuarios.preparar_esquema()
+    s.planos.versoes.preparar_esquema()
+
+    s.backup.restaurar(antigo)
+    s.usuarios.vincular_govbr('chave', 'fulano@ifc.edu.br', 'prata')  # quebrava sem nivel_em
+    assert s.usuarios.nivel_govbr_conferido('fulano@ifc.edu.br')[0] == 'prata'
+    assert s.usuarios.definir_nome('fulano@ifc.edu.br', 'Fulano') in ('Fulano', '')
+    with s.usuarios._conexao() as con:
+        colunas = {l['column_name'] for l in con.execute(
+            "SELECT column_name FROM information_schema.columns WHERE table_name = 'versoes_planos' "
+            "AND table_schema = current_schema()")}
+    assert 'excluida' in colunas

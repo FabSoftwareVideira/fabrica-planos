@@ -7,7 +7,7 @@ from ..armazenamento import csvsaida, detalhes, historico
 from ..avaliacao import identificacao, pipeline
 from ..paginas import dashboard, relatorio
 from ..servicos import assinatura, revisao
-from .comum import eh_admin, email, json_, mesma_origem, nome as nome_usuario, servicos, texto
+from .comum import eh_admin, email, json_, mesma_origem, nome_exibido, servicos, texto
 
 # Consulta (qualquer servidor logado): dashboard, relatório de um plano, andamento e PDFs da pasta.
 # Os caminhos /webhook/... mantêm compatíveis a página validacao.html e os links antigos do n8n.
@@ -110,7 +110,7 @@ def revisar():
             s.revisao.desfazer(nome, usuario, ident)
             aviso = 'desfeita'
         else:
-            nome_revisor = nome_usuario() or (s.usuarios.obter(usuario) or {}).get('nome', '')
+            nome_revisor = nome_exibido()
             s.revisao.registrar(nome, usuario, nome_revisor, ident, request.form.get('status', ''),
                                 request.form.get('comentario', ''), linha.get('Status Geral', ''))
             aviso = 'salva'

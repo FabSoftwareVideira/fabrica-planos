@@ -37,6 +37,22 @@ def nome():
     return ' '.join(str(carga.get('name') or '').split())[:120]
 
 
+def nome_exibido():
+    """Nome de quem entrou como o sistema o mostra: o escolhido em Meu perfil ou, sem ele, o da conta de login
+    (o do token desta requisição ou o guardado no cadastro)."""
+    usuario = email()
+    do_token = nome()
+    if not usuario:
+        return do_token
+    try:
+        cadastro = servicos().usuarios.obter(usuario) or {}
+    except Exception:  # o cadastro não pode derrubar a página
+        cadastro = {}
+    if cadastro.get('nome_proprio') or not do_token:
+        return cadastro.get('nome') or do_token
+    return do_token
+
+
 def mesma_origem():
     """Formulário enviado por esta aplicação (o navegador manda Origin nos POSTs)."""
     origem = request.headers.get('Origin')

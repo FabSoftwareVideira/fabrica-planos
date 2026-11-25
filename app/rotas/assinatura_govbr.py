@@ -7,7 +7,7 @@ from itsdangerous import BadSignature, URLSafeTimedSerializer
 
 from ..avaliacao import pipeline
 from ..servicos import assinatura, assinatura_api
-from .comum import email, nome as nome_usuario, servicos
+from .comum import email, nome_exibido, servicos
 from ..limites import LOGIN
 
 # Assinatura do plano pela API do gov.br (servicos/assinatura_api.py): "Assinar com gov.br" em "Meus planos"
@@ -103,7 +103,7 @@ def callback():
         try:
             token = cliente.token(request.args.get('code', ''), _redirect_uri())
             usuario = _usuario()
-            nome_conta = nome_usuario() or (s.usuarios.obter(usuario) or {}).get('nome', '')
+            nome_conta = nome_exibido()
             registro = s.assinaturas.assinar_pela_api(nome, usuario, nome_conta, cliente, token)
             resp = _voltar(assinatura='ok', arquivo=nome, signatario=registro['signatario'],
                            **({'aviso': registro['aviso']} if registro.get('aviso') else {}))

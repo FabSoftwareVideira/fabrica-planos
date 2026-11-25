@@ -53,6 +53,9 @@ class BackupOcupado(Exception):
 
 class Backup:
     def __init__(self, cfg, validador=None, banco=None):
+        # Chamadas depois de restaurar (fabrica.py: o preparar_esquema de cada armazenamento): o dump recria
+        # as tabelas como eram no backup, e as colunas acrescentadas depois precisam voltar
+        self.ao_restaurar = []
         self.cfg = cfg
         self.validador = validador
         self.banco = banco
@@ -340,6 +343,8 @@ class Backup:
                     if self.validador.andamento.rodando:
                         raise BackupOcupado('Há uma validação em andamento; tente de novo quando ela terminar')
                     resumo = self._substituir(staging)
+            for preparar in self.ao_restaurar:
+                preparar()
             log.info('Backup restaurado: %s', nome)
             return resumo
         finally:

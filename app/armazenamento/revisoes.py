@@ -25,6 +25,11 @@ class Revisoes:
     def __init__(self, banco):
         self.banco = banco
         self._trava = threading.Lock()
+        self.preparar_esquema()
+
+    def preparar_esquema(self):
+        """Cria as tabelas que faltam e aplica as migrações (na partida e depois de restaurar um backup,
+        que recria as tabelas como estavam quando ele foi feito)."""
         with self._conexao() as con:
             con.execute(ESQUEMA)
 

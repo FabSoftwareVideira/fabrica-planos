@@ -1,0 +1,126 @@
+{% extends 'base.html' %}
+{#- Meu perfil (rotas/conta.py): nome que o sistema mostra (editável), e-mail e papéis, conta gov.br vinculada e o
+    nível dela, as disciplinas do usuário e os dados pessoais guardados (LGPD). -#}
+
+{% block titulo %}Meu perfil · Validação de Planos de Ensino{% endblock %}
+
+{% block estilos %}
+{% include '_ds.html' %}
+<style>
+  .perfil-pagina { display: grid; gap: var(--spacing-scale-3x); max-width: 960px; }
+  .perfil-pagina .br-card { margin: 0; }
+  .perfil-pagina h2 { font-size: var(--font-size-scale-up-02); margin: 0; display: flex; align-items: center; gap: var(--spacing-scale-base); }
+  .perfil-pagina dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--spacing-scale-2x); margin: 0; }
+  .perfil-pagina dt { font-size: var(--font-size-scale-down-01); color: var(--gray-60); font-weight: var(--font-weight-regular); }
+  .perfil-pagina dd { margin: 2px 0 0; font-weight: var(--font-weight-semi-bold); overflow-wrap: anywhere; }
+  .perfil-pagina .form-nome { display: flex; flex-wrap: wrap; gap: var(--spacing-scale-2x); align-items: flex-end; }
+  .perfil-pagina .form-nome .br-input { flex: 1 1 320px; margin: 0; }
+  .perfil-pagina .form-nome input { width: 100%; }
+  .perfil-pagina .nota { font-size: var(--font-size-scale-down-01); color: var(--gray-60); margin: var(--spacing-scale-base) 0 0; }
+  .perfil-pagina .acoes { display: flex; flex-wrap: wrap; gap: var(--spacing-scale-base); margin-top: var(--spacing-scale-2x); }
+  .perfil-pagina .acoes form { margin: 0; }
+  .perfil-pagina ul.lista { margin: 0; padding-left: 1.2em; }
+  .perfil-pagina .nivel { display: inline-block; border-radius: var(--surface-rounder-pill); padding: 0 10px; font-size: var(--font-size-scale-down-01); }
+  .perfil-pagina .nivel.bronze { background: #fbe6d4; color: #6b3a00; }
+  .perfil-pagina .nivel.prata, .perfil-pagina .nivel.ouro { background: #e3f5e1; color: #0f5e17; }
+</style>
+{% endblock %}
+
+{% block corpo %}
+{% set titulo_pagina = 'Meu perfil' %}
+{% include '_cabecalho.html' %}
+<main id="main">
+  <div class="container-lg py-4">
+    {% include '_titulo_pagina.html' %}
+    <div class="perfil-pagina">
+      {% if aviso %}<div class="br-message success" role="status"><div class="icon"><i class="fas fa-check-circle fa-lg" aria-hidden="true"></i></div><div class="content"><span class="message-body">{{ aviso }}</span></div></div>{% endif %}
+      {% if erro %}<div class="br-message danger" role="alert"><div class="icon"><i class="fas fa-times-circle fa-lg" aria-hidden="true"></i></div><div class="content"><span class="message-body">Informe o nome completo, com pelo menos 3 letras.</span></div></div>{% endif %}
+
+      <section class="br-card" aria-labelledby="titulo-dados">
+        <div class="card-header"><h2 id="titulo-dados"><i class="fas fa-id-card" aria-hidden="true"></i> Dados pessoais</h2></div>
+        <div class="card-content">
+          <form class="form-nome" method="post" action="/conta/nome">
+            <div class="br-input">
+              <label for="nome">Nome completo</label>
+              <input id="nome" name="nome" type="text" value="{{ dados.nome }}" maxlength="{{ nome_max }}" minlength="3" required autocomplete="name" aria-describedby="nome-ajuda">
+            </div>
+            <button class="br-button primary" type="submit"><i class="fas fa-save" aria-hidden="true"></i> Salvar</button>
+          </form>
+          <p class="nota" id="nome-ajuda">É o nome que o sistema mostra a você e à coordenação, e que aparece nos planos publicados na transparência. Use o nome que está nos planos de ensino (o do SIGAA): ele é comparado com o docente escrito no PDF e com o nome do certificado da assinatura.
+            {% if dados.nome_proprio and dados.nome_login %}O nome da sua conta de login é <strong>{{ dados.nome_login }}</strong>.{% endif %}</p>
+          {% if dados.nome_proprio %}
+          <form method="post" action="/conta/nome" class="acoes">
+            <input type="hidden" name="acao" value="login">
+            <button class="br-button secondary small" type="submit"><i class="fas fa-undo" aria-hidden="true"></i> Usar o nome da conta de login</button>
+          </form>
+          {% endif %}
+          <dl style="margin-top:var(--spacing-scale-3x)">
+            <div><dt>E-mail</dt><dd>{{ dados.email }}</dd></div>
+            <div><dt>Perfil no sistema</dt><dd>{{ dados.perfil }}</dd></div>
+            <div><dt>Primeiro acesso</dt><dd>{{ dados.primeiro_acesso|data_br }}</dd></div>
+            <div><dt>Último acesso</dt><dd>{{ dados.ultimo_acesso|data_br }}</dd></div>
+          </dl>
+          <p class="nota">O e-mail é o da conta institucional usada no login e não pode ser alterado aqui.</p>
+        </div>
+      </section>
+
+      <section class="br-card" aria-labelledby="titulo-papeis">
+        <div class="card-header"><h2 id="titulo-papeis"><i class="fas fa-user-tag" aria-hidden="true"></i> Papéis nos cursos</h2></div>
+        <div class="card-content">
+          {% if dados.papeis %}
+          <ul class="lista">{% for p in dados.papeis %}<li>{{ p.papel }} de {{ p.nome_curso }}</li>{% endfor %}</ul>
+          <p class="nota">Com esses papéis, você revisa os planos desses cursos. Os papéis são dados pela administração do sistema.</p>
+          {% else %}
+          <p class="nota">Nenhum papel de coordenação, NDE ou NDB. Os papéis são dados pela administração do sistema.</p>
+          {% endif %}
+        </div>
+      </section>
+
+      {% if govbr_ativo %}
+      <section class="br-card" aria-labelledby="titulo-govbr">
+        <div class="card-header"><h2 id="titulo-govbr"><i class="fas fa-shield-alt" aria-hidden="true"></i> Conta gov.br</h2></div>
+        <div class="card-content">
+          {% if dados.govbr %}
+          <dl>
+            <div><dt>Situação</dt><dd>Vinculada em {{ dados.govbr.vinculado_em|data_br }}</dd></div>
+            <div><dt>Nível da conta</dt><dd>{% if dados.govbr.nivel %}<span class="nivel {{ dados.govbr.nivel }}">{{ niveis[dados.govbr.nivel] }}</span>{% if dados.govbr.nivel_em %} <span class="nota">(conferido em {{ dados.govbr.nivel_em|data_br }})</span>{% endif %}{% else %}Não informado{% endif %}</dd></div>
+          </dl>
+          {% if dados.govbr.nivel == 'bronze' %}{% include '_aviso_bronze.html' %}{% endif %}
+          <p class="nota">Com a conta vinculada, você entra pelo gov.br mesmo que o e-mail dela seja pessoal. Assinar os planos exige conta nível prata ou ouro.</p>
+          <div class="acoes">
+            <a class="br-button secondary small" href="/conta/govbr/vincular?rd=/conta"><i class="fas fa-sync-alt" aria-hidden="true"></i> Conferir o nível de novo</a>
+            <form method="post" action="/conta/govbr/desvincular"><input type="hidden" name="rd" value="/conta"><button class="br-button secondary small" type="submit"><i class="fas fa-unlink" aria-hidden="true"></i> Desvincular</button></form>
+          </div>
+          {% else %}
+          <p>Nenhuma conta gov.br vinculada.</p>
+          <p class="nota">Vincule a sua conta gov.br para entrar por ela (mesmo com e-mail pessoal) e para o sistema conhecer o nível da conta, que a assinatura dos planos exige (prata ou ouro).</p>
+          <div class="acoes"><a class="br-button primary small" href="/conta/govbr/vincular?rd=/conta"><i class="fas fa-link" aria-hidden="true"></i> Vincular conta gov.br</a></div>
+          {% endif %}
+        </div>
+      </section>
+      {% endif %}
+
+      <section class="br-card" aria-labelledby="titulo-disciplinas">
+        <div class="card-header"><h2 id="titulo-disciplinas"><i class="fas fa-book" aria-hidden="true"></i> Minhas disciplinas</h2></div>
+        <div class="card-content">
+          {% if por_periodo %}
+          <ul class="lista">{% for periodo, n in por_periodo %}<li>{{ periodo }}: {{ n }} disciplina{{ 's' if n != 1 }}</li>{% endfor %}</ul>
+          <div class="acoes"><a class="br-button secondary small" href="/meus-planos"><i class="fas fa-folder-open" aria-hidden="true"></i> Ir para Meus planos</a></div>
+          {% else %}
+          <p class="nota">Nenhuma disciplina vinculada a você. A coordenação do curso vincula os docentes de cada disciplina do semestre.</p>
+          {% endif %}
+        </div>
+      </section>
+
+      <section class="br-card" aria-labelledby="titulo-privacidade">
+        <div class="card-header"><h2 id="titulo-privacidade"><i class="fas fa-user-shield" aria-hidden="true"></i> Privacidade</h2></div>
+        <div class="card-content">
+          <p>Veja no <a href="/privacidade">aviso de privacidade</a> quais dados o sistema guarda e para quê. Você pode baixar os seus dados pessoais guardados aqui (nome, e-mail, acessos, papéis, conta gov.br e disciplinas). O CPF da conta gov.br não é guardado.</p>
+          <div class="acoes"><a class="br-button secondary small" href="/conta/meus-dados.json" download><i class="fas fa-download" aria-hidden="true"></i> Baixar meus dados (JSON)</a></div>
+        </div>
+      </section>
+    </div>
+  </div>
+</main>
+{% include '_rodape.html' %}
+{% endblock %}

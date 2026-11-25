@@ -45,6 +45,12 @@ CREATE TABLE IF NOT EXISTS vinculos_govbr (
 MIGRACAO_GOVBR = ("ALTER TABLE vinculos_govbr ADD COLUMN IF NOT EXISTS nivel TEXT NOT NULL DEFAULT ''",
                   "ALTER TABLE vinculos_govbr ADD COLUMN IF NOT EXISTS nivel_em TEXT NOT NULL DEFAULT ''")
 
+# Nome: `nome` é o que o sistema mostra; `nome_login`, o que a conta de login (Google ou gov.br) informa. Quem
+# escolhe o próprio nome em Meu perfil (nome_proprio) não o tem sobrescrito pelo login.
+MIGRACAO_NOME = ("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS nome_login TEXT NOT NULL DEFAULT ''",
+                 "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS nome_proprio BOOLEAN NOT NULL DEFAULT FALSE")
+NOME_MAX = 120
+
 PAPEIS_CURSO = {'coordenador': 'Coordenação', 'nde': 'NDE', 'ndb': 'NDB'}
 
 ORDENS = {
@@ -67,11 +73,16 @@ class Usuarios:
     def __init__(self, banco):
         self.banco = banco
         self._trava = threading.Lock()
+        self.preparar_esquema()
+
+    def preparar_esquema(self):
+        """Cria as tabelas que faltam e aplica as migrações (na partida e depois de restaurar um backup,
+        que recria as tabelas como estavam quando ele foi feito)."""
         with self._conexao() as con:
             con.execute(ESQUEMA)
             con.execute(ESQUEMA_PAPEIS)
             con.execute(ESQUEMA_GOVBR)
-            for comando in MIGRACAO_GOVBR:
+            for comando in MIGRACAO_GOVBR + MIGRACAO_NOME:
                 con.execute(comando)
 
     def _conexao(self):
@@ -84,17 +95,32 @@ class Usuarios:
         with self._trava, self._conexao() as con:
             atual = con.execute('SELECT * FROM usuarios WHERE email = %s', (email,)).fetchone()
             if atual is None:
-                con.execute('INSERT INTO usuarios (email, nome, primeiro_acesso, ultimo_acesso) '
-                            'VALUES (%s, %s, %s, %s)',
-                            (email, nome, agora.isoformat(timespec='seconds'), agora.isoformat(timespec='seconds')))
+                con.execute('INSERT INTO usuarios (email, nome, nome_login, primeiro_acesso, ultimo_acesso) '
+                            'VALUES (%s, %s, %s, %s, %s)',
+                            (email, nome, nome, agora.isoformat(timespec='seconds'), agora.isoformat(timespec='seconds')))
                 return dict(con.execute('SELECT * FROM usuarios WHERE email = %s', (email,)).fetchone())
-            nome_novo = nome or atual['nome']
+            nome_login = nome or atual['nome_login']
+            # O nome escolhido em Meu perfil fica; senão, vale o da conta de login
+            nome_novo = atual['nome'] if atual['nome_proprio'] else (nome or atual['nome'])
             antigo = datetime.fromisoformat(atual['ultimo_acesso'])
-            if nome_novo != atual['nome'] or agora - antigo >= INTERVALO_ACESSO:
-                con.execute('UPDATE usuarios SET nome = %s, ultimo_acesso = %s WHERE email = %s',
-                            (nome_novo, agora.isoformat(timespec='seconds'), email))
+            if (nome_novo != atual['nome'] or nome_login != atual['nome_login']
+                    or agora - antigo >= INTERVALO_ACESSO):
+                con.execute('UPDATE usuarios SET nome = %s, nome_login = %s, ultimo_acesso = %s WHERE email = %s',
+                            (nome_novo, nome_login, agora.isoformat(timespec='seconds'), email))
                 atual = con.execute('SELECT * FROM usuarios WHERE email = %s', (email,)).fetchone()
             return dict(atual)
+
+    def definir_nome(self, email, nome):
+        """Nome escolhido pelo usuário (Meu perfil). Vazio volta a usar o da conta de login. Devolve o nome
+        que passa a valer."""
+        nome = ' '.join((nome or '').split())[:NOME_MAX]
+        with self._trava, self._conexao() as con:
+            if nome:
+                con.execute('UPDATE usuarios SET nome = %s, nome_proprio = TRUE WHERE email = %s', (nome, email))
+            else:
+                con.execute('UPDATE usuarios SET nome = nome_login, nome_proprio = FALSE WHERE email = %s', (email,))
+            linha = con.execute('SELECT nome FROM usuarios WHERE email = %s', (email,)).fetchone()
+        return linha['nome'] if linha else ''
 
     def obter(self, email):
         with self._conexao() as con:
@@ -116,6 +142,13 @@ class Usuarios:
         with self._trava, self._conexao() as con:
             con.execute('UPDATE vinculos_govbr SET nivel = %s, nivel_em = %s WHERE chave_cpf = %s',
                         (nivel or '', _agora() if nivel else '', chave_cpf))
+
+    def govbr_de(self, email):
+        """{'vinculado_em', 'nivel', 'nivel_em'} da conta gov.br vinculada (sem o CPF), ou None."""
+        with self._conexao() as con:
+            linha = con.execute('SELECT vinculado_em, nivel, nivel_em FROM vinculos_govbr WHERE email = %s',
+                                (email,)).fetchone()
+        return dict(linha) if linha else None
 
     def nivel_govbr_conferido(self, email):
         """(nível, quando o gov.br o informou: ISO ou '') da conta gov.br vinculada ao usuário."""
