@@ -58,7 +58,7 @@ function item(p) {
   abrir.title = aberto ? 'Fechar os detalhes' : 'Ver a versão atual, os avisos e o histórico';
   const nome = el('span', 'nome', p.disciplina);
   const partes = [p.componente.split(' · ')[0]].filter(Boolean);
-  if (p.fase) partes.push(`${p.fase}ª fase`);
+  if (p.fase) partes.push(String(p.periodo || '').includes('.') ? `${p.fase}ª fase` : `${p.fase}º ano`);  // anual: ano (série)
   if (p.tem_plano) partes.push(`versão ${p.versao}`);
   const outros = (p.docentes || []).map(d => d.nome || d.email);
   if (outros.length > 1) partes.push('com ' + outros.join(', '));

@@ -9,7 +9,7 @@
     <div class="card-content">
       <p class="ajuda">Informe o e-mail institucional (@{{ dominio }}) do professor de cada disciplina; com mais de um, separe por vírgula. Comece a digitar para ver os servidores já cadastrados. Quem ainda não entrou no sistema vê as suas disciplinas no primeiro acesso.{% if planejamento.situacao == 'rascunho' %} Pode deixar em branco e voltar depois: o rascunho fica salvo.{% endif %}</p>
       {% for fase, ofertas in grade %}
-      <h3 class="fase">{{ '%dª fase' % fase if fase else 'Avulsas (sem fase)' }}</h3>
+      <h3 class="fase">{{ rotulo_fase(fase, tipo) }}</h3>
       <div class="docentes-lista">
         {% for o in ofertas %}
         <div class="docente-linha{{ '' if o.docentes else ' vazio' }}" id="oferta-{{ o.id }}">

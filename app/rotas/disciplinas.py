@@ -16,10 +16,17 @@ bp = Blueprint('disciplinas', __name__, url_prefix='/disciplinas')
 ETAPAS = [('periodo', 'Período'), ('fases', 'Fases'), ('disciplinas', 'Disciplinas'), ('docentes', 'Docentes'),
           ('revisao', 'Revisão e publicação')]
 
+
+
+def _etapas(tipo):
+    """Nos cursos anuais (integrados), a etapa das fases é a dos anos (séries)."""
+    return [(chave, 'Anos' if chave == 'fases' and tipo == 'anual' else rotulo) for chave, rotulo in ETAPAS]
+
+
 AVISOS = {
-    'criado': ('success', 'check-circle', 'Planejamento iniciado como rascunho. Escolha as fases do período.'),
+    'criado': ('success', 'check-circle', 'Planejamento iniciado como rascunho. Escolha as fases (ou os anos) que terão turma.'),
     'ja_existe': ('info', 'info-circle', 'Já havia um planejamento para esse período: continue de onde parou.'),
-    'fases': ('success', 'check-circle', 'Fases salvas. Confira as disciplinas do período.'),
+    'fases': ('success', 'check-circle', 'Seleção salva. Confira as disciplinas do período.'),
     'incluida': ('success', 'check-circle', 'Disciplina incluída.'),
     'alterada': ('success', 'check-circle', 'Disciplina alterada.'),
     'turma': ('success', 'check-circle', 'Nova turma criada. Os docentes dela são vinculados na próxima etapa.'),
@@ -56,7 +63,7 @@ def _ctx(curso, periodo, etapa, **extra):
     s = servicos().disciplinas
     p = s.planejamento(curso, periodo)
     return dict(curso=curso, nome_curso=s.cursos().get(curso, curso), periodo=periodo, planejamento=p,
-                etapas=ETAPAS, etapa=etapa, tipo=s.tipo(curso), aviso=AVISOS.get(request.args.get('aviso', '')),
+                etapas=_etapas(s.tipo(curso)), etapa=etapa, tipo=s.tipo(curso), aviso=AVISOS.get(request.args.get('aviso', '')),
                 erro=request.args.get('erro', ''), **extra)
 
 

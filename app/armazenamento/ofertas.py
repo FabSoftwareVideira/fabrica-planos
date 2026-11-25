@@ -85,6 +85,24 @@ def nome_do_arquivo(oferta):
     return f"{oferta['periodo']}-{codigo}-T{turma}-{oferta['id']}.pdf"
 
 
+def _migrar_siglas(con):
+    """Dados gravados com o prefixo do código do SIGAA como sigla (IN, antes de o técnico em Informática virar
+    INFO) passam para a sigla do curso (ppc.SIGLAS_SIGAA). Nas tabelas com o curso na chave, o que já existir
+    com a sigla nova prevalece."""
+    for antiga, nova in ppc.SIGLAS_SIGAA.items():
+        con.execute('UPDATE componentes SET curso = %s WHERE curso = %s', (nova, antiga))
+        con.execute('UPDATE ofertas SET curso = %s WHERE curso = %s', (nova, antiga))
+        con.execute('INSERT INTO planejamentos (curso, periodo, situacao, fases, criado_em, criado_por, publicado_em, '
+                    'publicado_por) SELECT %s, periodo, situacao, fases, criado_em, criado_por, publicado_em, '
+                    'publicado_por FROM planejamentos WHERE curso = %s ON CONFLICT DO NOTHING', (nova, antiga))
+        con.execute('DELETE FROM planejamentos WHERE curso = %s', (antiga,))
+        con.execute('INSERT INTO papeis_curso (email, curso, papel) SELECT email, %s, papel FROM papeis_curso '
+                    'WHERE curso = %s ON CONFLICT DO NOTHING', (nova, antiga))
+        con.execute('DELETE FROM papeis_curso WHERE curso = %s', (antiga,))
+        if con.execute("SELECT to_regclass('revisoes') AS t").fetchone()['t']:  # criada por armazenamento/revisoes.py
+            con.execute('UPDATE revisoes SET curso = %s WHERE curso = %s', (nova, antiga))
+
+
 class Ofertas:
     def __init__(self, banco):
         self.banco = banco
@@ -104,6 +122,7 @@ class Ofertas:
                         "SELECT DISTINCT curso, periodo, 'publicado', %s, %s FROM ofertas "
                         "ON CONFLICT DO NOTHING", (_agora(), _agora()))
             con.execute(ESQUEMA_PAPEIS)
+            _migrar_siglas(con)
             for curso, disciplinas in ppc.MATRIZES.items():  # matriz e equipe do PPC, na primeira vez
                 if con.execute('SELECT 1 FROM componentes WHERE curso = %s LIMIT 1', (curso,)).fetchone() is None:
                     for fase, codigo, nome, carga in disciplinas:

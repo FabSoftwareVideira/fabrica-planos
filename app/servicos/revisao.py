@@ -1,7 +1,7 @@
 import logging
 import os
 
-from ..armazenamento import historico
+from ..armazenamento import historico, ppc
 from ..armazenamento.usuarios import PAPEIS_CURSO
 
 log = logging.getLogger(__name__)
@@ -79,7 +79,8 @@ class Revisao:
             return ''
         if nome is not None and self.eh_autor(email, nome) and not self.eh_coordenador(email, ident):
             return ''
-        papeis = [p for curso, p in self.usuarios.papeis(email) if curso == ident['sigla_curso']]
+        curso = ident['sigla_curso']
+        papeis = [p for c, p in self.usuarios.papeis(email) if c == curso and ppc.papel_vale(curso, p)]
         for chave in PAPEIS_CURSO:  # coordenação primeiro
             if chave in papeis:
                 return PAPEIS_CURSO[chave]

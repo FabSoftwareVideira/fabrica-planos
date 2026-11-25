@@ -41,7 +41,7 @@ def test_matriz_do_ppc_de_ciencia_da_computacao(app):
     assert sum(c['carga_horaria'] for c in fases[1]) == 330
     assert all(sum(c['carga_horaria'] for c in fases[f]) == 360 for f in range(2, 9))
     assert [c['nome'] for c in fases[6] if not c['codigo']] == ['Optativa I']
-    assert d.cursos() == {'CC': 'Ciência da Computação', 'LP': 'Pedagogia'}
+    assert d.cursos() == {'CC': 'Ciência da Computação', 'LP': 'Pedagogia', 'INFO': 'Técnico em Informática Integrado ao Ensino Médio'}
 
 
 def test_matriz_do_ppc_de_pedagogia(app):
@@ -68,6 +68,45 @@ def test_equipe_do_ppc_de_pedagogia(app):
     assert len(nde) == 7
     assert d.cursos_gerenciaveis('valdinei.marcolla@ifc.edu.br', False) == {'LP': 'Pedagogia'}
     assert c.get('/coordenacao', headers={'X-Usuario-Email': 'valdinei.marcolla@ifc.edu.br'}).status_code == 200
+
+
+def test_matriz_e_equipe_do_tecnico_integrado_em_informatica(app):
+    c, _, d = app
+    assert len(d.ofertas.matriz('INFO')) == len(ppc.MATRIZES['INFO']) == 45
+    anos = dict(d.matriz_por_fase('INFO'))
+    # Totais de cada ano na matriz do PPC 2026 (3240h de carga mínima)
+    assert [sum(c['carga_horaria'] for c in anos[a]) for a in (1, 2, 3)] == [1170, 1110, 960]
+    assert d.tipo('INFO') == 'anual' and ppc.colegiado('INFO') == 'ndb'
+    assert d.usuarios.papeis('fabio.aresi@ifc.edu.br') == [('INFO', 'coordenador'), ('INFO', 'ndb')]
+    assert d.usuarios.papeis('tiago.goncalves@ifc.edu.br') == [('INFO', 'ndb')]
+    assert d.cursos_gerenciaveis('fabio.aresi@ifc.edu.br', False) == {
+        'INFO': 'Técnico em Informática Integrado ao Ensino Médio'}
+    # O ano letivo inteiro: todas as séries; na tela, "1º ano" no lugar de "1ª fase"
+    coord = {'X-Usuario-Email': 'fabio.aresi@ifc.edu.br'}
+    assert c.get('/coordenacao', headers=coord).status_code == 200
+    assert d.periodo_valido('INFO', '2027') and not d.periodo_valido('INFO', '2027.1')
+    d.criar_planejamento('INFO', '2027', 'fabio.aresi@ifc.edu.br')
+    html = c.get('/disciplinas/INFO/2027/fases', headers=coord).get_data(as_text=True)
+    assert '1º ano' in html and '3º ano' in html and 'ª fase' not in html
+
+
+def test_sigla_antiga_in_vira_info(app):
+    """Papéis, revisões e disciplinas gravados com IN (o prefixo do código no SIGAA) passam para INFO."""
+    from app.armazenamento.ofertas import Ofertas
+    _, _, d = app
+    d.usuarios.registrar_acesso('antigo@ifc.edu.br')
+    d.usuarios.adicionar_papel('antigo@ifc.edu.br', 'IN', 'ndb')
+    oferta = d.ofertas.criar('IN', '2026', 'Web Design', 'INC0713', 60, 1, '03')
+    Ofertas(d.ofertas.banco)  # o app subindo de novo
+    assert d.usuarios.papeis('antigo@ifc.edu.br') == [('INFO', 'ndb')]
+    assert d.ofertas.obter(oferta['id'])['curso'] == 'INFO'
+
+
+def test_nde_na_graduacao_e_ndb_no_integrado():
+    assert ppc.papel_vale('CC', 'nde') and not ppc.papel_vale('CC', 'ndb')
+    assert ppc.papel_vale('INFO', 'ndb') and not ppc.papel_vale('INFO', 'nde')
+    assert all(ppc.papel_vale(curso, 'coordenador') for curso in ('CC', 'LP', 'INFO', 'XX'))
+    assert ppc.papel_vale('XX', 'nde') and ppc.papel_vale('XX', 'ndb')  # curso sem nível: os dois valem
 
 
 def test_equipe_do_ppc_so_na_primeira_vez(app):
@@ -179,10 +218,11 @@ def test_remover_disciplina_so_sem_plano(app):
 
 def test_quem_gerencia_as_disciplinas(app):
     _, _, d = app
-    assert d.cursos_gerenciaveis('admin@ifc.edu.br', True) == {'CC': 'Ciência da Computação', 'LP': 'Pedagogia'}
+    assert d.cursos_gerenciaveis('admin@ifc.edu.br', True) == {'CC': 'Ciência da Computação', 'LP': 'Pedagogia',
+                                                                  'INFO': 'Técnico em Informática Integrado ao Ensino Médio'}
     assert d.cursos_gerenciaveis('coord@ifc.edu.br', False) == {'CC': 'Ciência da Computação'}
     assert d.cursos_gerenciaveis('nde@ifc.edu.br', False) == {}
-    assert d.pode_gerenciar('coord@ifc.edu.br', False, 'CC') and not d.pode_gerenciar('coord@ifc.edu.br', False, 'IN')
+    assert d.pode_gerenciar('coord@ifc.edu.br', False, 'CC') and not d.pode_gerenciar('coord@ifc.edu.br', False, 'INFO')
 
 
 def test_identificacao_do_plano_vem_da_disciplina(app):

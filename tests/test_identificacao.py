@@ -40,7 +40,7 @@ def test_sem_turma_ainda_identifica_curso_e_periodo():
 def test_tecnico_anual_traz_o_nome_do_curso():
     ident = extrair(CABECALHO + 'INC0713-1 - WEB DESIGN (60h) - Turma: 03 (2026)\n'
                     'Turma: [TÉCNICO EM INFORMÁTICA INTEGRADO AO ENSINO\nMÉDIO - IN07 (MT) - A (2026)]')
-    assert ident['codigo'] == 'INC0713-1' and ident['sigla_curso'] == 'IN'
+    assert ident['codigo'] == 'INC0713-1' and ident['sigla_curso'] == 'INFO'  # prefixo IN -> INFO (ppc.SIGLAS_SIGAA)
     assert ident['curso'] == 'Técnico em Informática Integrado ao Ensino Médio'
     assert (ident['periodo'], ident['semestre'], ident['oferta']) == ('2026', None, 'anual')
 

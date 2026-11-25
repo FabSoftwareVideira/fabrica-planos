@@ -2,6 +2,7 @@ import logging
 
 from flask import Blueprint, redirect, render_template, request, send_from_directory
 
+from ..armazenamento import ppc
 from ..armazenamento.usuarios import PAPEIS_CURSO
 from ..avaliacao import pipeline
 from ..paginas import administracao, backup as backup_pagina, usuarios
@@ -135,7 +136,7 @@ def alterar_papel():
     papel = request.form.get('papel', '')
     if request.form.get('acao') == 'remover':
         aviso = 'papel_removido' if s.usuarios.remover_papel(alvo, curso, papel) else 'papel_invalido'
-    elif papel not in PAPEIS_CURSO or curso not in s.planos.cursos():
+    elif papel not in PAPEIS_CURSO or curso not in s.planos.cursos() or not ppc.papel_vale(curso, papel):
         aviso = 'papel_invalido'
     elif not s.usuarios.adicionar_papel(alvo, curso, papel):
         aviso = 'inexistente'

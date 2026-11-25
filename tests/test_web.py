@@ -519,7 +519,7 @@ def test_dashboard_traz_dados_para_agrupar(cliente):
     assert 'data-docente="Fulano de Tal"' in html and 'data-cp="-"' in html
     assert 'CCC0723 · Desenvolvimento Web I · Turma 01 · 60h · Fulano de Tal' in html
     # Filtro de curso e período na ordem dos grupos; os sem identificação no fim
-    opcoes = [html.index(f'<option value="{v}">') for v in ('CC|2026.2', 'IN|2026', '-')]
+    opcoes = [html.index(f'<option value="{v}">') for v in ('CC|2026.2', 'INFO|2026', '-')]
     assert opcoes == sorted(opcoes)
 
 
@@ -879,11 +879,11 @@ def test_visao_da_coordenacao_por_curso(com_login):
     assert 'href="/coordenacao"' in html and 'Ciência da Computação' in html and '2º semestre de 2026' in html
     assert 'Desenvolvimento Web I' in html and 'Web Design' not in html  # só o curso dele
     assert 'href="/relatorio?arquivo=web.pdf#revisao"' in html and '<strong>0</strong> de 1 plano(s) revisados' in html
-    assert c.get('/coordenacao?curso=IN', headers=coord).get_data(as_text=True).count('Web Design') == 0
+    assert c.get('/coordenacao?curso=INFO', headers=coord).get_data(as_text=True).count('Web Design') == 0
 
     adm = c.get('/coordenacao', headers=ADMIN).get_data(as_text=True)  # administração escolhe o curso
-    assert '<option value="CC" selected>' in adm and '<option value="IN">' in adm
-    assert 'Web Design' in c.get('/coordenacao?curso=IN', headers=ADMIN).get_data(as_text=True)
+    assert '<option value="CC" selected>' in adm and '<option value="INFO">' in adm
+    assert 'Web Design' in c.get('/coordenacao?curso=INFO', headers=ADMIN).get_data(as_text=True)
 
 
 def test_cabecalhos_de_seguranca(cliente):
@@ -1712,3 +1712,17 @@ def test_volta_da_assinatura_na_pagina_inicial(fabrica):
     assert r.headers['Location'] == '/assinatura/govbr/callback?error=access_denied&state=abc'
     assert c.get('/?code=sem-state').status_code == 200  # sem state: a página inicial de sempre
     assert c.get('/').status_code == 200
+
+
+def test_nde_so_na_graduacao_e_ndb_so_no_integrado(com_login):
+    c, _ = com_login
+    usuarios = _servicos(c).usuarios
+    assert 'aviso=papel_invalido' in _dar_papel(c, 'x@ifc.edu.br', curso='INFO', papel='nde').headers['Location']
+    assert 'aviso=papel_invalido' in _dar_papel(c, 'x@ifc.edu.br', curso='CC', papel='ndb').headers['Location']
+    assert usuarios.papeis('x@ifc.edu.br') == []
+    assert 'aviso=papel_adicionado' in _dar_papel(c, 'x@ifc.edu.br', curso='INFO', papel='ndb').headers['Location']
+    revisao = _servicos(c).revisao
+    ident = {'sigla_curso': 'INFO'}
+    assert revisao.papel('x@ifc.edu.br', ident) == 'NDB'
+    usuarios.adicionar_papel('y@ifc.edu.br', 'INFO', 'nde')  # gravado antes da regra: não revisa
+    assert revisao.papel('y@ifc.edu.br', ident) == ''

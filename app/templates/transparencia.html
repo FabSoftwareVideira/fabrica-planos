@@ -67,7 +67,7 @@
       <li>
         <div class="ident">
           <a class="disciplina" href="/transparencia/{{ p.id }}">{{ p.disciplina }}</a>
-          <span class="meta">{{ p.codigo or 'Sem código' }} · Turma {{ p.turma }}{% if p.fase %} · {{ p.fase }}ª fase{% endif %} · {{ p.curso_nome }} · {{ p.periodo }}</span>
+          <span class="meta">{{ p.codigo or 'Sem código' }} · Turma {{ p.turma }}{% if p.fase %} · {{ rotulo_fase(p.fase, 'semestral' if '.' in p.periodo else 'anual') }}{% endif %} · {{ p.curso_nome }} · {{ p.periodo }}</span>
           <span class="meta">Docente{{ 's' if p.docentes|length > 1 }}: {{ p.docentes|join(', ') }}</span>
         </div>
         <div class="situacao">

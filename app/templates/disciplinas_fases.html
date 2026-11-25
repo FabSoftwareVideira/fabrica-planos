@@ -5,15 +5,15 @@
 {% block passo %}
 <form method="post" action="/disciplinas/{{ curso }}/{{ periodo }}/fases">
   <section class="br-card">
-    <div class="card-header"><h2>2. Fases do período</h2></div>
+    <div class="card-header"><h2>2. {{ 'Anos (séries)' if tipo == 'anual' else 'Fases' }} do período</h2></div>
     <div class="card-content">
-      <p class="ajuda">Marque as fases que terão turma em {{ periodo }}. {% if tipo == 'semestral' %}Sugerimos as fases {{ 'ímpares' if periodo.endswith('.1') else 'pares' }}, como de costume no {{ periodo[-1] }}º semestre, mas você pode mudar.{% else %}Sugerimos todas as fases do curso.{% endif %} As disciplinas da matriz das fases marcadas entram no período; na próxima etapa você ajusta cada uma (renomear, outra turma, tirar ou incluir avulsas).</p>
+      <p class="ajuda">Marque {{ 'os anos' if tipo == 'anual' else 'as fases' }} que terão turma em {{ periodo }}. {% if tipo == 'semestral' %}Sugerimos as fases {{ 'ímpares' if periodo.endswith('.1') else 'pares' }}, como de costume no {{ periodo[-1] }}º semestre, mas você pode mudar.{% else %}Sugerimos todos os anos do curso.{% endif %} As disciplinas da matriz {{ "dos anos marcados" if tipo == "anual" else "das fases marcadas" }} entram no período; na próxima etapa você ajusta cada uma (renomear, outra turma, tirar ou incluir avulsas).</p>
       <div class="fases-grade">
         {% for fase, componentes in matriz %}
         <label class="fase-cartao">
           <input type="checkbox" name="fase" value="{{ fase }}"{% if fase in marcadas %} checked{% endif %}>
           <span class="fase-corpo">
-            <span class="fase-titulo">{{ fase }}ª fase{% if fase in sugeridas %} <span class="sugerida">sugerida</span>{% endif %}</span>
+            <span class="fase-titulo">{{ rotulo_fase(fase, tipo) }}{% if fase in sugeridas %} <span class="sugerida">sugerida</span>{% endif %}</span>
             <span class="fase-resumo">{{ componentes|length }} disciplina{{ 's' if componentes|length != 1 }} · {{ componentes|sum(attribute='carga_horaria') }}h</span>
             <span class="fase-nomes">{{ componentes|map(attribute='nome')|join(' · ') }}</span>
           </span>

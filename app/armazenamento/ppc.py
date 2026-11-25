@@ -4,19 +4,55 @@ disciplinas (as optativas, principalmente) e incluir disciplinas avulsas só naq
 
 Cada disciplina: (fase, código, nome, carga horária). As optativas não têm código fixo no PPC.
 
-A sigla de cada curso é a das duas primeiras letras dos códigos do SIGAA (CCC0723 -> CC, LPC0701 -> LP), a
-mesma que avaliacao/identificacao.py tira do cabeçalho do plano."""
+A sigla de cada curso vem das duas primeiras letras dos códigos do SIGAA (CCC0723 -> CC, LPC0701 -> LP); quando
+elas não bastam, SIGLAS_SIGAA diz a sigla (INC0713-1 -> INFO). avaliacao/identificacao.py usa a mesma regra
+para saber o curso pelo cabeçalho do plano."""
 
 CURSOS = {
     'CC': 'Ciência da Computação',
     'LP': 'Pedagogia',
+    'INFO': 'Técnico em Informática Integrado ao Ensino Médio',
 }
+
+# Prefixo dos códigos do SIGAA (duas letras) -> sigla do curso, quando forem diferentes. Os cursos integrados
+# usam siglas mais longas (INFO), e o prefixo IN dos códigos (INC0713-1) seria ambíguo com outros que vierem.
+SIGLAS_SIGAA = {
+    'IN': 'INFO',
+}
+
+# Nível de cada curso: quem revisa os planos, além da coordenação, é o NDE na graduação e o NDB nos cursos
+# técnicos integrados ao ensino médio. Sem nível definido, os dois papéis valem.
+NIVEIS = {
+    'CC': 'graduacao',
+    'LP': 'graduacao',
+    'INFO': 'integrado',
+}
+COLEGIADO = {'graduacao': 'nde', 'integrado': 'ndb'}
+
+
+def sigla_do_codigo(prefixo):
+    """Sigla do curso pelo prefixo de duas letras do código do componente no SIGAA."""
+    return SIGLAS_SIGAA.get(prefixo, prefixo)
+
+
+def colegiado(curso):
+    """'nde', 'ndb' ou None (curso sem nível definido: os dois valem)."""
+    return COLEGIADO.get(NIVEIS.get(curso))
+
+
+def papel_vale(curso, papel):
+    """A coordenação vale em todo curso; NDE e NDB, só no nível do curso (NDE na graduação, NDB no integrado)."""
+    if papel not in COLEGIADO.values():
+        return True
+    return colegiado(curso) in (None, papel)
+
 
 # Tipo de oferta de cada curso: 'semestral' (períodos 2027.1, 2027.2) ou 'anual' (período 2027). Sem tipo
 # definido, vale semestral.
 TIPOS = {
     'CC': 'semestral',
     'LP': 'semestral',  # ingresso anual, mas as disciplinas são por semestre (8 semestres)
+    'INFO': 'anual',  # 3 anos; cada "fase" da matriz é um ano (série)
 }
 
 MATRIZES = {
@@ -128,6 +164,58 @@ MATRIZES = {
         (8, 'LPC0744', 'Estágio Supervisionado IV: Anos Iniciais do Ensino Fundamental', 105),
         (8, '', 'Optativa III', 30),
     ],
+    # Técnico em Informática Integrado ao Ensino Médio (PPC 2026): 3 anos, uma linha por componente e ano, como o
+    # SIGAA oferta (Língua Portuguesa do 1º ano é um componente, a do 2º é outro). O PPC não traz os códigos do
+    # SIGAA: a coordenação os preenche na disciplina, se quiser o aviso de código diferente no envio do plano.
+    # Carga horária em hora-relógio, como na matriz do PPC (1º ano 1170h, 2º 1110h, 3º 960h). A Optativa I é
+    # escolhida na lista do item 4.5.3 do PPC (a coordenação renomeia a optativa no período).
+    'INFO': [
+        (1, '', 'Artes I', 60),
+        (1, '', 'Língua Estrangeira - Inglês I', 60),
+        (1, '', 'Língua Portuguesa I', 90),
+        (1, '', 'Filosofia I', 60),
+        (1, '', 'Geografia I', 60),
+        (1, '', 'História I', 60),
+        (1, '', 'Biologia I', 60),
+        (1, '', 'Física I', 60),
+        (1, '', 'Química I', 60),
+        (1, '', 'Matemática I', 120),
+        (1, '', 'Educação Física I', 60),
+        (1, '', 'Lógica de Programação', 120),
+        (1, '', 'Fundamentos de Informática', 60),
+        (1, '', 'Web Design', 60),
+        (1, '', 'Multimídia', 60),
+        (1, '', 'Hardware e Sistemas Operacionais', 120),
+        (2, '', 'Artes II', 60),
+        (2, '', 'Língua Estrangeira - Inglês II', 60),
+        (2, '', 'Língua Portuguesa II', 90),
+        (2, '', 'Filosofia II', 60),
+        (2, '', 'Geografia II', 60),
+        (2, '', 'História II', 60),
+        (2, '', 'Sociologia I', 60),
+        (2, '', 'Biologia II', 60),
+        (2, '', 'Física II', 60),
+        (2, '', 'Química II', 60),
+        (2, '', 'Matemática II', 90),
+        (2, '', 'Educação Física II', 60),
+        (2, '', 'Programação I', 120),
+        (2, '', 'Engenharia de Software', 60),
+        (2, '', 'Banco de Dados', 90),
+        (2, '', 'Redes', 60),
+        (3, '', 'Língua Portuguesa III', 90),
+        (3, '', 'Geografia III', 60),
+        (3, '', 'História III', 60),
+        (3, '', 'Sociologia II', 60),
+        (3, '', 'Biologia III', 60),
+        (3, '', 'Física III', 60),
+        (3, '', 'Química III', 60),
+        (3, '', 'Matemática III', 90),
+        (3, '', 'Educação Física III', 60),
+        (3, '', 'Programação II', 120),
+        (3, '', 'Empreendedorismo', 60),
+        (3, '', 'Desenvolvimento de Projetos em Informática', 120),
+        (3, '', 'Optativa I', 60),
+    ],
 }
 
 # Coordenação e NDE indicados no PPC, dados (pelo e-mail institucional) junto com a matriz, só na primeira vez
@@ -139,5 +227,12 @@ EQUIPES = {
         'nde': ['alexsandra.zanin@ifc.edu.br', 'claudio.bertotto@ifc.edu.br', 'jane.valter@ifc.edu.br',
                 'jose.hilario@ifc.edu.br', 'josiani.silva@ifc.edu.br', 'luiza.kaim@ifc.edu.br',
                 'sergio.correa@ifc.edu.br'],
+    },
+    # Técnico em Informática Integrado (PPC 2026, item 6.3): coordenação e NDB
+    'INFO': {
+        'coordenador': ['fabio.aresi@ifc.edu.br'],
+        'ndb': ['angelita.zanella@ifc.edu.br', 'carlos.silva@ifc.edu.br', 'grazielle.garcia@ifc.edu.br',
+                'fabio.aresi@ifc.edu.br', 'fabio.pinheiro@ifc.edu.br', 'fabricio.bizotto@ifc.edu.br',
+                'lucilene.baerle@ifc.edu.br', 'tiago.goncalves@ifc.edu.br'],
     },
 }

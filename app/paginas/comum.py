@@ -67,9 +67,16 @@ def ano_atual():
     return datetime.now().year
 
 
+def rotulo_fase(fase, tipo='semestral'):
+    """'1ª fase' (semestral) ou '1º ano' (anual: nos cursos integrados, cada fase da matriz é um ano)."""
+    if not fase:
+        return 'Avulsas (sem ano)' if tipo == 'anual' else 'Avulsas (sem fase)'
+    return f'{fase}º ano' if tipo == 'anual' else f'{fase}ª fase'
+
+
 def registrar(app):
     app.jinja_env.globals.update(cor=cor, estatico=estatico, ano_atual=ano_atual, logo_ifc=logo_ifc,
-                            versao_sistema=versao.atual)
+                            versao_sistema=versao.atual, rotulo_fase=rotulo_fase)
     app.context_processor(_usuario)
     app.jinja_env.filters['data_br'] = data_br
     # Sem espaços e quebras sobrando em volta dos blocos {% ... %}
