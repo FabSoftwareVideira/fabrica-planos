@@ -41,7 +41,42 @@ def test_matriz_do_ppc_de_ciencia_da_computacao(app):
     assert sum(c['carga_horaria'] for c in fases[1]) == 330
     assert all(sum(c['carga_horaria'] for c in fases[f]) == 360 for f in range(2, 9))
     assert [c['nome'] for c in fases[6] if not c['codigo']] == ['Optativa I']
-    assert d.cursos() == {'CC': 'Ciência da Computação'}
+    assert d.cursos() == {'CC': 'Ciência da Computação', 'LP': 'Pedagogia'}
+
+
+def test_matriz_do_ppc_de_pedagogia(app):
+    _, _, d = app
+    assert len(d.ofertas.matriz('LP')) == len(ppc.MATRIZES['LP']) == 47
+    fases = dict(d.matriz_por_fase('LP'))
+    # Totais de cada semestre no PPC (3135h; com as 130h de atividades complementares, 3265h)
+    assert [sum(c['carga_horaria'] for c in fases[f]) for f in range(1, 9)] == [330, 330, 375, 375, 465, 450,
+                                                                                  450, 360]
+    assert [c['nome'] for f in (4, 7, 8) for c in fases[f] if not c['codigo']] == ['Optativa I', 'Optativa II',
+                                                                                  'Optativa III']
+    assert all(c['codigo'].startswith('LPC07') for f in fases for c in fases[f] if c['codigo'])
+    assert d.tipo('LP') == 'semestral'
+
+
+def test_equipe_do_ppc_de_pedagogia(app):
+    """Coordenação e NDE do PPC já têm o papel, mesmo antes do primeiro acesso."""
+    c, _, d = app
+    usuarios = d.usuarios
+    assert usuarios.papeis('valdinei.marcolla@ifc.edu.br') == [('LP', 'coordenador')]
+    assert usuarios.papeis('josiani.silva@ifc.edu.br') == [('LP', 'nde')]
+    nde = [e for e, papeis in usuarios.papeis_de(e for p in ppc.EQUIPES['LP'].values() for e in p).items()
+           if ('LP', 'nde') in papeis]
+    assert len(nde) == 7
+    assert d.cursos_gerenciaveis('valdinei.marcolla@ifc.edu.br', False) == {'LP': 'Pedagogia'}
+    assert c.get('/coordenacao', headers={'X-Usuario-Email': 'valdinei.marcolla@ifc.edu.br'}).status_code == 200
+
+
+def test_equipe_do_ppc_so_na_primeira_vez(app):
+    """Depois que o curso entra no banco, os papéis são da administração: tirar um não volta na partida."""
+    from app.armazenamento.ofertas import Ofertas
+    _, _, d = app
+    d.usuarios.remover_papel('valdinei.marcolla@ifc.edu.br', 'LP', 'coordenador')
+    Ofertas(d.ofertas.banco)  # o app subindo de novo
+    assert d.usuarios.papeis('valdinei.marcolla@ifc.edu.br') == []
 
 
 def test_matriz_e_preenchida_uma_vez_so(app):
@@ -144,7 +179,7 @@ def test_remover_disciplina_so_sem_plano(app):
 
 def test_quem_gerencia_as_disciplinas(app):
     _, _, d = app
-    assert d.cursos_gerenciaveis('admin@ifc.edu.br', True) == {'CC': 'Ciência da Computação'}
+    assert d.cursos_gerenciaveis('admin@ifc.edu.br', True) == {'CC': 'Ciência da Computação', 'LP': 'Pedagogia'}
     assert d.cursos_gerenciaveis('coord@ifc.edu.br', False) == {'CC': 'Ciência da Computação'}
     assert d.cursos_gerenciaveis('nde@ifc.edu.br', False) == {}
     assert d.pode_gerenciar('coord@ifc.edu.br', False, 'CC') and not d.pode_gerenciar('coord@ifc.edu.br', False, 'IN')

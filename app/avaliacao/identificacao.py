@@ -6,12 +6,14 @@ from .secoes import DOCENTES
 #   graduação (semestral): "CCC0723 - DESENVOLVIMENTO WEB I (60h) - Turma: 01 (2026.2)"
 #   técnico (anual):       "INC0713-1 - WEB DESIGN (60h) - Turma: 03 (2026)"
 #                          "Turma: [TÉCNICO EM INFORMÁTICA INTEGRADO AO ENSINO MÉDIO - IN07 (MT) - A (2026)]"
-# As duas primeiras letras do código do componente identificam o curso (CC = Ciência da Computação).
+# As duas primeiras letras do código do componente identificam o curso (CC = Ciência da Computação,
+# LP = Pedagogia; as mesmas siglas de armazenamento/ppc.py).
 # O período diz o tipo de oferta: "2026.2" é semestral (2º semestre), "2026" é anual.
 
 # Nome dos cursos de graduação pela sigla; o técnico traz o nome no próprio plano.
 CURSOS = {
     'CC': 'Ciência da Computação',
+    'LP': 'Pedagogia',
 }
 
 CABECALHO = 1500  # a identificação fica no início do documento

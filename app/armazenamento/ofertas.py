@@ -3,6 +3,7 @@ import threading
 from datetime import datetime
 
 from . import ppc
+from .usuarios import ESQUEMA_PAPEIS
 
 # Disciplinas de cada curso e semestre, no PostgreSQL:
 #   componentes      a matriz curricular do PPC de cada curso (preenchida com armazenamento/ppc.py);
@@ -102,11 +103,16 @@ class Ofertas:
             con.execute("INSERT INTO planejamentos (curso, periodo, situacao, criado_em, publicado_em) "
                         "SELECT DISTINCT curso, periodo, 'publicado', %s, %s FROM ofertas "
                         "ON CONFLICT DO NOTHING", (_agora(), _agora()))
-            for curso, disciplinas in ppc.MATRIZES.items():  # matriz do PPC, na primeira vez
+            con.execute(ESQUEMA_PAPEIS)
+            for curso, disciplinas in ppc.MATRIZES.items():  # matriz e equipe do PPC, na primeira vez
                 if con.execute('SELECT 1 FROM componentes WHERE curso = %s LIMIT 1', (curso,)).fetchone() is None:
                     for fase, codigo, nome, carga in disciplinas:
                         con.execute('INSERT INTO componentes (curso, fase, codigo, nome, carga_horaria) '
                                     'VALUES (%s, %s, %s, %s, %s)', (curso, fase, codigo, nome, carga))
+                    for papel, emails in ppc.EQUIPES.get(curso, {}).items():
+                        for email in emails:
+                            con.execute('INSERT INTO papeis_curso (email, curso, papel) VALUES (%s, %s, %s) '
+                                        'ON CONFLICT DO NOTHING', (email, curso, papel))
 
     def _conexao(self):
         return self.banco.conexao()

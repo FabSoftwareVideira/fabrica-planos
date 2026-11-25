@@ -13,6 +13,11 @@ def test_graduacao_semestral():
     }
 
 
+def test_graduacao_em_pedagogia():
+    ident = extrair(CABECALHO + 'LPC0721 - DIDÁTICA-GERAL (60h) - Turma: 01 (2027.1)')
+    assert (ident['sigla_curso'], ident['curso'], ident['periodo']) == ('LP', 'Pedagogia', '2027.1')
+
+
 def test_periodo_em_outra_linha():
     # Em alguns PDFs o SIGAA quebra a linha antes do período.
     ident = extrair(CABECALHO + 'CCC0711 - ÉTICA E LEGISLAÇÃO (30h) - Turma: 01\nTurma:\n(2026.2)\nHorário: 4N12')
