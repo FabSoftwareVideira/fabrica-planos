@@ -31,6 +31,18 @@ HORARIO_DIA_OU_HORA = re.compile(
     re.IGNORECASE,
 )
 
+# Indicação de onde o estudante consulta o horário (no IFC, o Planus publica o quadro de horários e o PTD do docente).
+# Basta para o campo: não é preciso repetir dias e horas no plano.
+HORARIO_ONDE_CONSULTAR = re.compile(
+    r'(planus|quadro\s+de\s+hor|\bPTD\b|plano\s+de\s+trabalho\s+docente|sigaa|\bsite\b|s[íi]tio|portal|mural|'
+    r'https?://|www\.|\.ifc\.edu\.br|coordena[çc][ãa]o\s+(do|de)\s+curso|secretaria)',
+    re.IGNORECASE,
+)
+
+
+def indica_onde_consultar_horario(texto):
+    return bool(HORARIO_ONDE_CONSULTAR.search(texto or ''))
+
 
 def _objetivos(content):
     geral = re.search(r'(OBJETIVO\s+)?GERAL\s*:?', content, re.IGNORECASE)

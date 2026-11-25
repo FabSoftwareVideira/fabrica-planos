@@ -66,13 +66,20 @@ def test_horario_detectado_sobrescreve_ia():
     assert v['horario_atendimento']['status'] == 'OK'
 
 
-def test_horario_que_so_indica_onde_consultar_e_incompleto():
-    v = aplicar_regras(_validacao_ok(), {
-        **BASE, 'temHorarioAtendimento': False,
-        'textoHorario': 'Disponível no quadro de horários do docente em:\nhttps://planus.sou.ifc.edu.br/',
-    })
+def test_horario_que_indica_onde_consultar_basta():
+    for texto in ('Disponível no quadro de horários do docente em:\nhttps://planus.sou.ifc.edu.br/',
+                  'Conforme PTD no site oficial do IFC', 'Consultar o Planus', 'Ver no SIGAA'):
+        entrada = _validacao_ok()
+        entrada['horario_atendimento'] = {'status': 'INCOMPLETO', 'obs': 'sem dia'}
+        v = aplicar_regras(entrada, {**BASE, 'temHorarioAtendimento': False, 'textoHorario': texto})
+        assert v['horario_atendimento']['status'] == 'OK', texto
+        assert 'onde consultar' in v['horario_atendimento']['obs'] and v['status_geral'] == 'OK'
+
+
+def test_horario_sem_dia_hora_nem_onde_consultar_e_incompleto():
+    v = aplicar_regras(_validacao_ok(), {**BASE, 'temHorarioAtendimento': False, 'textoHorario': 'A combinar.'})
     assert v['horario_atendimento']['status'] == 'INCOMPLETO'
-    assert 'https://planus.sou.ifc.edu.br/' in v['horario_atendimento']['obs']
+    assert 'Planus' in v['horario_atendimento']['obs'] and 'A combinar.' in v['horario_atendimento']['obs']
     assert v['status_geral'] == 'PENDENTE'
 
 

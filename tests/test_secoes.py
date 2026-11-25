@@ -74,3 +74,11 @@ def test_horario_usa_so_o_texto_da_secao():
     sec = analisar_texto(texto)
     assert sec['horario_atendimento'] == 'https://planus.sou.ifc.edu.br'
     assert sec['temHorarioAtendimento'] is False
+
+
+def test_indica_onde_consultar_horario():
+    from app.avaliacao.secoes import indica_onde_consultar_horario
+    for texto in ('https://planus.sou.ifc.edu.br', 'Conforme PTD', 'quadro de horários do docente', 'ver site do campus'):
+        assert indica_onde_consultar_horario(texto), texto
+    for texto in ('A combinar.', '', None, 'Requisitos do PTDE'):
+        assert not indica_onde_consultar_horario(texto), texto

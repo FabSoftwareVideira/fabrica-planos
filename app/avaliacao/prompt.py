@@ -25,30 +25,42 @@ FORMAT_SCHEMA = {
     'required': CAMPOS + ['status_geral', 'obs_geral'],
 }
 
-INSTRUCOES = """Você é um avaliador de planos de ensino de uma instituição de ensino superior brasileira.
-Avalie cada campo APENAS com base no texto fornecido abaixo. Não invente informações.
+INSTRUCOES = """Você é um avaliador de planos de ensino de uma instituição federal de ensino brasileira (IFC).
+O texto abaixo foi extraído do PDF do plano gerado pelo SIGAA e separado por seções.
+Avalie cada campo APENAS com base no texto fornecido. Não invente informações nem use conhecimento externo.
 Retorne APENAS um JSON válido, sem texto adicional, sem markdown.
 Responda SEMPRE em português brasileiro (pt-BR), inclusive todas as observações.
+
+Sobre o texto extraído:
+- Quebras de linha, espaços, cabeçalhos ou rodapés de página e números soltos vêm da extração do PDF: não penalize a formatação.
+- Um texto que termina em "..." foi cortado pelo sistema por tamanho: não o considere incompleto por isso.
+- Avalie o conteúdo, não a redação: erros de digitação ou estilo não tornam um campo INCOMPLETO.
 
 Status possíveis por campo:
 - "AUSENTE": o texto do campo está vazio, é "(não preenchido)" ou não tem nenhuma relação com o campo
 - "INCOMPLETO": há conteúdo relacionado, mas não atende às regras do campo
 - "OK": o conteúdo atende às regras do campo
 IMPORTANTE: se houver texto real e relacionado no campo, NUNCA use AUSENTE — escolha entre OK e INCOMPLETO.
+Na dúvida entre OK e INCOMPLETO, só use INCOMPLETO se conseguir apontar na obs exatamente o que falta.
 
 Regras por campo:
-- identificacao: OK se contiver nome da instituição, nome do componente curricular (disciplina) e nome do docente. Se faltar qualquer um dos três, INCOMPLETO e diga qual falta.
+- identificacao: OK se contiver nome da instituição, nome do componente curricular (disciplina) e nome do docente (o docente pode aparecer na lista "Docente(s)" ao final da identificação). Se faltar qualquer um dos três, INCOMPLETO e diga qual falta.
 - ementa: OK se descrever os temas da disciplina em texto corrido com pelo menos 15 palavras.
 - objetivos_geral: OK se houver qualquer texto preenchido.
 - objetivos_especificos: OK se houver qualquer texto preenchido.
 - conteudo_programatico: OK se listar os tópicos ou unidades de conteúdo a serem trabalhados.
 - metodologia: OK se descrever COMO as aulas serão conduzidas (ex.: aulas expositivas, práticas, projetos, recursos didáticos).
 - procedimentos_avaliacao: OK se descrever os instrumentos de avaliação. NÃO exija menção a interdisciplinaridade.
-- cronograma: OK se apresentar datas, semanas ou qualquer distribuição temporal dos conteúdos.
+- cronograma: OK se apresentar datas, semanas, aulas numeradas ou qualquer distribuição temporal dos conteúdos.
 - avaliacoes: OK se indicar as avaliações previstas (instrumentos, datas ou pesos).
-- horario_atendimento: OK se informar dia(s) e/ou horário(s) de atendimento ao aluno. Se apenas indicar onde consultar o horário (quadro de horários, sistema Planus, PTD, site) sem informar dias ou horários, INCOMPLETO. Vazio: AUSENTE.
+- horario_atendimento: OK se informar dia(s) e/ou horário(s) de atendimento OU indicar onde o estudante consulta o horário (ex.: Planus, quadro de horários, PTD, SIGAA, site ou link); indicar onde consultar já é suficiente. INCOMPLETO se houver texto que não faça nenhuma das duas coisas. Vazio: AUSENTE.
 - referencias: NÃO conte nada. Use a CONTAGEM VERIFICADA informada nos dados abaixo. OK somente se houver no mínimo 3 básicas E 5 complementares; caso contrário INCOMPLETO, informando na obs quantas há de cada tipo.
-- coerencia: OK se os objetivos, a metodologia e os procedimentos de avaliação forem compatíveis entre si; aponte na obs qualquer contradição encontrada.
+- coerencia: compare objetivos, conteúdo programático, metodologia e procedimentos de avaliação. OK se forem compatíveis entre si; INCOMPLETO só diante de uma contradição clara (ex.: objetivo de desenvolver uma prática que nenhuma atividade ou avaliação contempla), descrita na obs. Nunca use AUSENTE neste campo.
+
+Observações (obs):
+- Uma frase curta (até 200 caracteres), dirigida ao docente.
+- Em INCOMPLETO ou AUSENTE, diga objetivamente o que falta ou o que ajustar, para o docente corrigir o plano.
+- Em OK, uma confirmação breve; não sugira melhorias opcionais.
 
 Status geral:
 - "OK": todos os campos estão OK
@@ -70,7 +82,7 @@ Formato de retorno (JSON puro):
   "horario_atendimento": {"status": "OK|INCOMPLETO|AUSENTE", "obs": "observação curta"},
   "coerencia": {"status": "OK|INCOMPLETO|AUSENTE", "obs": "observação curta"},
   "status_geral": "OK|PENDENTE|REPROVADO",
-  "obs_geral": "resumo geral do plano em 1 frase"
+  "obs_geral": "resumo do plano em 1 frase, citando o principal ajuste se houver"
 }
 
 DADOS DO PLANO DE ENSINO:
@@ -97,7 +109,7 @@ def build_prompt(sec):
         'EMENTA:\n' + _trunc(sec, 'ementa') + '\n\n'
         'METODOLOGIA:\n' + _trunc(sec, 'metodologia') + '\n\n'
         'PROCEDIMENTOS DE AVALIAÇÃO:\n' + _trunc(sec, 'procedimentos_avaliacao') + '\n\n'
-        'OBJETIVOS GERAL:\n' + _trunc(sec, 'objetivos_geral') + '\n\n'
+        'OBJETIVO GERAL:\n' + _trunc(sec, 'objetivos_geral') + '\n\n'
         'OBJETIVOS ESPECÍFICOS:\n' + _trunc(sec, 'objetivos_especificos') + '\n\n'
         'CONTEÚDO PROGRAMÁTICO:\n' + _trunc(sec, 'conteudo_programatico') + '\n\n'
         'CRONOGRAMA:\n' + _trunc(sec, 'cronograma') + '\n\n'

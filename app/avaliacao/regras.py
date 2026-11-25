@@ -1,6 +1,7 @@
 import re
 
 from .prompt import CAMPOS
+from .secoes import indica_onde_consultar_horario
 
 # Porte do nó "Parsear Validação": regras determinísticas aplicadas sobre a resposta da IA.
 
@@ -21,15 +22,19 @@ def aplicar_regras(validacao, dados):
         validacao['objetivos_geral'] = {'status': 'OK', 'obs': 'Objetivo geral preenchido.'}
     if dados.get('temObjEspecificos'):
         validacao['objetivos_especificos'] = {'status': 'OK', 'obs': 'Objetivos especificos preenchidos.'}
-    # Horário decidido só por regra: muitos docentes só indicam onde consultar (Planus, quadro, PTD),
-    # o que não informa ao estudante quando é o atendimento.
+    # Horário decidido só por regra. Vale informar dias e horários ou indicar onde consultá-los (Planus, quadro de
+    # horários, PTD, site): muitos docentes fazem assim, e o estudante encontra o horário do mesmo jeito.
     texto_horario = ' '.join((dados.get('textoHorario') or '').split())
     if dados.get('temHorarioAtendimento'):
         validacao['horario_atendimento'] = {'status': 'OK', 'obs': 'Horário de atendimento informado.'}
+    elif indica_onde_consultar_horario(texto_horario):
+        validacao['horario_atendimento'] = {'status': 'OK',
+                                            'obs': f'Indica onde consultar o horário de atendimento ("{texto_horario[:120]}").'}
     elif texto_horario:
         validacao['horario_atendimento'] = {
             'status': 'INCOMPLETO',
-            'obs': f'Não informa dias e horários de atendimento; apenas indica onde consultá-los ("{texto_horario[:120]}").',
+            'obs': ('Não informa os dias e horários de atendimento nem onde consultá-los (ex.: Planus, quadro de '
+                    f'horários, PTD) ("{texto_horario[:120]}").'),
         }
     else:
         validacao['horario_atendimento'] = {'status': 'AUSENTE', 'obs': 'Horário de atendimento não preenchido.'}

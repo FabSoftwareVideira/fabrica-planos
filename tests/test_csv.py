@@ -44,3 +44,9 @@ def test_prompt_inclui_contagem_e_secoes():
     assert 'EMENTA:\ntexto da ementa' in prompt
     assert 'referência(s) básica(s)' in prompt
     assert prompt.rstrip().endswith('complementar(es).')
+
+
+def test_prompt_aceita_onde_consultar_o_horario():
+    prompt = build_prompt({})
+    assert 'indicar onde consultar já é suficiente' in prompt and 'Planus' in prompt
+    assert 'OBJETIVO GERAL:\n(não preenchido)' in prompt
