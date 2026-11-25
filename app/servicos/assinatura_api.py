@@ -34,7 +34,7 @@ CAMPO = 'AssinaturaGovBr'
 CAIXA_CARIMBO = (40, 100, 330, 160)
 CARIMBO = TextStampStyle(
     stamp_text='Documento assinado digitalmente com gov.br\n%(signer)s\nData: %(ts)s\n'
-               'Verifique em https://validar.iti.gov.br',
+               'Verifique em https://validar.iti.br',
     timestamp_format='%d/%m/%Y %H:%M:%S %z', border_width=1)
 
 
@@ -146,7 +146,7 @@ def acs_do_cms(cms_der):
 
 def com_cadeia(cms_der, cadeia):
     """O CMS com os certificados da `cadeia` que ainda não estão nele. Os certificados ficam fora da parte
-    assinada do CMS: acrescentá-los não muda a assinatura, e os validadores (validar.iti.gov.br) precisam
+    assinada do CMS: acrescentá-los não muda a assinatura, e os validadores (validar.iti.br) precisam
     deles para chegar à AC raiz."""
     if not cadeia:
         return cms_der
