@@ -1,7 +1,7 @@
 /* Relatório de um plano (sobre o Design System gov.br e ds.css): barra de navegação, campos e texto extraído. */
 
 /* Barra que fica no topo ao rolar a página */
-.nav{position:sticky;top:0;z-index:10;background:rgba(255,255,255,.96);backdrop-filter:blur(4px);
+.nav{position:sticky;top:0;z-index:10;background:var(--fundo-fixo);backdrop-filter:blur(4px);
   border-bottom:1px solid var(--gray-10);box-shadow:0 1px 4px rgba(0,0,0,.06)}
 .nav>div{display:flex;align-items:center;gap:var(--spacing-scale-base);flex-wrap:wrap;padding-top:var(--spacing-scale-base);
   padding-bottom:var(--spacing-scale-base)}

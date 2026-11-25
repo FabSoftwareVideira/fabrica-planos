@@ -9,8 +9,8 @@ h2{font-size:var(--font-size-scale-up-02);margin:0}
   background:var(--background);color:var(--gray-70);padding:6px 16px;font:inherit;cursor:pointer}
 .aba-periodo span{font-size:var(--font-size-scale-down-01);color:var(--gray-60)}
 .aba-periodo:hover{border-color:var(--interactive)}
-.aba-periodo.ativa{background:var(--interactive);border-color:var(--interactive);color:#fff}
-.aba-periodo.ativa span{color:#e8f0fe}
+.aba-periodo.ativa{background:var(--interactive);border-color:var(--interactive);color:var(--texto-sobre-interativo)}
+.aba-periodo.ativa span{color:var(--texto-sobre-interativo-suave)}
 .outros-periodos{height:36px;border:1px solid var(--gray-20);border-radius:var(--surface-rounder-pill);padding:0 12px;
   background:var(--background);color:var(--gray-70);font:inherit;font-size:var(--font-size-scale-down-01)}
 .outros-periodos.ativa{border-color:var(--interactive);color:var(--interactive);font-weight:var(--font-weight-semi-bold)}
@@ -27,9 +27,9 @@ h2{font-size:var(--font-size-scale-up-02);margin:0}
 .filtro .n{min-width:22px;padding:0 6px;border-radius:var(--surface-rounder-pill);background:var(--gray-5);color:var(--gray-70);
   font-weight:var(--font-weight-semi-bold);text-align:center}
 .filtro:hover{background:var(--blue-5)}
-.filtro.ativo{background:var(--blue-warm-vivid-70);color:#fff;font-weight:var(--font-weight-semi-bold)}
-.filtro.ativo .n{background:rgba(255,255,255,.22);color:#fff}
-.filtro.pendente:not(.ativo) .n{background:#fff3cd;color:#8a6100}
+.filtro.ativo{background:var(--interactive);color:var(--texto-sobre-interativo);font-weight:var(--font-weight-semi-bold)}
+.filtro.ativo .n{background:rgba(255,255,255,.22);color:var(--texto-sobre-interativo)}
+.filtro.pendente:not(.ativo) .n{background:var(--fundo-aviso-claro);color:var(--texto-aviso-medio)}
 .filtro:focus-visible,.abrir:focus-visible{outline:2px solid var(--focus-color);outline-offset:2px}
 .filtro:focus:not(:focus-visible),.abrir:focus:not(:focus-visible){outline:0}
 .caixa-busca{display:flex;align-items:center;gap:var(--spacing-scale-base);margin:0;flex:0 1 280px;
@@ -51,7 +51,7 @@ h2{font-size:var(--font-size-scale-up-02);margin:0}
 .abrir:hover .nome{color:var(--interactive)}
 .abrir>.fa-chevron-right{color:var(--gray-40);margin-top:4px;transition:transform .15s;flex:none;width:12px}
 .abrir[aria-expanded="true"]>.fa-chevron-right{transform:rotate(90deg);color:var(--interactive)}
-.meus .alerta{color:#8a6100}
+.meus .alerta{color:var(--texto-aviso-medio)}
 .corpo{padding:var(--spacing-scale-base) 0 var(--spacing-scale-half) calc(12px + var(--spacing-scale-base) + var(--spacing-scale-half))}
 .corpo .frase:first-child{margin-top:0}
 .corpo .atualizar{margin-top:var(--spacing-scale-base)}
@@ -61,7 +61,7 @@ h2{font-size:var(--font-size-scale-up-02);margin:0}
 .meus .sub{display:block;font-size:var(--font-size-scale-down-01);font-weight:var(--font-weight-regular);color:var(--gray-60);margin-top:2px}
 .meus .acoes{display:flex;flex-wrap:wrap;gap:var(--spacing-scale-base) var(--spacing-scale-2x);align-items:center}
 .meus .frase{margin:var(--spacing-scale-half) 0 0;font-size:var(--font-size-scale-down-01);color:var(--gray-60);overflow-wrap:anywhere}
-.meus .aviso{margin:var(--spacing-scale-half) 0 0;font-size:var(--font-size-scale-down-01);color:#6b5200}
+.meus .aviso{margin:var(--spacing-scale-half) 0 0;font-size:var(--font-size-scale-down-01);color:var(--texto-aviso)}
 .meus .excluir-plano{color:var(--danger)}
 
 /* Assinatura pendente: chamada visível */
@@ -79,7 +79,7 @@ h2{font-size:var(--font-size-scale-up-02);margin:0}
 .versao{display:flex;flex-wrap:wrap;align-items:center;gap:var(--spacing-scale-half) var(--spacing-scale-2x);
   padding:var(--spacing-scale-base) var(--spacing-scale-2x);border-left:3px solid var(--gray-20);margin:0 0 var(--spacing-scale-half);
   font-size:var(--font-size-scale-down-01)}
-.versao.atual{border-left-color:var(--interactive);background:#f5f8fe;margin:var(--spacing-scale-base) 0 0}
+.versao.atual{border-left-color:var(--interactive);background:var(--fundo-info-suave);margin:var(--spacing-scale-base) 0 0}
 .versao .quando,.versao .marca-versao{color:var(--gray-60)}
 .versao .links{display:flex;flex-wrap:wrap;gap:var(--spacing-scale-base) var(--spacing-scale-2x);align-items:center;margin-left:auto}
 .versao .links a{font-weight:var(--font-weight-semi-bold)}
@@ -87,8 +87,8 @@ h2{font-size:var(--font-size-scale-up-02);margin:0}
 .ajuda-envio{margin-top:var(--spacing-scale-3x);font-size:var(--font-size-scale-down-01);color:var(--gray-60)}
 .ajuda-envio summary{cursor:pointer;color:var(--interactive)}
 .ajuda-envio p{margin:var(--spacing-scale-base) 0 0;max-width:80ch}
-.msg.aviso{color:#6b5200}
-.versao .protegida{display:inline-flex;align-items:center;gap:4px;color:#0f5e17;font-weight:var(--font-weight-semi-bold);cursor:help}
+.msg.aviso{color:var(--texto-aviso)}
+.versao .protegida{display:inline-flex;align-items:center;gap:4px;color:var(--texto-sucesso);font-weight:var(--font-weight-semi-bold);cursor:help}
 /* Assinatura bloqueada pelo nível da conta gov.br (bronze ou desconhecido) */
 .assinatura .aviso-nivel{display:flex;gap:var(--spacing-scale-base);align-items:baseline}
-.assinatura .aviso-nivel .fa-exclamation-triangle{color:#8a6100}
+.assinatura .aviso-nivel .fa-exclamation-triangle{color:var(--texto-aviso-medio)}

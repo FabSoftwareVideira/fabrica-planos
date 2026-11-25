@@ -163,6 +163,17 @@ body.validando #validar{display:none}  /* durante a validação o botão sai e f
 .abas-admin a:hover{color:var(--interactive);background:var(--gray-2)}
 .abas-admin a.ativa{color:var(--interactive);border-bottom-color:var(--interactive)}
 
+/* Cores de apoio (selos, avisos, fundos de destaque) como tokens: o alto contraste, abaixo, troca todas de uma vez.
+   Não use cor fixa nos CSS das páginas para fundo claro ou texto escuro: ela some no alto contraste. */
+:root{
+  --fundo-sucesso:#e3f5e1;--texto-sucesso:#0f5e17;
+  --fundo-aviso:#fff5c2;--fundo-aviso-claro:#fff3cd;--fundo-aviso-suave:#fffbea;
+  --texto-aviso:#6b5200;--texto-aviso-medio:#8a6100;--texto-alerta:#b45309;--borda-aviso:#e0a800;
+  --fundo-info:#e8f0fe;--fundo-info-claro:#eef3fd;--fundo-info-suave:#f5f8fe;--texto-info:#1351b4;
+  --texto-sobre-interativo:#fff;--texto-sobre-interativo-suave:#e8f0fe;
+  --fundo-fixo:rgba(255,255,255,.96);
+}
+
 /* Alto contraste (botão da barra de utilidades): fundo preto, texto branco e realces em amarelo, como no
    portal do IFC. Os tokens do Design System são trocados na raiz; o que não usa tokens tem ajuste próprio. */
 html.alto-contraste{
@@ -198,6 +209,17 @@ html.alto-contraste{
   --danger-alternative:#2e0f0c;
   --info-alternative:#11181d;
   --warning-alternative:#2b2400;
+  /* Azuis do Design System usados direto nas páginas (texto e realces) */
+  --blue-5:#1a1a1a;
+  --blue-warm-vivid-70:#ffd700;
+  --blue-warm-vivid-80:#ffd700;
+  /* Cores de apoio (ver :root acima): fundos escuros com texto claro */
+  --fundo-sucesso:#0b2b17;--texto-sucesso:#00e676;
+  --fundo-aviso:#2b2400;--fundo-aviso-claro:#2b2400;--fundo-aviso-suave:#1f1a00;
+  --texto-aviso:#ffd700;--texto-aviso-medio:#ffd700;--texto-alerta:#ffb74d;--borda-aviso:#ffd700;
+  --fundo-info:#11181d;--fundo-info-claro:#11181d;--fundo-info-suave:#0d0d0d;--texto-info:#ffd700;
+  --texto-sobre-interativo:#000;--texto-sobre-interativo-suave:#1a1a1a;
+  --fundo-fixo:rgba(0,0,0,.96);
 }
 html.alto-contraste .barra-utilidade{background:#000;border-bottom:1px solid #888;color:#ffd700}
 html.alto-contraste .barra-utilidade a,html.alto-contraste .barra-utilidade button,
@@ -207,7 +229,14 @@ html.alto-contraste .cabecalho .sistema{color:#ffd700}
 html.alto-contraste .cabecalho .sistema small{color:#e0e0e0}
 html.alto-contraste .cabecalho .logo{background:#fff;padding:2px 6px;border-radius:4px}
 html.alto-contraste .cabecalho::after{background:linear-gradient(90deg,#00e676 0 22%,#ffd700 22% 100%)}
-html.alto-contraste .br-footer a{color:#fff}
+/* Campos de formulário sem fundo próprio ficariam com o branco do navegador sob o texto branco do DS */
+html.alto-contraste{color-scheme:dark}
+html.alto-contraste input:not([type=checkbox]):not([type=radio]):not([type=file]),html.alto-contraste select,
+html.alto-contraste textarea{background-color:#000;color:#fff}
+/* Selos de situação: fundo colorido fixo, texto branco como no tema claro (o DS usa --pure-0, que aqui é preto) */
+html.alto-contraste .br-tag.status-plano{color:#fff}
+/* O rodapé do DS escreve com --pure-0 (branco no tema claro), que aqui vira preto */
+html.alto-contraste .br-footer,html.alto-contraste .br-footer :not(.sigla){color:#fff}
 html.alto-contraste .br-footer .logo .sigla{color:#00e676}
 html.alto-contraste .assinado{color:#00e676}
 html.alto-contraste .cabecalho .menu a:not(.br-button):hover{background:#222}
@@ -220,5 +249,5 @@ html.alto-contraste .plano .assinado{background:#0b2b17;color:#00e676}
 html.alto-contraste .papel-curso{background:#11181d;color:#ffd700}
 html.alto-contraste .paginacao .page.active{color:#000}
 /* Assinatura aceita com o nome do certificado diferente do professor e dos docentes (assinatura.py) */
-.aviso-assinatura,.assinado .fa-exclamation-triangle{color:#8a6100}
+.aviso-assinatura,.assinado .fa-exclamation-triangle{color:var(--texto-aviso-medio)}
 html.alto-contraste .aviso-assinatura,html.alto-contraste .assinado .fa-exclamation-triangle{color:#ffd700}

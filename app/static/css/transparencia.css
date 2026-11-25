@@ -22,8 +22,8 @@
 .lista-planos .disciplina{font-weight:var(--font-weight-semi-bold);font-size:var(--font-size-scale-up-01);overflow-wrap:anywhere}
 .lista-planos .meta{font-size:var(--font-size-scale-down-01);color:var(--gray-60);overflow-wrap:anywhere}
 .lista-planos .situacao{display:flex;flex-direction:column;align-items:flex-start;gap:4px;font-size:var(--font-size-scale-down-01)}
-.transparencia .assinado{color:#0f5e17;font-weight:var(--font-weight-semi-bold)}
-.transparencia .atualizando{background:#fff3cd;color:#8a6100;border-radius:var(--surface-rounder-pill);padding:0 8px;font-size:12px}
+.transparencia .assinado{color:var(--texto-sucesso);font-weight:var(--font-weight-semi-bold)}
+.transparencia .atualizando{background:var(--fundo-aviso-claro);color:var(--texto-aviso-medio);border-radius:var(--surface-rounder-pill);padding:0 8px;font-size:12px}
 
 /* Página do plano */
 .plano-publico .trilha{margin-bottom:var(--spacing-scale-2x);font-size:var(--font-size-scale-down-01)}

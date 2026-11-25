@@ -29,7 +29,7 @@ h2{font-size:var(--font-size-scale-up-02);margin:0}
 .tabela .acao{text-align:right;white-space:nowrap}
 .tabela .acao form{margin:0}
 .situacao{font-size:var(--font-size-scale-down-02);border-radius:var(--surface-rounder-pill);padding:2px 10px;font-weight:var(--font-weight-semi-bold)}
-.situacao.ativo{background:#e3f5e1;color:#0f5e17}
+.situacao.ativo{background:var(--fundo-sucesso);color:var(--texto-sucesso)}
 .situacao.desativado{background:var(--gray-10);color:var(--gray-60)}
 .desativar{color:var(--danger) !important}
 .protegido{color:var(--gray-50);font-size:var(--font-size-scale-down-01)}
@@ -38,7 +38,7 @@ h2{font-size:var(--font-size-scale-up-02);margin:0}
 /* Papéis nos cursos (coluna Revisão) */
 .revisao{min-width:200px}
 .revisao form{display:inline-flex;margin:0 4px 4px 0;vertical-align:middle}
-.papel-curso{display:inline-flex;align-items:center;gap:4px;background:#e8f0fd;color:var(--blue-warm-vivid-70,#1351b4);
+.papel-curso{display:inline-flex;align-items:center;gap:4px;background:var(--fundo-info);color:var(--texto-info);
   border-radius:var(--surface-rounder-pill);padding:2px 4px 2px 10px;font-size:var(--font-size-scale-down-02);font-weight:var(--font-weight-semi-bold)}
 .papel-curso button{border:0;background:none;color:inherit;cursor:pointer;padding:0 4px;line-height:1}
 .novo-papel{gap:4px;align-items:center}
@@ -52,7 +52,7 @@ h2{font-size:var(--font-size-scale-up-02);margin:0}
 .paginacao .page{display:inline-flex;align-items:center;justify-content:center;min-width:32px;height:32px;padding:0 6px;
   border-radius:var(--surface-rounder-pill);color:var(--interactive);font-weight:var(--font-weight-semi-bold);text-decoration:none}
 .paginacao .page:hover{background:var(--gray-5)}
-.paginacao .page.active{background:var(--interactive);color:#fff}
+.paginacao .page.active{background:var(--interactive);color:var(--texto-sobre-interativo)}
 .paginacao span.br-button{opacity:.35;pointer-events:none}
 .paginacao .reticencias{color:var(--gray-40);padding:0 4px}
 .vazio{color:var(--gray-60);text-align:center;padding:var(--spacing-scale-4x) 0;margin:0}

@@ -14,7 +14,7 @@ h1,h2{font-size:var(--font-size-scale-up-02);margin:0}
 .persona .nome{font-weight:var(--font-weight-semi-bold);color:var(--interactive)}
 .persona .descricao{font-size:var(--font-size-scale-down-01);color:var(--gray-70)}
 .persona .email{font-size:var(--font-size-scale-down-02);color:var(--gray-50)}
-.admin{font-size:var(--font-size-scale-down-02);background:#e3f5e1;color:#0f5e17;border-radius:var(--surface-rounder-pill);padding:1px 8px}
+.admin{font-size:var(--font-size-scale-down-02);background:var(--fundo-sucesso);color:var(--texto-sucesso);border-radius:var(--surface-rounder-pill);padding:1px 8px}
 .outro{display:flex;flex-wrap:wrap;align-items:flex-end;gap:var(--spacing-scale-2x)}
 .outro .br-input{flex:1 1 240px}
 .outro label{display:block;font-weight:var(--font-weight-semi-bold);margin-bottom:var(--spacing-scale-half)}
