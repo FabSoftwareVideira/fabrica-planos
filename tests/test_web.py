@@ -1701,3 +1701,14 @@ def test_sair_encerra_o_govbr_de_quem_entrou_pelo_google(fabrica, monkeypatch):
     assert r.headers['Location'] == ('https://sso.acesso.gov.br/logout?post_logout_redirect_uri='
                                      'https%3A%2F%2Fplanos.labia.ifc.edu.br%2Fauth%2Fgov%2Flogout')
     assert c.get_cookie('_planos_govbr_sso') is None
+
+
+def test_volta_da_assinatura_na_pagina_inicial(fabrica):
+    """Credencial com o endereço de retorno só no domínio: a página inicial repassa o code e o state."""
+    c, _ = fabrica(exigir_login=True)
+    r = c.get('/?code=OC-123&state=abc')
+    assert r.status_code == 302 and r.headers['Location'] == '/assinatura/govbr/callback?code=OC-123&state=abc'
+    r = c.get('/?error=access_denied&state=abc')
+    assert r.headers['Location'] == '/assinatura/govbr/callback?error=access_denied&state=abc'
+    assert c.get('/?code=sem-state').status_code == 200  # sem state: a página inicial de sempre
+    assert c.get('/').status_code == 200

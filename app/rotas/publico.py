@@ -127,6 +127,11 @@ def ja_logado():
 def raiz():
     """Página inicial pública, com o botão de login."""
     cfg = servicos().cfg
+    # Volta da autorização da assinatura gov.br quando o endereço de retorno cadastrado na credencial é só o
+    # domínio (https://planos.labia.ifc.edu.br): repassa o code e o state à rota da assinatura, que tem o login
+    # e o cookie da tentativa (rotas/assinatura_govbr.py)
+    if request.args.get('state') and (request.args.get('code') or request.args.get('error')):
+        return redirect('/assinatura/govbr/callback?' + request.query_string.decode('ascii', 'ignore'), 302)
     rd = govbr.destino(request.args.get('rd', ''))
     return render_template('inicio.html', ja_logado=ja_logado(),
                            **inicio.contexto(rd, cfg.govbr_ativo, cfg.login_google or cfg.login_simulado))
